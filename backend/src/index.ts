@@ -65,7 +65,7 @@ app.get('/api/access', async (c) => {
   if (isAllowed) {
     return c.json({
       success: true,
-      streamUrl: 'https://YOUR_CLOUDFLARE_TUNNEL_URL/stream.html?src=dahua_cam',
+      streamUrl: 'http://localhost:1984/stream.html?src=dahua_cam',
       timestamp: currentTimeStr,
       timezone: 'Asia/Karachi'
     });
