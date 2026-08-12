@@ -34,17 +34,17 @@
             />
           </div>
 
-          <div v-if="errorMsg" class="p-3 bg-rose-500/10 border border-rose-500/20 rounded-lg text-rose-400 text-sm text-center">
-            {{ errorMsg }}
+          <div v-if="errorMessage" class="p-3 bg-rose-500/10 border border-rose-500/20 rounded-lg text-rose-400 text-sm text-center">
+            {{ errorMessage }}
           </div>
 
           <button 
             type="submit" 
-            :disabled="loading"
+            :disabled="isAuthenticating"
             class="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center"
           >
-            <span v-if="loading" class="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin mr-2"></span>
-            {{ loading ? 'Authenticating...' : 'Sign In' }}
+            <span v-if="isAuthenticating" class="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin mr-2"></span>
+            {{ isAuthenticating ? 'Authenticating...' : 'Sign In' }}
           </button>
         </form>
       </div>
@@ -54,33 +54,33 @@
 
 <script setup>
 import { ref } from 'vue';
-import { useRouter } from 'vue-router';
 
 const username = ref('');
 const password = ref('');
-const errorMsg = ref('');
-const loading = ref(false);
-const router = useRouter();
+const errorMessage = ref('');
+const isAuthenticating = ref(false);
 
-async function handleLogin() {
-  loading.value = true;
-  errorMsg.value = '';
+const handleLogin = async () => {
+  isAuthenticating.value = true
+  errorMessage.value = ''
+  console.log('Sending login request for user:', username.value)
   
   try {
     const res = await $fetch('/api/admin/login', {
       method: 'POST',
       body: { username: username.value, password: password.value }
-    });
-    
-    if (res.success) {
-      router.push('/admin/dashboard');
+    })
+    console.log('Login response received:', res)
+    if (res && res.success) {
+      await navigateTo('/admin/dashboard')
     } else {
-      errorMsg.value = res.message || 'Login failed';
+      errorMessage.value = 'Invalid username or password'
     }
   } catch (err) {
-    errorMsg.value = err.response?._data?.message || 'Authentication error';
+    console.error('Login error:', err)
+    errorMessage.value = err.data?.message || err.message || 'Connection failed'
   } finally {
-    loading.value = false;
+    isAuthenticating.value = false
   }
 }
 </script>
