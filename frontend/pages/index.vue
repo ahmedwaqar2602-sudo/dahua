@@ -98,8 +98,73 @@
 </template>
 
 <script setup>
+import { ref, onMounted, onUnmounted } from 'vue';
+import { useRoute } from 'vue-router';
+
 definePageMeta({ layout: 'viewer' });
-const { data: accessData, pending, refresh: refreshAccess } = await useFetch('/api/access');
+
+const route = useRoute();
+const token = route.query.token || '';
+
+const pending = ref(true);
+const accessData = ref(null);
+let sessionId = null;
+let heartbeatInterval = null;
+
+async function startSession() {
+  pending.value = true;
+  try {
+    const res = await $fetch('/api/session/start', {
+      method: 'POST',
+      body: { token }
+    });
+    accessData.value = res;
+    if (res.success && res.sessionId) {
+      sessionId = res.sessionId;
+      // Heartbeat to keep session alive could be implemented here
+    }
+  } catch (err) {
+    accessData.value = { success: false, message: 'Server error occurred.' };
+  } finally {
+    pending.value = false;
+  }
+}
+
+async function refreshAccess() {
+  if (sessionId) {
+    await closeSession();
+  }
+  startSession();
+}
+
+async function closeSession() {
+  if (sessionId) {
+    const data = JSON.stringify({ sessionId });
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon('/api/session/close', new Blob([data], { type: 'application/json' }));
+    } else {
+      await fetch('/api/session/close', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: data,
+        keepalive: true
+      });
+    }
+    sessionId = null;
+  }
+}
+
+onMounted(() => {
+  startSession();
+  window.addEventListener('beforeunload', closeSession);
+  window.addEventListener('pagehide', closeSession);
+});
+
+onUnmounted(() => {
+  closeSession();
+  window.removeEventListener('beforeunload', closeSession);
+  window.removeEventListener('pagehide', closeSession);
+});
 </script>
 
 <style scoped>
