@@ -3,12 +3,8 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
     return;
   }
   
-  try {
-    const { data } = await useFetch('/api/admin/me');
-    if (!data.value || !data.value.success) {
-      return navigateTo('/admin/login');
-    }
-  } catch (err) {
+  const token = useCookie('admin_token');
+  if (!token.value) {
     return navigateTo('/admin/login');
   }
 });

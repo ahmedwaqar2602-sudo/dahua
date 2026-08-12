@@ -54,11 +54,13 @@
 
 <script setup>
 import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 const username = ref('');
 const password = ref('');
 const errorMessage = ref('');
 const isAuthenticating = ref(false);
+const router = useRouter();
 
 const handleLogin = async () => {
   isAuthenticating.value = true
@@ -72,7 +74,7 @@ const handleLogin = async () => {
     })
     console.log('Login response received:', res)
     if (res && res.success) {
-      await navigateTo('/admin/dashboard')
+      await router.push('/admin/dashboard')
     } else {
       errorMessage.value = 'Invalid username or password'
     }
