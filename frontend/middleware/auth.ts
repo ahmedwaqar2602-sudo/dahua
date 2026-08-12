@@ -1,12 +1,14 @@
 export default defineNuxtRouteMiddleware(async (to, from) => {
-  // Try to fetch current user to check if token is valid
+  if (to.path === '/login' || to.path === '/admin/login') {
+    return;
+  }
+  
   try {
     const { data } = await useFetch('/api/admin/me');
-    // If not successful or no user, redirect to login
     if (!data.value || !data.value.success) {
-      return navigateTo('/login');
+      return navigateTo('/admin/login');
     }
   } catch (err) {
-    return navigateTo('/login');
+    return navigateTo('/admin/login');
   }
 });

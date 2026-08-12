@@ -5,6 +5,7 @@ export default defineNuxtConfig({
   experimental: {
     appManifest: false
   },
+  modules: ['@nuxtjs/tailwindcss'],
   css: ['~/assets/css/main.css'],
   routeRules: {
     '/api/**': { proxy: 'http://localhost:8787/api/**' }
