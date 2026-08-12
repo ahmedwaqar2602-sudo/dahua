@@ -1,0 +1,2 @@
+streams:
+  dahua_cam: rtsp://admin:admin123@192.168.18.101:554/cam/realmonitor?channel=1&subtype=0

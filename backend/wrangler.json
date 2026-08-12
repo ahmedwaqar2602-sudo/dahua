@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dahua-backend",
+  "main": "src/index.ts",
+  "compatibility_date": "2024-04-01",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "dahua-db",
+      "database_id": "dahua-d1-placeholder-id"
+    }
+  ]
+}
