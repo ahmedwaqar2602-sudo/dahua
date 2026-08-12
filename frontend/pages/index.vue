@@ -7,25 +7,7 @@
     </div>
 
     <!-- Access Granted: Stream View -->
-    <div v-else-if="accessData && accessData.success" class="stream-container glass-panel">
-      <!-- Camera Header Bar -->
-      <div class="stream-header">
-        <div class="cam-info">
-          <div class="badge badge-granted">
-            <span class="pulse-dot success"></span>
-            LIVE FEED
-          </div>
-          <h1 class="cam-title">Dahua IP Camera (Front Entrance)</h1>
-        </div>
-
-        <div class="stream-meta">
-          <span class="meta-tag">WebRTC</span>
-          <span class="meta-tag">1080p HD</span>
-          <span class="meta-tag timezone-tag">Asia/Karachi</span>
-        </div>
-      </div>
-
-      <!-- Iframe Video Feed Player -->
+    <div v-else-if="accessData && accessData.success" class="stream-container full-bleed">
       <div class="iframe-wrapper">
         <iframe
           :src="accessData.streamUrl"
@@ -34,26 +16,28 @@
           allow="autoplay; encrypted-media; picture-in-picture"
           title="Dahua Live Stream"
         ></iframe>
-      </div>
 
-      <!-- Stream Control Bar -->
-      <div class="stream-controls">
-        <div class="stream-status">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-          </svg>
-          <span>Cloudflare Tunnel Connection Active</span>
-        </div>
-
-        <div class="control-actions">
-          <button class="btn btn-secondary btn-sm" @click="refreshAccess">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <!-- Overlays -->
+        <div class="stream-overlays">
+          <div class="top-overlays">
+            <div class="badge badge-granted floating-badge">
+              <span class="pulse-dot success"></span>
+              LIVE
+            </div>
+            <div class="tunnel-status">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+              <span>Tunnel Active</span>
+            </div>
+          </div>
+          <button class="floating-refresh" @click="refreshAccess" title="Refresh Stream">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
               <path d="M3 3v5h5"/>
               <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
               <path d="M16 16h5v5"/>
             </svg>
-            Refresh Stream
           </button>
         </div>
       </div>
@@ -114,6 +98,7 @@
 </template>
 
 <script setup>
+definePageMeta({ layout: 'viewer' });
 const { data: accessData, pending, refresh: refreshAccess } = await useFetch('/api/access');
 </script>
 
@@ -124,6 +109,7 @@ const { data: accessData, pending, refresh: refreshAccess } = await useFetch('/a
   align-items: center;
   justify-content: center;
   width: 100%;
+  flex: 1;
 }
 
 .state-card {
@@ -159,55 +145,18 @@ const { data: accessData, pending, refresh: refreshAccess } = await useFetch('/a
   font-size: 0.9375rem;
 }
 
-/* Stream Layout */
-.stream-container {
-  width: 100%;
-  overflow: hidden;
-  border-radius: 20px;
-  background: var(--bg-card);
-}
-
-.stream-header {
-  padding: 1.25rem 1.75rem;
-  border-bottom: 1px solid var(--border-color);
+/* Stream Layout - Full Bleed */
+.full-bleed {
+  width: 100vw;
+  max-width: 100%;
+  margin-left: calc(-50vw + 50%);
+  background: #000;
+  border: none;
+  border-radius: 0;
+  flex: 1;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.cam-info {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.cam-title {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.stream-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.meta-tag {
-  font-size: 0.75rem;
-  font-family: var(--font-mono);
-  background: rgba(30, 41, 59, 0.8);
-  border: 1px solid var(--border-color);
-  padding: 3px 8px;
-  border-radius: 6px;
-  color: var(--text-secondary);
-}
-
-.timezone-tag {
-  color: var(--accent-blue);
-  border-color: rgba(56, 189, 248, 0.3);
+  flex-direction: column;
+  justify-content: center;
 }
 
 /* Iframe Wrapper */
@@ -216,7 +165,7 @@ const { data: accessData, pending, refresh: refreshAccess } = await useFetch('/a
   width: 100%;
   padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
   height: 0;
-  background: #000000;
+  background: #000;
 }
 
 .stream-iframe {
@@ -228,26 +177,74 @@ const { data: accessData, pending, refresh: refreshAccess } = await useFetch('/a
   border: none;
 }
 
-.stream-controls {
-  padding: 1rem 1.75rem;
-  border-top: 1px solid var(--border-color);
+/* Overlays */
+.stream-overlays {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
   display: flex;
-  align-items: center;
+  flex-direction: column;
   justify-content: space-between;
-  font-size: 0.875rem;
-  color: var(--text-secondary);
+  padding: 1.5rem;
 }
 
-.stream-status {
+.top-overlays {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.floating-badge {
+  pointer-events: auto;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+
+.tunnel-status {
+  pointer-events: auto;
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 0.8125rem;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.btn-sm {
-  padding: 6px 14px;
-  font-size: 0.8125rem;
+.floating-refresh {
+  pointer-events: auto;
+  align-self: flex-end;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.floating-refresh:hover {
+  background: rgba(30, 41, 59, 0.95);
+  transform: scale(1.05);
+}
+
+.floating-refresh:active {
+  transform: scale(0.95);
 }
 
 /* Access Denied Card */
