@@ -10,6 +10,10 @@ const app = new Hono<{ Bindings: Bindings }>();
 // Enable CORS for all routes
 app.use('*', cors());
 
+app.get('/', (c) => {
+  return c.text('Dahua Secure Backend Worker is running.');
+});
+
 // Helper function to check if current time in Asia/Karachi is between 08:00 and 18:00
 function getKarachiTimeStatus(): { isAllowed: boolean; currentTimeStr: string; hour: number; minute: number } {
   const now = new Date();
@@ -61,7 +65,7 @@ app.get('/api/access', async (c) => {
   if (isAllowed) {
     return c.json({
       success: true,
-      streamUrl: 'YOUR_CLOUDFLARE_TUNNEL_URL/stream.html?src=dahua_cam',
+      streamUrl: 'https://YOUR_CLOUDFLARE_TUNNEL_URL/stream.html?src=dahua_cam',
       timestamp: currentTimeStr,
       timezone: 'Asia/Karachi'
     });
