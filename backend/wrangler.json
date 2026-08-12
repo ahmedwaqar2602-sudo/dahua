@@ -6,7 +6,7 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "dahua-db",
+      "database_name": "access_logs",
       "database_id": "dahua-d1-placeholder-id"
     }
   ]
