@@ -54,7 +54,7 @@ app.post('/api/admin/login', async (c) => {
     let isValid = false;
     let userId = 1;
 
-    if (username === 'flexnook' && password === 'password123') {
+    if (username === 'flexnook' && password === 'Khan1234') {
       isValid = true;
     } else {
       const user = await c.env.DB.prepare('SELECT * FROM users WHERE username = ?').bind(username).first();
@@ -67,7 +67,7 @@ app.post('/api/admin/login', async (c) => {
       }
     }
 
-    if (!isValid) return c.json({ success: false, message: 'Invalid credentials' });
+    if (!isValid) return c.json({ success: false, message: 'Invalid credentials' }, 401);
 
     setCookie(c, 'admin_token', 'authenticated_session', { path: '/', httpOnly: true, secure: false, sameSite: 'Lax', maxAge: 86400 });
 
@@ -85,16 +85,10 @@ app.post('/api/admin/logout', (c) => {
 // Middleware for auth verification
 const requireAuth = async (c: any, next: any) => {
   const token = getCookie(c, 'admin_token');
-  if (!token) {
-    return c.json({ success: false, error: 'Unauthorized' });
+  if (!token || token !== 'authenticated_session') {
+    return c.json({ success: false, error: 'Unauthorized' }, 401);
   }
-  try {
-    const decoded = await verify(token, getJwtSecret(c));
-    c.set('user', decoded);
-    await next();
-  } catch (err) {
-    return c.json({ success: false, error: 'Invalid token' });
-  }
+  await next();
 };
 
 app.get('/api/admin/me', async (c) => {
@@ -107,59 +101,169 @@ app.get('/api/admin/me', async (c) => {
 });
 
 // -----------------------------------------------------------------------------
-// Stream Access & Logic
+// Admin Endpoints
 // -----------------------------------------------------------------------------
-
-function getKarachiTimeStatus(): { isAllowed: boolean; currentTimeStr: string; hour: number; minute: number } {
-  const now = new Date();
-  const formatter = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Karachi', hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: false });
-  const parts = formatter.formatToParts(now);
-  let hour = 0, minute = 0;
-  for (const part of parts) {
-    if (part.type === 'hour') hour = parseInt(part.value, 10) % 24;
-    if (part.type === 'minute') minute = parseInt(part.value, 10);
-  }
-  const isAllowed = hour >= 8 && (hour < 18 || (hour === 18 && minute === 0));
-  return { isAllowed, currentTimeStr: formatter.format(now), hour, minute };
-}
-
-// Public Route (Strict Timing)
-app.get('/api/access', async (c) => {
-  const { isAllowed, currentTimeStr } = getKarachiTimeStatus();
-  const status = isAllowed ? 'Granted' : 'Denied';
-
-  if (c.env.DB) {
-    try {
-      await c.env.DB.prepare('INSERT INTO access_logs (status) VALUES (?)').bind(status).run();
-    } catch (err) {
-      console.error('Failed to log session:', err);
-    }
-  }
-
-  if (isAllowed) {
-    return c.json({ success: true, streamUrl: 'http://localhost:1984/stream.html?src=dahua_cam', timestamp: currentTimeStr, timezone: 'Asia/Karachi' });
-  } else {
-    return c.json({ success: false, message: 'Camera feed is currently offline. Operational viewing hours are 08:00 - 18:00 PKT.', timestamp: currentTimeStr, timezone: 'Asia/Karachi' });
-  }
+app.get('/api/admin/cameras', requireAuth, async (c) => {
+  if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+  const { results } = await c.env.DB.prepare('SELECT * FROM cameras').all();
+  return c.json({ success: true, cameras: results || [] });
 });
 
-// Admin Route (Bypass Timing)
-app.get('/api/admin/stream', requireAuth, async (c) => {
-  if (c.env.DB) {
-    try {
-      await c.env.DB.prepare('INSERT INTO access_logs (status) VALUES (?)').bind('Admin Accessed').run();
-    } catch (err) {
-      console.error('Failed to log admin session:', err);
-    }
-  }
-  return c.json({ success: true, streamUrl: 'http://localhost:1984/stream.html?src=dahua_cam' });
-});
-
-// Logs API
-app.get('/api/admin/logs', requireAuth, async (c) => {
+app.post('/api/admin/cameras', requireAuth, async (c) => {
+  const { name, rtsp_url } = await c.req.json();
+  if (!name || !rtsp_url) return c.json({ error: 'Missing name or rtsp_url' }, 400);
+  if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
   try {
-    const { results } = await c.env.DB.prepare('SELECT * FROM access_logs ORDER BY timestamp DESC').all();
+    await c.env.DB.prepare('INSERT INTO cameras (name, rtsp_url) VALUES (?, ?)').bind(name, rtsp_url).run();
+    return c.json({ success: true, message: 'Camera added' });
+  } catch (err) {
+    return c.json({ error: String(err) }, 500);
+  }
+});
+
+app.post('/api/admin/generate-link', requireAuth, async (c) => {
+  const { cameraIds, daily_start_time, daily_end_time } = await c.req.json();
+  if (!cameraIds || !Array.isArray(cameraIds)) return c.json({ error: 'Missing or invalid cameraIds' }, 400);
+  if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+  
+  const token = crypto.randomUUID();
+  try {
+    const row = await c.env.DB.prepare('SELECT COUNT(*) as total FROM access_tokens').first();
+    const total = row?.total || 0;
+    const nextNum = (total as number) + 1;
+    const userLabel = 'User ' + nextNum;
+
+    await c.env.DB.prepare('INSERT INTO access_tokens (token, user_label, allowed_cameras, daily_start_time, daily_end_time) VALUES (?, ?, ?, ?, ?)').bind(token, userLabel, JSON.stringify(cameraIds), daily_start_time || null, daily_end_time || null).run();
+    return c.json({ success: true, token, user_label: userLabel });
+  } catch (err) {
+    return c.json({ error: String(err) }, 500);
+  }
+});
+
+app.post('/api/admin/revoke-token', requireAuth, async (c) => {
+  const { token } = await c.req.json();
+  if (!token) return c.json({ error: 'Missing token' }, 400);
+  if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+  try {
+    await c.env.DB.prepare('UPDATE access_tokens SET is_revoked = 1 WHERE token = ?').bind(token).run();
+    return c.json({ success: true, message: 'Token revoked' });
+  } catch (err) {
+    return c.json({ error: String(err) }, 500);
+  }
+});
+
+app.get('/api/admin/audit-logs', requireAuth, async (c) => {
+  if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+  try {
+    const { results } = await c.env.DB.prepare('SELECT * FROM audit_logs ORDER BY timestamp DESC').all();
     return c.json({ success: true, logs: results || [] });
+  } catch (err) {
+    return c.json({ error: String(err) }, 500);
+  }
+});
+
+app.get('/api/admin/active-shares', requireAuth, async (c) => {
+  if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+  try {
+    const { results } = await c.env.DB.prepare('SELECT * FROM access_tokens').all();
+    return c.json({ success: true, shares: results || [] });
+  } catch (err) {
+    return c.json({ error: String(err) }, 500);
+  }
+});
+
+// -----------------------------------------------------------------------------
+// User Viewer Endpoints
+// -----------------------------------------------------------------------------
+app.get('/api/view/verify', async (c) => {
+  const token = c.req.query('token');
+  if (!token) return c.json({ error: 'Missing token' }, 400);
+  if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+
+  try {
+    const accessToken = await c.env.DB.prepare('SELECT * FROM access_tokens WHERE token = ?').bind(token).first();
+    if (!accessToken) return c.json({ success: false, message: 'Invalid token' }, 403);
+    if (accessToken.is_revoked) return c.json({ success: false, message: 'Token has been revoked' }, 403);
+
+    if (accessToken.daily_start_time && accessToken.daily_end_time) {
+      const now = new Date();
+      const formatter = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Karachi', hour: 'numeric', minute: 'numeric', hour12: false });
+      const parts = formatter.formatToParts(now);
+      let hour = 0, minute = 0;
+      for (const part of parts) {
+        if (part.type === 'hour') hour = parseInt(part.value, 10) % 24;
+        if (part.type === 'minute') minute = parseInt(part.value, 10);
+      }
+      
+      const currentMinutes = hour * 60 + minute;
+      const [startHour, startMin] = (accessToken.daily_start_time as string).split(':').map(Number);
+      const [endHour, endMin] = (accessToken.daily_end_time as string).split(':').map(Number);
+      const startMinutes = startHour * 60 + startMin;
+      const endMinutes = endHour * 60 + endMin;
+
+      let isAllowed = false;
+      if (startMinutes <= endMinutes) {
+        isAllowed = currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+      } else {
+        isAllowed = currentMinutes >= startMinutes || currentMinutes <= endMinutes;
+      }
+      
+      if (!isAllowed) {
+        return c.json({ error: 'Stream is currently offline. Access is only permitted during scheduled hours.' }, 403);
+      }
+    }
+
+    const allowedCameraIds = JSON.parse(accessToken.allowed_cameras as string);
+    if (allowedCameraIds.length === 0) return c.json({ success: false, message: 'No cameras allowed' }, 403);
+
+    const placeholders = allowedCameraIds.map(() => '?').join(',');
+    const cameras = await c.env.DB.prepare(`SELECT id, name, rtsp_url FROM cameras WHERE id IN (${placeholders})`).bind(...allowedCameraIds).all();
+
+    const streams = (cameras.results || []).map((cam: any) => ({
+      id: cam.id,
+      name: cam.name,
+      streamUrl: `http://localhost:1984/stream.html?src=${encodeURIComponent(cam.name)}`
+    }));
+
+    return c.json({ success: true, streams });
+  } catch (err) {
+    return c.json({ error: String(err) }, 500);
+  }
+});
+
+app.post('/api/view/log', async (c) => {
+  let token, action;
+  
+  const contentType = c.req.header('Content-Type') || '';
+  if (contentType.includes('application/json')) {
+    const body = await c.req.json();
+    token = body.token;
+    action = body.action;
+  } else if (contentType.includes('application/x-www-form-urlencoded') || contentType.includes('multipart/form-data')) {
+    const body = await c.req.parseBody();
+    token = body.token;
+    action = body.action;
+  } else {
+    try {
+      const text = await c.req.text();
+      const params = new URLSearchParams(text);
+      token = params.get('token');
+      action = params.get('action');
+      if (!token && !action) {
+         const json = JSON.parse(text);
+         token = json.token;
+         action = json.action;
+      }
+    } catch(e) {}
+  }
+
+  if (!token || !action) return c.json({ error: 'Missing token or action' }, 400);
+  if (!['ENTER', 'EXIT'].includes(action)) return c.json({ error: 'Invalid action' }, 400);
+  if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+
+  try {
+    await c.env.DB.prepare('INSERT INTO audit_logs (token, action) VALUES (?, ?)').bind(token, action).run();
+    return c.json({ success: true });
   } catch (err) {
     return c.json({ error: String(err) }, 500);
   }

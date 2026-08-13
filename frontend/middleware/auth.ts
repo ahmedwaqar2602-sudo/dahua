@@ -3,8 +3,14 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
     return;
   }
   
-  const token = useCookie('admin_token');
-  if (!token.value) {
-    return navigateTo('/admin/login');
+  try {
+    const headers = import.meta.server ? useRequestHeaders(['cookie']) as Record<string, string> : {};
+    const res = await $fetch('/api/admin/me', { headers });
+    
+    if (!res || !res.authenticated) {
+      return navigateTo('/admin/login?expired=1');
+    }
+  } catch (err) {
+    return navigateTo('/admin/login?expired=1');
   }
 });

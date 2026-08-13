@@ -53,14 +53,21 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, onMounted } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 
 const username = ref('');
 const password = ref('');
 const errorMessage = ref('');
 const isAuthenticating = ref(false);
 const router = useRouter();
+const route = useRoute();
+
+onMounted(() => {
+  if (route.query.expired) {
+    errorMessage.value = 'Session expired or invalid. Please sign in again.'
+  }
+});
 
 const handleLogin = async () => {
   isAuthenticating.value = true
@@ -74,15 +81,18 @@ const handleLogin = async () => {
     })
     console.log('Login response received:', res)
     if (res && res.success) {
-      await router.push('/admin/dashboard')
+      // Use window.location.href for a hard redirect so that the HttpOnly
+      // cookie is properly sent to the server for the next page load,
+      // avoiding client-side router middleware rejecting the navigation.
+      window.location.href = '/admin/dashboard'
     } else {
-      errorMessage.value = 'Invalid username or password'
+      errorMessage.value = res?.message || res?.error || 'Invalid username or password'
+      isAuthenticating.value = false // Ensure we stop loading on failure
     }
   } catch (err) {
     console.error('Login error:', err)
-    errorMessage.value = err.data?.message || err.message || 'Connection failed'
-  } finally {
-    isAuthenticating.value = false
+    errorMessage.value = err?.data?.message || err?.data?.error || err?.message || 'Connection failed'
+    isAuthenticating.value = false // Ensure we stop loading on error
   }
 }
 </script>
