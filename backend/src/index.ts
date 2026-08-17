@@ -56,15 +56,6 @@ app.post('/api/admin/login', async (c) => {
 
     if (username === 'flexnook' && password === 'Khan1234') {
       isValid = true;
-    } else {
-      const user = await c.env.DB.prepare('SELECT * FROM users WHERE username = ?').bind(username).first();
-      if (user) {
-        const match = bcrypt.compareSync(password, user.password_hash as string);
-        if (match) {
-          isValid = true;
-          userId = user.id as number;
-        }
-      }
     }
 
     if (!isValid) return c.json({ success: false, message: 'Invalid credentials' }, 401);
@@ -140,23 +131,63 @@ app.post('/api/admin/generate-link', requireAuth, async (c) => {
   }
 });
 
-app.post('/api/admin/revoke-token', requireAuth, async (c) => {
-  const { token } = await c.req.json();
+app.post('/api/admin/update-access', requireAuth, async (c) => {
+  const { token, cameraIds, revoke } = await c.req.json();
   if (!token) return c.json({ error: 'Missing token' }, 400);
   if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+
   try {
-    await c.env.DB.prepare('UPDATE access_tokens SET is_revoked = 1 WHERE token = ?').bind(token).run();
-    return c.json({ success: true, message: 'Token revoked' });
+    if (revoke) {
+      await c.env.DB.prepare('UPDATE access_tokens SET is_revoked = 1 WHERE token = ?').bind(token).run();
+      return c.json({ success: true, message: 'Token revoked' });
+    } else if (cameraIds && Array.isArray(cameraIds)) {
+      await c.env.DB.prepare('UPDATE access_tokens SET allowed_cameras = ? WHERE token = ?').bind(JSON.stringify(cameraIds), token).run();
+      return c.json({ success: true, message: 'Access updated' });
+    }
+    return c.json({ error: 'Invalid update parameters' }, 400);
   } catch (err) {
     return c.json({ error: String(err) }, 500);
   }
 });
 
-app.get('/api/admin/audit-logs', requireAuth, async (c) => {
+app.get('/api/admin/user-sessions', requireAuth, async (c) => {
   if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
   try {
-    const { results } = await c.env.DB.prepare('SELECT * FROM audit_logs ORDER BY timestamp DESC').all();
-    return c.json({ success: true, logs: results || [] });
+    const { results: logs } = await c.env.DB.prepare('SELECT a.id, a.token, a.action, a.timestamp, t.user_label, t.allowed_cameras FROM audit_logs a JOIN access_tokens t ON a.token = t.token ORDER BY a.timestamp ASC').all();
+    
+    // Group logs by token
+    const tokenLogs: Record<string, any[]> = {};
+    for (const log of (logs || [])) {
+      if (!tokenLogs[log.token]) tokenLogs[log.token] = [];
+      tokenLogs[log.token].push(log);
+    }
+
+    const sessions = [];
+    for (const token in tokenLogs) {
+      let currentEnter = null;
+      for (const log of tokenLogs[token]) {
+        if (log.action === 'ENTER') {
+          currentEnter = log;
+        } else if (log.action === 'EXIT' && currentEnter) {
+          let cameraIds = [];
+          try { cameraIds = JSON.parse(log.allowed_cameras); } catch(e){}
+          sessions.push({
+            sessionId: `${currentEnter.id}-${log.id}`,
+            token: token,
+            userLabel: log.user_label,
+            cameraIds: cameraIds,
+            startTime: currentEnter.timestamp,
+            endTime: log.timestamp
+          });
+          currentEnter = null;
+        }
+      }
+    }
+
+    // Sort sessions descending by start time
+    sessions.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+
+    return c.json({ success: true, sessions });
   } catch (err) {
     return c.json({ error: String(err) }, 500);
   }
@@ -165,8 +196,24 @@ app.get('/api/admin/audit-logs', requireAuth, async (c) => {
 app.get('/api/admin/active-shares', requireAuth, async (c) => {
   if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
   try {
-    const { results } = await c.env.DB.prepare('SELECT * FROM access_tokens').all();
-    return c.json({ success: true, shares: results || [] });
+    const { results } = await c.env.DB.prepare(`
+      SELECT t.*, 
+             (SELECT action FROM audit_logs a WHERE a.token = t.token ORDER BY timestamp DESC LIMIT 1) as last_action,
+             (SELECT timestamp FROM audit_logs a WHERE a.token = t.token ORDER BY timestamp DESC LIMIT 1) as last_used
+      FROM access_tokens t
+    `).all();
+
+    const shares = (results || []).map((t: any) => {
+      let status = 'Offline';
+      if (t.last_action === 'ENTER') status = 'Online';
+      return {
+        ...t,
+        status,
+        last_used: t.last_used
+      };
+    });
+
+    return c.json({ success: true, shares });
   } catch (err) {
     return c.json({ error: String(err) }, 500);
   }

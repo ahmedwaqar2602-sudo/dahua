@@ -3,9 +3,14 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "npm --prefix backend install && npm --prefix frontend install && cd backend && npx wrangler d1 execute access_logs --local --file=./schema.sql -y && cd .. && npx concurrently \"cd backend && npm run dev\" \"cd frontend && npm run dev\""
+    "dev": "npm --prefix backend install && npm --prefix frontend install && cd backend && npx wrangler d1 execute access_logs --local --file=./schema.sql -y && cd .. && npx concurrently \"cd backend && npm run dev\" \"cd frontend && npm run dev\"",
+    "dvr": "node local-dvr.js"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1"
   }
 }
