@@ -101,12 +101,24 @@ app.get('/api/admin/cameras', requireAuth, async (c) => {
 });
 
 app.post('/api/admin/cameras', requireAuth, async (c) => {
-  const { name, rtsp_url } = await c.req.json();
+  const { name, display_name, rtsp_url } = await c.req.json();
   if (!name || !rtsp_url) return c.json({ error: 'Missing name or rtsp_url' }, 400);
   if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
   try {
-    await c.env.DB.prepare('INSERT INTO cameras (name, rtsp_url) VALUES (?, ?)').bind(name, rtsp_url).run();
+    await c.env.DB.prepare('INSERT INTO cameras (name, display_name, rtsp_url) VALUES (?, ?, ?)').bind(name, display_name || null, rtsp_url).run();
     return c.json({ success: true, message: 'Camera added' });
+  } catch (err) {
+    return c.json({ error: String(err) }, 500);
+  }
+});
+
+app.put('/api/admin/cameras/:id', requireAuth, async (c) => {
+  const id = c.req.param('id');
+  const { display_name } = await c.req.json();
+  if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+  try {
+    await c.env.DB.prepare('UPDATE cameras SET display_name = ? WHERE id = ?').bind(display_name || null, id).run();
+    return c.json({ success: true, message: 'Camera updated' });
   } catch (err) {
     return c.json({ error: String(err) }, 500);
   }
@@ -264,11 +276,12 @@ app.get('/api/view/verify', async (c) => {
     if (allowedCameraIds.length === 0) return c.json({ success: false, message: 'No cameras allowed' }, 403);
 
     const placeholders = allowedCameraIds.map(() => '?').join(',');
-    const cameras = await c.env.DB.prepare(`SELECT id, name, rtsp_url FROM cameras WHERE id IN (${placeholders})`).bind(...allowedCameraIds).all();
+    const cameras = await c.env.DB.prepare(`SELECT id, name, display_name, rtsp_url FROM cameras WHERE id IN (${placeholders})`).bind(...allowedCameraIds).all();
 
     const streams = (cameras.results || []).map((cam: any) => ({
       id: cam.id,
       name: cam.name,
+      display_name: cam.display_name,
       streamUrl: `http://localhost:1984/stream.html?src=${encodeURIComponent(cam.name)}`
     }));
 

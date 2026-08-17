@@ -29,8 +29,16 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <div v-for="cam in cameras" :key="cam.id" class="p-4 bg-slate-950/50 border border-slate-800/50 rounded-xl hover:border-indigo-500/30 transition-all group flex flex-col justify-between">
                 <div>
-                  <h3 class="font-medium text-slate-200">{{ cam.name }}</h3>
-                  <p class="text-xs text-slate-500 mt-1 truncate max-w-[200px]" :title="cam.rtsp_url">{{ cam.rtsp_url }}</p>
+                  <div class="flex items-center justify-between">
+                    <h3 class="font-medium text-slate-200 flex items-center gap-2">
+                      {{ cam.display_name || cam.name }}
+                      <button @click="openEditNameModal(cam)" class="text-slate-500 hover:text-indigo-400 transition-colors" title="Edit Display Name">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                      </button>
+                    </h3>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-400 border border-slate-700">{{ cam.name }}</span>
+                  </div>
+                  <p class="text-xs text-slate-500 mt-2 truncate" :title="cam.rtsp_url">{{ cam.rtsp_url }}</p>
                 </div>
                 <button @click="openLiveView(cam.name)" class="mt-4 px-3 py-1.5 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 hover:text-indigo-300 rounded-lg text-xs font-medium transition-colors w-fit border border-indigo-500/20">
                   Inline Live View
@@ -40,8 +48,13 @@
 
             <!-- Add Camera Form -->
             <form @submit.prevent="addCamera" class="flex flex-col gap-3">
-              <div class="flex gap-3">
-                <input v-model="newCameraName" type="text" placeholder="Camera Name" required class="flex-1 bg-slate-950/50 border border-slate-800/50 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all placeholder-slate-600">
+              <div class="flex flex-col md:flex-row gap-3">
+                <select v-model="newCameraName" required class="flex-1 bg-slate-950/50 border border-slate-800/50 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all text-slate-200 cursor-pointer">
+                  <option value="" disabled selected>Select Camera (Matches Proxy)</option>
+                  <option value="dahua_cam">dahua_cam</option>
+                  <option value="ezviz_cam">ezviz_cam</option>
+                </select>
+                <input v-model="newCameraDisplayName" type="text" placeholder="Display Name (e.g. Lobby)" class="flex-1 bg-slate-950/50 border border-slate-800/50 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all placeholder-slate-600">
                 <input v-model="newCameraUrl" type="text" placeholder="RTSP URL" required class="flex-1 bg-slate-950/50 border border-slate-800/50 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all placeholder-slate-600">
                 <button type="submit" class="bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white px-6 py-2 rounded-lg text-sm font-medium transition-all shadow-lg shadow-indigo-500/20 border border-indigo-400/20">
                   Add
@@ -63,7 +76,7 @@
               <div class="flex flex-wrap gap-3">
                 <label v-for="cam in cameras" :key="cam.id" class="flex items-center gap-2 bg-slate-950/50 border border-slate-800/50 px-4 py-2 rounded-lg cursor-pointer hover:border-slate-600 transition-colors">
                   <input type="checkbox" :value="cam.id" v-model="selectedCamerasForShare" class="rounded border-slate-700 text-cyan-600 focus:ring-cyan-500 bg-slate-900">
-                  <span class="text-sm text-slate-300">{{ cam.name }}</span>
+                  <span class="text-sm text-slate-300">{{ cam.display_name || cam.name }}</span>
                 </label>
               </div>
             </div>
@@ -252,13 +265,28 @@
           <div class="max-h-48 overflow-y-auto space-y-2 border border-slate-800 rounded-lg p-3 bg-slate-950/50">
             <label v-for="cam in cameras" :key="cam.id" class="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-800/50 cursor-pointer">
               <input type="checkbox" :value="cam.id" v-model="editSelectedCameras" class="rounded border-slate-700 text-indigo-500 bg-slate-900 focus:ring-0 focus:ring-offset-0">
-              <span class="text-sm text-slate-300">{{ cam.name }}</span>
+              <span class="text-sm text-slate-300">{{ cam.display_name || cam.name }}</span>
             </label>
           </div>
         </div>
         <div class="flex justify-end gap-3">
           <button @click="showEditModal = false" class="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 rounded-lg transition-colors">Cancel</button>
           <button @click="saveEditAccess" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors">Save Changes</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Camera Name Modal -->
+    <div v-if="showEditNameModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl w-full max-w-sm relative p-6">
+        <h3 class="text-lg font-semibold text-slate-200 mb-4">Edit Display Name</h3>
+        <div class="space-y-3 mb-6">
+          <label class="block text-sm text-slate-400 font-medium">Display Name</label>
+          <input v-model="editCameraDisplayName" type="text" placeholder="e.g. Main Office" class="w-full bg-slate-950/50 border border-slate-800/50 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all text-slate-200">
+        </div>
+        <div class="flex justify-end gap-3">
+          <button @click="showEditNameModal = false" class="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 rounded-lg transition-colors">Cancel</button>
+          <button @click="saveEditCameraName" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors">Save</button>
         </div>
       </div>
     </div>
@@ -282,6 +310,7 @@ const dailyStartTime = ref('')
 const dailyEndTime = ref('')
 
 const newCameraName = ref('')
+const newCameraDisplayName = ref('')
 const newCameraUrl = ref('')
 const addCameraError = ref('')
 
@@ -333,10 +362,11 @@ const addCamera = async () => {
   try {
     const res = await $fetch('/api/admin/cameras', {
       method: 'POST',
-      body: { name: newCameraName.value, rtsp_url: newCameraUrl.value }
+      body: { name: newCameraName.value, display_name: newCameraDisplayName.value, rtsp_url: newCameraUrl.value }
     })
     if (res.success) {
       newCameraName.value = ''
+      newCameraDisplayName.value = ''
       newCameraUrl.value = ''
       await fetchCameras()
     } else {
@@ -445,6 +475,31 @@ const saveEditAccess = async () => {
     if (res.success) {
       showEditModal.value = false
       await fetchShares()
+    }
+  } catch(e) {
+    console.error(e)
+  }
+}
+
+const showEditNameModal = ref(false)
+const editCameraId = ref(null)
+const editCameraDisplayName = ref('')
+
+const openEditNameModal = (cam) => {
+  editCameraId.value = cam.id
+  editCameraDisplayName.value = cam.display_name || ''
+  showEditNameModal.value = true
+}
+
+const saveEditCameraName = async () => {
+  try {
+    const res = await $fetch(`/api/admin/cameras/${editCameraId.value}`, {
+      method: 'PUT',
+      body: { display_name: editCameraDisplayName.value }
+    })
+    if (res.success) {
+      showEditNameModal.value = false
+      await fetchCameras()
     }
   } catch(e) {
     console.error(e)

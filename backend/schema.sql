@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS cameras (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
+    display_name TEXT,
     rtsp_url TEXT NOT NULL
 );
 

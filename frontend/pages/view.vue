@@ -40,7 +40,7 @@
           <div v-for="stream in streams" :key="stream.id" class="relative group bg-neutral-900 rounded-xl overflow-hidden border border-neutral-800">
             <!-- Camera Name Overlay -->
             <div class="absolute top-4 left-4 z-10 px-3 py-1 bg-black/60 backdrop-blur-md rounded-lg border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity">
-              <span class="text-xs font-medium text-white">{{ stream.name }}</span>
+              <span class="text-xs font-medium text-white">{{ stream.display_name || stream.name }}</span>
             </div>
             
             <iframe
