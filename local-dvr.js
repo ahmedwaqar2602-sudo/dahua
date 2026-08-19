@@ -8,7 +8,7 @@ const app = express();
 app.use(cors());
 
 const PORT = 4000;
-const RECORDINGS_DIR = path.join(__dirname, 'recordings');
+const RECORDINGS_DIR = path.join(__dirname, 'archives');
 
 // Ensure recordings directory exists
 if (!fs.existsSync(RECORDINGS_DIR)) {
@@ -24,7 +24,7 @@ function startRecording(cameraName) {
   const cameraDir = path.join(RECORDINGS_DIR, cameraName);
   if (!fs.existsSync(cameraDir)) fs.mkdirSync(cameraDir, { recursive: true });
 
-  const rtspUrl = `rtsp://localhost:8554/${cameraName}`;
+  const rtspUrl = `http://localhost:1984/api/stream.mp4?src=${cameraName}`;
   
   const args = [
     '-i', rtspUrl,
@@ -52,6 +52,7 @@ function startRecording(cameraName) {
 }
 
 startRecording('dahua_cam');
+startRecording('ezviz_cam');
 
 // API: Get Continuous Archives
 app.get('/api/dvr/continuous', (req, res) => {
@@ -136,12 +137,26 @@ app.get('/api/dvr/extract', (req, res) => {
     return res.status(404).json({ error: 'No recordings available' });
   }
 
-  // Simplified extraction logic: For real use, calculate exact chunk offset based on startIso.
-  // Here we just grab the last chunk and return a slice of it dynamically.
+  const startTime = new Date(startIso).getTime();
+  const endTime = new Date(endIso).getTime();
+  const duration = Math.max(1, (endTime - startTime) / 1000);
+
   let targetFile = files[files.length - 1]; 
+  let chunkStartTime = 0;
+  for (let i = 0; i < files.length; i++) {
+    const stat = fs.statSync(path.join(cameraDir, files[i]));
+    const mtime = stat.mtimeMs; 
+    if (mtime > startTime) {
+      targetFile = files[i];
+      chunkStartTime = mtime - 3600000;
+      break;
+    }
+  }
+
+  const offset = Math.max(0, (startTime - chunkStartTime) / 1000);
   const inputFilePath = path.join(cameraDir, targetFile);
 
-  console.log(`[DVR API] Streaming extracted session for ${camera}`);
+  console.log(`[DVR API] Streaming extracted session for ${camera} from offset ${offset} for ${duration}s`);
   
   res.writeHead(200, {
     'Content-Type': 'video/mp4',
@@ -149,11 +164,11 @@ app.get('/api/dvr/extract', (req, res) => {
     'Accept-Ranges': 'bytes'
   });
 
-  // Since we are piping ffmpeg output dynamically via fragmented MP4 so browser `<video>` can play it
   const ffmpegCmd = [
     'ffmpeg',
     '-y',
-    '-sseof', '-30', // Just last 30s as a simulated slice
+    '-ss', offset.toString(),
+    '-t', duration.toString(),
     '-i', inputFilePath,
     '-c', 'copy',
     '-movflags', 'frag_keyframe+empty_moov',
@@ -176,4 +191,25 @@ app.get('/api/dvr/extract', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`[DVR] Express Server running at http://localhost:${PORT}`);
+  
+  // Cleanup files older than 7 days
+  setInterval(() => {
+    try {
+      const now = Date.now();
+      fs.readdirSync(RECORDINGS_DIR).forEach(camera => {
+        const cameraDir = path.join(RECORDINGS_DIR, camera);
+        if (fs.statSync(cameraDir).isDirectory()) {
+          fs.readdirSync(cameraDir).forEach(file => {
+            const filePath = path.join(cameraDir, file);
+            if (now - fs.statSync(filePath).mtimeMs > 7 * 24 * 60 * 60 * 1000) {
+              fs.unlinkSync(filePath);
+              console.log(`[DVR] Deleted old archive file: ${filePath}`);
+            }
+          });
+        }
+      });
+    } catch(err) {
+      console.error('[DVR] Cleanup error:', err);
+    }
+  }, 3600000);
 });

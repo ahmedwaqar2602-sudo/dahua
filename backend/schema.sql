@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS cameras (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     display_name TEXT,
-    rtsp_url TEXT NOT NULL
+    rtsp_url TEXT NOT NULL,
+    capabilities TEXT
 );
 
 CREATE TABLE IF NOT EXISTS access_tokens (
@@ -25,7 +26,8 @@ CREATE TABLE IF NOT EXISTS access_tokens (
     allowed_cameras TEXT NOT NULL, -- JSON string array of camera IDs
     is_revoked BOOLEAN DEFAULT 0,
     daily_start_time TEXT,
-    daily_end_time TEXT
+    daily_end_time TEXT,
+    disable_ptz BOOLEAN DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS audit_logs (
