@@ -131,28 +131,38 @@ app.post('/api/admin/cameras/verify', requireAuth, async (c) => {
 });
 
 app.post('/api/admin/cameras', requireAuth, async (c) => {
-  const { name, protocol, rtsp_url } = await c.req.json();
+  const payload = await c.req.json();
+  const { name, display_name, protocol, public_ip, forwarded_port, camera_brand, username, password, stream_type } = payload;
+  
   if (!name) return c.json({ error: 'Missing name' }, 400);
-  if (!rtsp_url) return c.json({ error: 'Missing Stream Link' }, 400);
+  if (!public_ip) return c.json({ error: 'Missing IP Address' }, 400);
   if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
 
-  if (protocol !== 'onvif' && protocol !== 'rtsp') {
-    return c.json({ error: 'Invalid protocol specified' }, 400);
+  let rtsp_url = '';
+  const fport = forwarded_port || 554;
+  const subtype = stream_type === 'sub' ? '1' : '0';
+
+  if (camera_brand === 'Dahua') {
+    rtsp_url = `rtsp://${username}:${password}@${public_ip}:${fport}/cam/realmonitor?channel=1&subtype=${subtype}`;
+  } else if (camera_brand === 'EZVIZ') {
+    rtsp_url = `rtsp://${username}:${password}@${public_ip}:${fport}/Streaming/Channels/10${subtype === '0' ? '1' : '2'}`;
+  } else {
+    rtsp_url = `rtsp://${username}:${password}@${public_ip}:${fport}/`;
   }
   
   let capabilities = null;
   let subStreamUrl = null;
-  if (protocol === 'onvif') {
-    // Basic verification is skipped here for brevity, local-agent handles it
-    capabilities = JSON.stringify({ basic_verified: true });
-  }
 
   try {
     await c.env.DB.prepare(`
-      INSERT INTO cameras (name, display_name, rtsp_url, sub_stream_url, capabilities, last_seen) 
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO cameras (
+        name, display_name, rtsp_url, sub_stream_url, capabilities, last_seen,
+        public_ip, forwarded_port, stream_type, camera_brand, username, password
+      ) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
-      name, name, rtsp_url, subStreamUrl, capabilities, new Date().toISOString()
+      name, display_name || name, rtsp_url, subStreamUrl, capabilities, new Date().toISOString(),
+      public_ip, fport, stream_type, camera_brand, username, password
     ).run();
 
     // Dynamically register stream with go2rtc to avoid needing a reboot
