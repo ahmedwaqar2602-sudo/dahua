@@ -459,13 +459,64 @@ const newCameraStreamType = ref('sub')
 const isTestingConnection = ref(false)
 const testConnectionResult = ref('')
 const addCameraError = ref('')
+const generatedLink = ref('')
+const generatedUserLabel = ref('')
+const dailyStartTime = ref('')
+const dailyEndTime = ref('')
+const disablePtz = ref(false)
+
+const newCameraName = ref('')
+const newCameraDisplayName = ref('')
+const newCameraProtocol = ref('onvif')
+const newCameraUrl = ref('')
+const newCameraIp = ref('')
+const newCameraPort = ref('')
+const newCameraUsername = ref('')
+const newCameraPassword = ref('')
+const newCameraPublicIp = ref('')
+const newCameraForwardedPort = ref('')
+const newCameraBrand = ref('Dahua')
+const newCameraStreamType = ref('sub')
+const isTestingConnection = ref(false)
+const testConnectionResult = ref('')
+const addCameraError = ref('')
 const isAddingCamera = ref(false)
 const showAddCameraModal = ref(false)
 
 const showShareModal = ref(false)
 const shareLabel = ref('')
-const shareDailyStart = ref('')
-const shareDailyEnd = ref('')
+const shareStartHour = ref('')
+const shareStartMin = ref('')
+const shareStartPeriod = ref('AM')
+const shareEndHour = ref('')
+const shareEndMin = ref('')
+const shareEndPeriod = ref('PM')
+
+const padTime = (type, field) => {
+  if (type === 'start') {
+    if (field === 'hour' && shareStartHour.value) shareStartHour.value = shareStartHour.value.padStart(2, '0');
+    if (field === 'min' && shareStartMin.value) shareStartMin.value = shareStartMin.value.padStart(2, '0');
+  } else {
+    if (field === 'hour' && shareEndHour.value) shareEndHour.value = shareEndHour.value.padStart(2, '0');
+    if (field === 'min' && shareEndMin.value) shareEndMin.value = shareEndMin.value.padStart(2, '0');
+  }
+}
+
+const shareDailyStart = computed(() => {
+  if (!shareStartHour.value || !shareStartMin.value) return '';
+  let h = parseInt(shareStartHour.value);
+  if (shareStartPeriod.value === 'PM' && h < 12) h += 12;
+  if (shareStartPeriod.value === 'AM' && h === 12) h = 0;
+  return `${h.toString().padStart(2, '0')}:${shareStartMin.value}`;
+});
+
+const shareDailyEnd = computed(() => {
+  if (!shareEndHour.value || !shareEndMin.value) return '';
+  let h = parseInt(shareEndHour.value);
+  if (shareEndPeriod.value === 'PM' && h < 12) h += 12;
+  if (shareEndPeriod.value === 'AM' && h === 12) h = 0;
+  return `${h.toString().padStart(2, '0')}:${shareEndMin.value}`;
+});
 const isGeneratingLink = ref(false)
 
 const openShareModal = () => {
@@ -477,20 +528,8 @@ const openShareModal = () => {
   shareEndMin.value = ''
   shareEndPeriod.value = 'PM'
   generatedLink.value = ''
+  selectedCamerasForLink.value = [...selectedCameraIds.value]
   showShareModal.value = true
-}
-
-
-const triggerPtz = async (id, cmd, speed) => {
-  try {
-    await $fetch('/api/camera/ptz', {
-      method: 'POST',
-      body: { cameraId: id, command: cmd, speed: speed }
-    });
-    // Fire STOP after 500ms
-    setTimeout(async () => {
-      await $fetch('/api/camera/ptz', { method: 'POST', body: { cameraId: id, command: 'STOP', speed: 0 } });
-    }, 500);
   } catch(e) {}
 }
 
