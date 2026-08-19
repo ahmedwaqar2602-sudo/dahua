@@ -20,6 +20,8 @@ app.get('/', (c) => c.text('Dahua Secure Backend Worker is running.'));
 
 const getJwtSecret = (c: any) => c.env.JWT_SECRET || 'fallback-secret-key-for-local-dev-123';
 
+
+
 // -----------------------------------------------------------------------------
 // Admin Auth
 // -----------------------------------------------------------------------------
@@ -608,6 +610,23 @@ app.get('/api/camera/:id/osd', requireAuth, async (c) => {
     const osds = Array.isArray(res.data.OSD) ? res.data.OSD : (res.data.OSD ? [res.data.OSD] : []);
     return c.json({ success: true, osds });
   } catch(err) {
+    return c.json({ error: String(err) }, 500);
+  }
+});
+
+
+app.get('/api/admin/audit_logs', requireAuth, async (c) => {
+  if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+  try {
+    const logs = await c.env.DB.prepare(`
+      SELECT a.id, a.action, a.timestamp, t.user_label 
+      FROM audit_logs a 
+      LEFT JOIN access_tokens t ON a.token = t.token 
+      ORDER BY a.timestamp DESC 
+      LIMIT 50
+    `).all();
+    return c.json({ success: true, logs: logs.results || [] });
+  } catch (err) {
     return c.json({ error: String(err) }, 500);
   }
 });

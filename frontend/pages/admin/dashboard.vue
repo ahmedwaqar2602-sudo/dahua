@@ -110,7 +110,51 @@
       <div class="h-14 border-b border-[#2d3345] bg-[#161a22] flex items-end px-4 gap-8">
         <button @click="activeTab = 'grid'" class="px-6 py-3 text-sm transition-colors relative" :class="activeTab === 'grid' ? 'font-semibold text-cyan-400' : 'font-medium text-slate-400 hover:text-slate-200'">
           Grid View
-          <div v-if="activeTab === 'grid'" class="absolute bottom-0 left-0 w-full h-0.5 bg-cyan-400 shadow-[0_0_8px_#22d3ee]"></div>
+          <div v-if="activeTab === 'grid'" class="absolute bottom-0 left-0 w-full h-0.5 bg-cyan-400 shadow-[0_0_8px_#22d3ee]">
+        <div class="ml-auto pb-2 flex gap-4">
+          
+          <div class="relative">
+            <button @click="showNotifications = !showNotifications" class="flex items-center gap-2 bg-[#1c212b] hover:bg-[#252b38] text-slate-300 px-4 py-1.5 rounded-lg border border-[#3b4255] transition-colors text-xs font-bold relative">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+              Notifications
+              <span v-if="notifications.length > 0" class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full animate-pulse border border-[#111827]"></span>
+            </button>
+
+            <!-- Notifications Dropdown -->
+            <transition enter-active-class="transition ease-out duration-200" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100" leave-active-class="transition ease-in duration-150" leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95">
+              <div v-if="showNotifications" class="absolute right-0 mt-2 w-80 bg-[#161a22] border border-[#3b4255] rounded-xl shadow-2xl z-[60] overflow-hidden">
+                <div class="p-3 border-b border-[#2d3345] flex items-center justify-between bg-[#1c212b]">
+                  <h4 class="text-xs font-bold text-slate-200">Access Audit Log</h4>
+                  <span class="text-[10px] text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded">{{ notifications.length }} Events</span>
+                </div>
+                <div class="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-[#3b4255]">
+                  <div v-for="notif in notifications" :key="notif.id" class="p-3 border-b border-[#2d3345] hover:bg-[#1c212b] transition-colors flex gap-3 items-start">
+                    <div class="w-6 h-6 rounded-full flex items-center justify-center mt-0.5 shrink-0" :class="notif.action === 'ENTER' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'">
+                      <svg v-if="notif.action === 'ENTER'" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path></svg>
+                      <svg v-else class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                    </div>
+                    <div>
+                      <p class="text-xs text-slate-300 leading-tight">
+                        <span class="font-bold text-slate-100">{{ notif.user_label }}</span> {{ notif.action === 'ENTER' ? 'started viewing' : 'stopped viewing' }} their shared link.
+                      </p>
+                      <span class="text-[9px] text-slate-500 mt-1 block">{{ new Date(notif.timestamp).toLocaleString() }}</span>
+                    </div>
+                  </div>
+                  <div v-if="notifications.length === 0" class="p-6 text-center text-xs text-slate-500">
+                    No access events recorded yet.
+                  </div>
+                </div>
+              </div>
+            </transition>
+          </div>
+
+          <button @click="openShareModal" class="flex items-center gap-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 px-4 py-1.5 rounded-lg border border-indigo-500/20 transition-colors text-xs font-bold">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+            Share View
+          </button>
+
+        </div>
+      </div>
         </button>
         <button @click="activeTab = 'layouts'" class="px-6 py-3 text-sm transition-colors relative" :class="activeTab === 'layouts' ? 'font-semibold text-cyan-400' : 'font-medium text-slate-400 hover:text-slate-200'">
           Layouts
@@ -282,6 +326,57 @@
       
     </main>
 
+    
+    <!-- Share Link Modal -->
+    <transition enter-active-class="transition ease-out duration-300" enter-from-class="opacity-0 backdrop-blur-none" enter-to-class="opacity-100 backdrop-blur-md" leave-active-class="transition ease-in duration-200" leave-from-class="opacity-100 backdrop-blur-md" leave-to-class="opacity-0 backdrop-blur-none">
+      <div v-if="showShareModal" class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+        <transition enter-active-class="transition ease-out duration-300 transform" enter-from-class="opacity-0 scale-95 translate-y-4" enter-to-class="opacity-100 scale-100 translate-y-0" leave-active-class="transition ease-in duration-200 transform" leave-from-class="opacity-100 scale-100 translate-y-0" leave-to-class="opacity-0 scale-95 translate-y-4">
+          <div v-if="showShareModal" class="bg-[#161a22] border border-[#2d3345] rounded-2xl shadow-2xl w-full max-w-md relative overflow-hidden">
+            <div class="p-6 border-b border-[#2d3345] flex items-center justify-between">
+              <h3 class="text-xl font-bold text-slate-100 flex items-center gap-2">
+                <svg class="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                Generate Viewer Link
+              </h3>
+              <button @click="showShareModal = false" class="text-slate-400 hover:text-white transition-colors"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+            </div>
+            
+            <div class="p-6 space-y-4">
+              <div class="bg-indigo-500/10 border border-indigo-500/20 p-3 rounded-lg text-xs text-indigo-200">
+                The generated link will only grant access to the <b>{{ selectedCameraIds.length }} cameras</b> you currently have selected in the sidebar.
+              </div>
+
+              <div>
+                <label class="block text-sm font-semibold text-slate-300 mb-1">User Label</label>
+                <input v-model="shareLabel" type="text" placeholder="e.g. Guard Desk 1" class="w-full bg-[#111827] border border-[#3b4255] rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-indigo-500 text-slate-200 placeholder-slate-500">
+              </div>
+
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-semibold text-slate-300 mb-1">Daily Start (Opt)</label>
+                  <input v-model="shareDailyStart" type="time" class="w-full bg-[#111827] border border-[#3b4255] rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-indigo-500 text-slate-200">
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-slate-300 mb-1">Daily End (Opt)</label>
+                  <input v-model="shareDailyEnd" type="time" class="w-full bg-[#111827] border border-[#3b4255] rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-indigo-500 text-slate-200">
+                </div>
+              </div>
+
+              <div v-if="generatedLink" class="mt-4 p-4 bg-[#111827] border border-emerald-500/30 rounded-xl">
+                <p class="text-xs font-semibold text-emerald-400 mb-2">Secure Link Generated:</p>
+                <code class="text-[10px] text-slate-300 break-all block mb-3">{{ generatedLink }}</code>
+                <button @click="copyLink" class="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-bold transition-colors">Copy Link</button>
+              </div>
+            </div>
+
+            <div class="p-4 border-t border-[#2d3345] bg-[#1c212b] flex justify-end">
+               <button @click="generateShareLink" :disabled="isGeneratingLink" class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-lg text-sm font-bold transition-all disabled:opacity-50">Generate Link</button>
+            </div>
+          </div>
+        </transition>
+      </div>
+    </transition>
+
+
     <!-- Add Camera Modal -->
     <transition enter-active-class="transition ease-out duration-300" enter-from-class="opacity-0 backdrop-blur-none" enter-to-class="opacity-100 backdrop-blur-md" leave-active-class="transition ease-in duration-200" leave-from-class="opacity-100 backdrop-blur-md" leave-to-class="opacity-0 backdrop-blur-none">
       <div v-if="showAddCameraModal" class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
@@ -394,6 +489,101 @@ const testConnectionResult = ref('')
 const addCameraError = ref('')
 const isAddingCamera = ref(false)
 const showAddCameraModal = ref(false)
+
+const showShareModal = ref(false)
+const shareLabel = ref('')
+const shareDailyStart = ref('')
+const shareDailyEnd = ref('')
+const generatedLink = ref('')
+const isGeneratingLink = ref(false)
+
+const openShareModal = () => {
+  shareLabel.value = ''
+  shareDailyStart.value = ''
+  shareDailyEnd.value = ''
+  generatedLink.value = ''
+  showShareModal.value = true
+}
+
+const generateShareLink = async () => {
+  if (selectedCameraIds.value.length === 0) {
+    alert('Please select at least one camera from the sidebar first.')
+    return
+  }
+  isGeneratingLink.value = true
+  try {
+    const res = await $fetch('/api/admin/share', {
+      method: 'POST',
+      body: {
+        userLabel: shareLabel.value || 'Viewer',
+        cameraIds: selectedCameraIds.value,
+        dailyStartTime: shareDailyStart.value || null,
+        dailyEndTime: shareDailyEnd.value || null,
+        disablePtz: true
+      }
+    })
+    
+    if (res.success) {
+      generatedLink.value = window.location.origin + '/viewer/' + res.token
+    } else {
+      alert(res.error || 'Failed to generate link')
+    }
+  } catch(e) {
+    alert('Network error')
+  } finally {
+    isGeneratingLink.value = false
+  }
+}
+
+const copyLink = () => {
+  navigator.clipboard.writeText(generatedLink.value)
+  alert('Link copied to clipboard!')
+}
+
+
+// Playback & Scrubber State
+const isScrubbing = ref(false)
+const isDragging = ref(false)
+const scrubPercentage = ref(100)
+
+const simulatedPlaybackTime = computed(() => {
+  if (scrubPercentage.value >= 99) return 'LIVE'
+  const totalMinutes = Math.floor((scrubPercentage.value / 100) * 1440)
+  const hours = Math.floor(totalMinutes / 60)
+  const mins = totalMinutes % 60
+  return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`
+})
+
+const simulatedPlaybackDate = computed(() => {
+  const d = new Date()
+  const dateStr = d.toISOString().split('T')[0]
+  return `${dateStr} ${simulatedPlaybackTime.value}`
+})
+
+const startScrub = (e) => {
+  isDragging.value = true
+  isScrubbing.value = true
+  onScrub(e)
+}
+
+const onScrub = (e) => {
+  if (!isDragging.value) return
+  const rect = e.currentTarget.getBoundingClientRect()
+  let x = e.clientX - rect.left
+  if (x < 0) x = 0
+  if (x > rect.width) x = rect.width
+  scrubPercentage.value = (x / rect.width) * 100
+}
+
+const endScrub = () => {
+  isDragging.value = false
+}
+
+const resetToLive = () => {
+  scrubPercentage.value = 100
+  isScrubbing.value = false
+}
+
 const activeTab = ref('grid')
 const mediaMode = ref('video')
 const showCameraNames = ref(true)
@@ -824,12 +1014,33 @@ const logout = async () => {
   }
 }
 
+
+
+const notifications = ref([])
+const showNotifications = ref(false)
+
+const fetchNotifications = async () => {
+  try {
+    const res = await $fetch('/api/admin/audit_logs')
+    if (res.success) {
+      notifications.value = res.logs
+    }
+  } catch(e) {}
+}
+
+let notifInterval;
 onMounted(async () => {
   // Login page is bypassed, load data directly
   try {
-    await Promise.all([fetchCameras(), fetchShares(), fetchSessions()])
+    await Promise.all([fetchCameras(), fetchNotifications()])
+    notifInterval = setInterval(fetchNotifications, 10000)
   } catch (e) {
     console.error('Failed to load dashboard data:', e)
   }
 })
+
+onUnmounted(() => {
+  if (notifInterval) clearInterval(notifInterval)
+})
+
 </script>

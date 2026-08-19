@@ -1,3 +1,5 @@
 streams:
   cam1: "rtsp://admin:admin123@192.168.50.101:554/cam/realmonitor?channel=1&subtype=0"
   cam1_sub: "rtsp://admin:admin123@192.168.50.101:554/cam/realmonitor?channel=1&subtype=1"
+  Cam2: "rtsp://admin:Khan1234%23@192.168.50.102:554/Streaming/Channels/101#backchannel=0"
+  Cam2_sub: "rtsp://admin:Khan1234%23@192.168.50.102:554/Streaming/Channels/101#backchannel=0"
