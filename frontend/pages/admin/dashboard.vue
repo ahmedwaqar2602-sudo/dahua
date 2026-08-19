@@ -110,72 +110,9 @@
       <div class="h-14 border-b border-slate-800 bg-slate-900 flex items-end px-4 gap-8">
         <button @click="activeTab = 'grid'" class="px-6 py-3 text-sm transition-colors relative" :class="activeTab === 'grid' ? 'font-semibold text-cyan-400' : 'font-medium text-slate-400 hover:text-slate-200'">
           Grid View
-          <div v-if="activeTab === 'grid'" class="absolute bottom-0 left-0 w-full h-0.5 bg-cyan-400 shadow-[0_0_8px_#22d3ee]">
-        <div class="ml-auto pb-2 flex gap-4">
-          
-          <div class="relative">
-            <button @click="showNotifications = !showNotifications" class="flex items-center gap-2 bg-slate-900/60 backdrop-blur-md hover:bg-slate-800 text-slate-300 px-4 py-1.5 rounded-lg border border-slate-700 transition-colors text-xs font-bold relative">
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
-              Notifications
-              <span v-if="notifications.length > 0" class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full animate-pulse border border-[#111827]"></span>
-            </button>
-
-            
-            <!-- Notifications Dropdown (High-Density Audit Table) -->
-            <transition enter-active-class="transition ease-out duration-200" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100" leave-active-class="transition ease-in duration-150" leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95">
-              <div v-if="showNotifications" class="absolute right-0 mt-2 w-[450px] bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-[60] overflow-hidden">
-                <div class="p-3 border-b border-slate-700 flex items-center justify-between bg-slate-800">
-                  <h4 class="text-xs font-bold text-white">User Sessions & Audit Logs</h4>
-                  <span class="text-[10px] text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded">{{ notifications.length }} Sessions</span>
-                </div>
-                <div class="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700">
-                  <table class="w-full text-left text-[10px] text-slate-300">
-                    <thead class="bg-slate-900/50 text-slate-500 uppercase">
-                      <tr>
-                        <th class="px-3 py-2 font-medium">Status</th>
-                        <th class="px-3 py-2 font-medium">User</th>
-                        <th class="px-3 py-2 font-medium">Last Used (12H)</th>
-                        <th class="px-3 py-2 font-medium">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-800/50">
-                      <tr v-for="notif in notifications" :key="notif.id" class="hover:bg-slate-800/50 transition-colors">
-                        <td class="px-3 py-2">
-                          <div class="flex items-center gap-1.5">
-                            <span class="w-1.5 h-1.5 rounded-full" :class="notif.action === 'ENTER' ? 'bg-emerald-500 animate-pulse shadow-[0_0_5px_rgba(16,185,129,0.5)]' : 'bg-slate-500'"></span>
-                            {{ notif.action === 'ENTER' ? 'Online' : 'Offline' }}
-                          </div>
-                        </td>
-                        <td class="px-3 py-2 font-bold text-slate-100">{{ notif.user_label }}</td>
-                        <td class="px-3 py-2">
-                          {{ new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(notif.timestamp)) }}
-                        </td>
-                        <td class="px-3 py-2">
-                          <button @click="extractVideo(notif)" class="text-indigo-400 hover:text-indigo-300 flex items-center gap-1 font-semibold bg-indigo-500/10 px-2 py-0.5 rounded">
-                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                            Extract Video
-                          </button>
-                        </td>
-                      </tr>
-                      <tr v-if="notifications.length === 0">
-                        <td colspan="4" class="px-3 py-6 text-center text-slate-500">No sessions recorded yet.</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </transition>
-
-          </div>
-
-          <button @click="openShareModal" class="flex items-center gap-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 px-4 py-1.5 rounded-lg border border-indigo-500/20 transition-colors text-xs font-bold">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
-            Share View
-          </button>
-
-        </div>
-      </div>
+          <div v-if="activeTab === 'grid'" class="absolute bottom-0 left-0 w-full h-0.5 bg-cyan-400 shadow-[0_0_8px_#22d3ee]"></div>
         </button>
+        <div class="ml-auto"></div>
         <button @click="activeTab = 'layouts'" class="px-6 py-3 text-sm transition-colors relative" :class="activeTab === 'layouts' ? 'font-semibold text-cyan-400' : 'font-medium text-slate-400 hover:text-slate-200'">
           Layouts
           <div v-if="activeTab === 'layouts'" class="absolute bottom-0 left-0 w-full h-0.5 bg-cyan-400 shadow-[0_0_8px_#22d3ee]"></div>
@@ -188,26 +125,10 @@
 
       <!-- Filters & Toolbar -->
       <div class="p-4 bg-slate-950 flex items-center justify-between border-b border-slate-800">
-        <div class="flex items-center gap-3">
-          <button class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900/60 backdrop-blur-md border border-slate-700 rounded-full text-xs text-slate-300 hover:bg-slate-800 transition-colors">
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
-            Owner <svg class="w-3 h-3 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-          </button>
-          <button class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900/60 backdrop-blur-md border border-slate-700 rounded-full text-xs text-slate-300 hover:bg-slate-800 transition-colors">
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-            Status <svg class="w-3 h-3 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-          </button>
-          <button class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900/60 backdrop-blur-md border border-slate-700 rounded-full text-xs text-slate-300 hover:bg-slate-800 transition-colors">
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
-            Tags <svg class="w-3 h-3 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-          </button>
-          <button class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900/60 backdrop-blur-md border border-slate-700 rounded-full text-xs text-slate-300 hover:bg-slate-800 transition-colors">
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
-            Analytics <svg class="w-3 h-3 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-          </button>
-          
-          <button class="ml-2 w-6 h-6 rounded-full border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
-            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        <div class="flex items-center gap-4">
+          <button @click="openShareModal" class="flex items-center gap-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 px-4 py-1.5 rounded-lg border border-indigo-500/20 transition-colors text-xs font-bold">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+            Share View
           </button>
           
           <div class="flex items-center gap-1.5 ml-2 font-semibold text-sm">
@@ -1080,8 +1001,8 @@ const logout = async () => {
 
 
 
-const notifications = ref([])
-const showNotifications = ref(false)
+
+
 
 
 const dvrSegments = ref([])
@@ -1113,14 +1034,14 @@ const fetchNotifications = async () => {
   } catch(e) {}
 }
 
-let notifInterval;
+
 onMounted(async () => {
   updateClock()
   clockInterval = setInterval(updateClock, 1000)
   // Login page is bypassed, load data directly
   try {
-    await Promise.all([fetchCameras(), fetchNotifications(), fetchDvrTimeline()])
-    notifInterval = setInterval(fetchNotifications, 10000)
+    await Promise.all([fetchCameras(), fetchDvrTimeline()])
+    
   } catch (e) {
     console.error('Failed to load dashboard data:', e)
   }
@@ -1128,7 +1049,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (clockInterval) clearInterval(clockInterval)
-  if (notifInterval) clearInterval(notifInterval)
+  
 })
 
 
