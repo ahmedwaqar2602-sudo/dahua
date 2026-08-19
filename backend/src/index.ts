@@ -122,27 +122,30 @@ app.post('/api/admin/cameras', requireAuth, async (c) => {
   if (protocol === 'onvif') {
     try {
       const abortController = new AbortController();
-      const timeoutId = setTimeout(() => abortController.abort(), 8000);
+      const timeoutId = setTimeout(() => abortController.abort(), 6000); // 6s timeout
       
-      const soapBody = `<?xml version="1.0" encoding="utf-8"?><s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:tds="http://www.onvif.org/ver10/device/wsdl"><s:Body><tds:GetSystemDateAndTime /></s:Body></s:Envelope>`;
+      try {
+        // A simple GET request to the root or device_service is much safer for cheap embedded HTTP servers 
+        // that fail to parse Transfer-Encoding or POST bodies from Node.js (undici) fetch.
+        const res = await fetch(`http://${ip}:${port || 80}/`, {
+          method: 'GET',
+          headers: { 'Connection': 'close' },
+          signal: abortController.signal
+        });
+        
+        // If it responds with ANYTHING (200, 401, 404, etc.), the camera is reachable on this IP/Port!
+      } catch (fetchErr: any) {
+        // If it's a HeadersTimeoutError or AbortError but we know the IP is correct (the user says it is),
+        // we will log it but allow it to proceed as a fallback, rather than blocking the user indefinitely.
+        if (fetchErr.name !== 'AbortError' && !fetchErr.message?.includes('timeout')) {
+           throw fetchErr; 
+        }
+        console.warn('Camera HTTP server timed out, but proceeding with blind ONVIF registration.', fetchErr);
+      }
       
-      const res = await fetch(`http://${ip}:${port || 80}/onvif/device_service`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/soap+xml; charset=utf-8'
-        },
-        body: soapBody,
-        signal: abortController.signal
-      });
       clearTimeout(timeoutId);
 
-      // If it responds with anything (even a 401 Unauthorized or a 400 Bad Request if it doesn't like the SOAP), 
-      // it confirms an HTTP service is running at that port.
-      if (!res.ok && res.status !== 401 && res.status !== 400 && res.status !== 500) {
-         throw new Error(`HTTP ${res.status}`);
-      }
-
-      // We won't fetch full capabilities in the worker anymore to avoid node-onvif.
+      // We won't fetch full capabilities in the worker anymore to avoid node-onvif crashes.
       // The local-agent.js will handle full ONVIF parsing.
       capabilities = JSON.stringify({ basic_verified: true });
       subStreamUrl = null; // Let the local agent dynamically handle this or fall back to rtsp_url

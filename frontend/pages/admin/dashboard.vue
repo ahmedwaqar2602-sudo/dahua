@@ -1,15 +1,20 @@
 <template>
-  <div class="min-h-screen bg-slate-950 text-slate-200 font-sans p-8 selection:bg-indigo-500/30 relative">
-    <div class="max-w-7xl mx-auto space-y-12 relative z-10">
+  <div class="min-h-screen bg-[#050B14] text-slate-200 font-sans p-4 md:p-8 selection:bg-indigo-500/30 relative overflow-hidden">
+    <!-- Ambient Background Gradients -->
+    <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-600/20 blur-[120px] pointer-events-none"></div>
+    <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-cyan-600/20 blur-[120px] pointer-events-none"></div>
+
+    <div class="max-w-7xl mx-auto space-y-10 relative z-10">
       <!-- Header -->
-      <header class="flex items-center justify-between border-b border-slate-800/50 pb-6">
+      <header class="flex items-center justify-between bg-slate-900/30 border border-slate-800/50 rounded-2xl p-6 backdrop-blur-2xl shadow-xl">
         <div>
-          <h1 class="text-3xl font-bold bg-gradient-to-r from-indigo-400 via-cyan-400 to-emerald-400 bg-clip-text text-transparent">
+          <h1 class="text-4xl font-extrabold bg-gradient-to-r from-indigo-400 via-cyan-400 to-emerald-400 bg-clip-text text-transparent drop-shadow-sm tracking-tight">
             Flexnook Edge Gateway
           </h1>
-          <p class="text-slate-500 mt-2">Premium video access, DVR, and ONVIF session management.</p>
+          <p class="text-slate-400 mt-2 font-medium text-sm">Premium video access, DVR, and ONVIF session management.</p>
         </div>
-        <button @click="logout" class="px-4 py-2 bg-slate-900/50 hover:bg-slate-800 border border-slate-700/50 rounded-lg transition-all text-sm font-medium backdrop-blur-md">
+        <button @click="logout" class="px-5 py-2.5 bg-slate-800/50 hover:bg-slate-700/80 border border-slate-700/50 hover:border-slate-600 rounded-xl transition-all duration-300 text-sm font-semibold backdrop-blur-md shadow-lg hover:shadow-slate-900/50 flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
           Logout
         </button>
       </header>
@@ -17,27 +22,34 @@
       <div class="space-y-8">
         
         <!-- Cameras Multi-Grid View Section -->
-        <section class="bg-slate-900/40 border border-slate-800/50 rounded-2xl p-6 backdrop-blur-xl shadow-2xl">
-          <div class="flex items-center justify-between mb-6">
-            <h2 class="text-xl font-semibold flex items-center gap-2 text-slate-100">
-              <svg class="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+        <section class="bg-slate-900/30 border border-slate-800/60 rounded-3xl p-8 backdrop-blur-2xl shadow-2xl relative overflow-hidden">
+          <div class="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none"></div>
+          
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 relative z-10">
+            <h2 class="text-2xl font-bold flex items-center gap-3 text-slate-100 tracking-tight">
+              <div class="p-2 bg-indigo-500/20 rounded-lg border border-indigo-500/30">
+                <svg class="w-6 h-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+              </div>
               Live Monitor (Multi-Grid)
             </h2>
-            <span class="text-xs text-slate-500 bg-slate-800/50 px-3 py-1 rounded-full border border-slate-700/50">Click a camera to manage settings and view timeline</span>
+            <span class="mt-3 sm:mt-0 text-xs font-medium text-indigo-300/80 bg-indigo-500/10 px-4 py-1.5 rounded-full border border-indigo-500/20 shadow-inner">Click a camera for DVR & Settings</span>
           </div>
           
-          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
-            <div v-for="cam in cameras" :key="cam.id" class="flex flex-col bg-slate-950/50 border border-slate-800/50 rounded-xl overflow-hidden hover:border-indigo-500/50 transition-all shadow-lg cursor-pointer group" @click="openCameraDetail(cam)">
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-10 relative z-10">
+            <div v-for="cam in cameras" :key="cam.id" class="flex flex-col bg-slate-950/80 border border-slate-700/50 rounded-2xl overflow-hidden hover:border-indigo-400/60 hover:shadow-[0_8px_30px_rgb(99,102,241,0.15)] transition-all duration-300 transform hover:-translate-y-1 cursor-pointer group" @click="openCameraDetail(cam)">
               
               <!-- Camera Header -->
-              <div class="p-3 bg-slate-900/80 border-b border-slate-800/50 flex justify-between items-center group-hover:bg-slate-800/80 transition-colors">
-                <div class="flex items-center gap-2">
-                  <span class="w-2 h-2 rounded-full" :class="isOnline(cam) ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-rose-500'"></span>
-                  <h3 class="font-medium text-sm text-slate-200">{{ cam.display_name || cam.name }}</h3>
-                  <span class="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded" :class="isOnline(cam) ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' : 'text-rose-400 bg-rose-500/10 border border-rose-500/20'">{{ isOnline(cam) ? 'Online' : 'Offline' }}</span>
+              <div class="p-4 bg-slate-900/90 border-b border-slate-800/80 flex justify-between items-center group-hover:bg-slate-800 transition-colors backdrop-blur-md">
+                <div class="flex items-center gap-3">
+                  <span class="relative flex h-3 w-3">
+                    <span v-if="isOnline(cam)" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-3 w-3" :class="isOnline(cam) ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(225,29,72,0.8)]'"></span>
+                  </span>
+                  <h3 class="font-bold text-sm text-slate-100 tracking-wide">{{ cam.display_name || cam.name }}</h3>
+                  <span class="text-[9px] uppercase font-bold px-2 py-0.5 rounded-md tracking-wider" :class="isOnline(cam) ? 'text-emerald-300 bg-emerald-500/20 border border-emerald-500/30' : 'text-rose-300 bg-rose-500/20 border border-rose-500/30'">{{ isOnline(cam) ? 'Online' : 'Offline' }}</span>
                 </div>
-                <button @click.stop="openEditNameModal(cam)" class="text-slate-500 hover:text-indigo-400 transition-colors" title="Edit Display Name">
-                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                <button @click.stop="openEditNameModal(cam)" class="text-slate-400 hover:text-indigo-400 bg-slate-800/50 hover:bg-slate-700 p-1.5 rounded-md transition-all border border-transparent hover:border-indigo-500/30" title="Edit Display Name">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                 </button>
               </div>
 
@@ -54,46 +66,59 @@
           </div>
 
           <!-- Add Camera Form -->
-          <form @submit.prevent="addCamera" class="flex flex-col gap-4 mt-4 pt-6 border-t border-slate-800/50">
-            <h3 class="text-sm font-semibold text-slate-300 mb-1">Add New Camera</h3>
+          <form @submit.prevent="addCamera" class="flex flex-col gap-4 mt-4 pt-8 border-t border-slate-800/60 relative z-10">
+            <h3 class="text-base font-bold text-slate-200 mb-2 flex items-center gap-2">
+              <svg class="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+              Add New Camera
+            </h3>
             
-            <div class="flex flex-col md:flex-row gap-3">
-              <select v-model="newCameraName" required class="flex-1 bg-slate-950/50 border border-slate-800/50 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all text-slate-200 cursor-pointer">
+            <div class="flex flex-col md:flex-row gap-4">
+              <select v-model="newCameraName" required class="flex-1 bg-slate-900/50 border border-slate-700/80 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all text-slate-200 cursor-pointer shadow-inner">
                 <option value="" disabled selected>Select Camera Proxy Name</option>
                 <option value="dahua_cam">dahua_cam</option>
                 <option value="ezviz_cam">ezviz_cam</option>
               </select>
-              <input v-model="newCameraDisplayName" type="text" placeholder="Display Name (e.g. Lobby)" class="flex-1 bg-slate-950/50 border border-slate-800/50 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all placeholder-slate-600">
-              <select v-model="newCameraProtocol" class="bg-slate-950/50 border border-slate-800/50 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all text-slate-200 cursor-pointer">
+              <input v-model="newCameraDisplayName" type="text" placeholder="Display Name (e.g. Lobby)" class="flex-1 bg-slate-900/50 border border-slate-700/80 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all placeholder-slate-500 shadow-inner">
+              <select v-model="newCameraProtocol" class="bg-slate-900/50 border border-slate-700/80 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all text-slate-200 cursor-pointer shadow-inner">
                 <option value="onvif">ONVIF (Recommended)</option>
                 <option value="rtsp">RTSP (Raw)</option>
               </select>
             </div>
 
             <!-- ONVIF Fields -->
-            <div v-if="newCameraProtocol === 'onvif'" class="flex flex-col md:flex-row gap-3">
-              <input v-model="newCameraIp" type="text" placeholder="IP Address (e.g. 192.168.50.101)" required class="flex-1 bg-slate-950/50 border border-slate-800/50 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-indigo-500/50 transition-all placeholder-slate-600">
-              <input v-model="newCameraPort" type="number" placeholder="Port (80)" class="w-24 bg-slate-950/50 border border-slate-800/50 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-indigo-500/50 transition-all placeholder-slate-600">
-              <input v-model="newCameraUsername" type="text" placeholder="Username" required class="flex-1 bg-slate-950/50 border border-slate-800/50 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-indigo-500/50 transition-all placeholder-slate-600">
-              <input v-model="newCameraPassword" type="password" placeholder="Password" required class="flex-1 bg-slate-950/50 border border-slate-800/50 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-indigo-500/50 transition-all placeholder-slate-600">
+            <div v-if="newCameraProtocol === 'onvif'" class="flex flex-col md:flex-row gap-4 p-5 bg-indigo-950/10 border border-indigo-500/10 rounded-2xl">
+              <input v-model="newCameraIp" type="text" placeholder="IP Address (e.g. 192.168.50.101)" required class="flex-1 bg-slate-900/80 border border-slate-700/80 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all placeholder-slate-500 shadow-inner">
+              <input v-model="newCameraPort" type="number" placeholder="Port (80)" class="w-full md:w-28 bg-slate-900/80 border border-slate-700/80 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all placeholder-slate-500 shadow-inner">
+              <input v-model="newCameraUsername" type="text" placeholder="Username" required class="flex-1 bg-slate-900/80 border border-slate-700/80 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all placeholder-slate-500 shadow-inner">
+              <input v-model="newCameraPassword" type="password" placeholder="Password" required class="flex-1 bg-slate-900/80 border border-slate-700/80 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all placeholder-slate-500 shadow-inner">
             </div>
 
             <!-- RTSP Field -->
-            <div v-if="newCameraProtocol === 'rtsp'" class="flex flex-col md:flex-row gap-3">
-              <input v-model="newCameraUrl" type="text" placeholder="rtsp://user:pass@ip:port/path" required class="w-full bg-slate-950/50 border border-slate-800/50 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-indigo-500/50 transition-all placeholder-slate-600">
+            <div v-if="newCameraProtocol === 'rtsp'" class="flex flex-col md:flex-row gap-4 p-5 bg-slate-900/30 border border-slate-700/30 rounded-2xl">
+              <input v-model="newCameraUrl" type="text" placeholder="rtsp://user:pass@ip:port/path" required class="w-full bg-slate-900/80 border border-slate-700/80 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all placeholder-slate-500 shadow-inner font-mono text-xs">
             </div>
 
-            <div class="flex justify-end">
-              <button type="submit" :disabled="isAddingCamera" class="bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white px-8 py-2 rounded-lg text-sm font-medium transition-all shadow-lg shadow-indigo-500/20 border border-indigo-400/20 disabled:opacity-50 disabled:cursor-wait">
-                <span v-if="!isAddingCamera">Test Connection & Add</span>
-                <span v-else class="flex items-center gap-2"><svg class="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Validating...</span>
+            <div class="flex justify-end mt-2">
+              <button type="submit" :disabled="isAddingCamera" class="bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-700 hover:from-indigo-400 hover:via-indigo-500 hover:to-indigo-600 text-white px-8 py-3 rounded-xl text-sm font-bold transition-all duration-300 shadow-[0_0_20px_rgba(79,70,229,0.3)] hover:shadow-[0_0_30px_rgba(79,70,229,0.5)] border border-indigo-400/30 disabled:opacity-50 disabled:cursor-not-allowed transform hover:-translate-y-0.5 active:translate-y-0">
+                <span v-if="!isAddingCamera" class="flex items-center gap-2">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                  Connect & Add Camera
+                </span>
+                <span v-else class="flex items-center gap-2">
+                  <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> 
+                  Validating...
+                </span>
               </button>
             </div>
             
-            <div v-if="addCameraError" class="p-3 mt-2 bg-rose-500/10 border border-rose-500/20 rounded-lg flex items-start gap-3">
-              <svg class="w-5 h-5 text-rose-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-              <p class="text-sm text-rose-300 font-medium">{{ addCameraError }}</p>
-            </div>
+            <transition enter-active-class="transition ease-out duration-300" enter-from-class="opacity-0 -translate-y-2" enter-to-class="opacity-100 translate-y-0" leave-active-class="transition ease-in duration-200" leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 -translate-y-2">
+              <div v-if="addCameraError" class="p-4 mt-2 bg-rose-500/10 border border-rose-500/30 rounded-xl flex items-center gap-3 backdrop-blur-sm shadow-[0_0_15px_rgba(225,29,72,0.1)]">
+                <div class="p-2 bg-rose-500/20 rounded-full">
+                  <svg class="w-5 h-5 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                </div>
+                <p class="text-sm text-rose-200 font-medium">{{ addCameraError }}</p>
+              </div>
+            </transition>
           </form>
         </section>
 
