@@ -939,19 +939,36 @@ const generateLink = async () => {
   }
 }
 
+    }
+  } catch (e) {
+    console.error(e)
+  }
+}
+
 const copyLinkString = async (str) => {
   if (str) {
     await navigator.clipboard.writeText(str)
     alert('Link copied to clipboard!')
   }
-}&end=${encodeURIComponent(end)}&camera=${encodeURIComponent(camName)}`
+}
+
+const showSessionVideoModal = ref(false)
+const sessionVideoSrc = ref('')
+const openSessionVideo = (session) => {
+  const start = session.startTime
+  const end = session.endTime
+  const camera = (session.cameraIds && session.cameraIds.length > 0) ? session.cameraIds[0] : 'dahua_cam'
+  const camObj = cameras.value.find(c => c.id === camera) || cameras.value[0]
+  const camName = camObj ? camObj.name : 'dahua_cam'
+
+  sessionVideoSrc.value = `http://localhost:4000/api/dvr/extract?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}&camera=${encodeURIComponent(camName)}`
   showSessionVideoModal.value = true
 }
+
 const closeSessionVideo = () => {
   showSessionVideoModal.value = false
   sessionVideoSrc.value = ''
 }
-
 const showArchiveModal = ref(false)
 const archiveVideoSrc = ref('')
 const playArchive = (file) => {
