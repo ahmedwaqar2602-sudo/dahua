@@ -39,6 +39,8 @@ async function fetchState() {
   }
 }
 
+let go2rtcProcess = null;
+
 async function syncGo2rtc() {
   const yamlPath = path.join(__dirname, 'go2rtc.yaml');
   const newYaml = buildGo2rtcYaml(state.cameras);
@@ -48,8 +50,24 @@ async function syncGo2rtc() {
   if (oldYaml !== newYaml) {
     fs.writeFileSync(yamlPath, newYaml, 'utf8');
     console.log('[Agent] Updated go2rtc.yaml with new camera streams');
-    // Note: go2rtc may need a restart or API call to reload. 
-    // We assume go2rtc handles file changes or is restarted manually if needed.
+    
+    // Restart go2rtc if it's already running
+    if (go2rtcProcess) {
+      console.log('[Agent] Restarting go2rtc to apply new config...');
+      go2rtcProcess.kill();
+    }
+  }
+  
+  // Ensure go2rtc is always running
+  if (!go2rtcProcess || go2rtcProcess.killed) {
+    const { spawn } = require('child_process');
+    const exeExt = process.platform === 'win32' ? '.exe' : '';
+    console.log('[Agent] Spawning go2rtc...');
+    go2rtcProcess = spawn(path.join(__dirname, `go2rtc${exeExt}`), { stdio: 'ignore' });
+    go2rtcProcess.on('exit', () => {
+      console.log('[Agent] go2rtc exited, will be restarted on next loop if needed');
+      go2rtcProcess = null;
+    });
   }
 }
 
