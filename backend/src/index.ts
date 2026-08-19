@@ -3,9 +3,6 @@ import { cors } from 'hono/cors';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import { sign, verify } from 'hono/jwt';
 import bcrypt from 'bcryptjs';
-// @ts-ignore
-import * as onvif from 'node-onvif';
-
 
 type Bindings = {
   DB: D1Database;
@@ -124,40 +121,36 @@ app.post('/api/admin/cameras', requireAuth, async (c) => {
   let subStreamUrl = null;
   if (protocol === 'onvif') {
     try {
-      const device = new onvif.OnvifDevice({
-        xaddr: `http://${ip}:${port || 80}/onvif/device_service`,
-        user: username,
-        pass: password
+      const abortController = new AbortController();
+      const timeoutId = setTimeout(() => abortController.abort(), 8000);
+      
+      const soapBody = `<?xml version="1.0" encoding="utf-8"?><s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:tds="http://www.onvif.org/ver10/device/wsdl"><s:Body><tds:GetSystemDateAndTime /></s:Body></s:Envelope>`;
+      
+      const res = await fetch(`http://${ip}:${port || 80}/onvif/device_service`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/soap+xml; charset=utf-8'
+        },
+        body: soapBody,
+        signal: abortController.signal
       });
+      clearTimeout(timeoutId);
 
-      const initPromise = device.init();
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timed out after 8 seconds')), 8000));
-      
-      await Promise.race([initPromise, timeoutPromise]);
+      // If it responds with anything (even a 401 Unauthorized or a 400 Bad Request if it doesn't like the SOAP), 
+      // it confirms an HTTP service is running at that port.
+      if (!res.ok && res.status !== 401 && res.status !== 400 && res.status !== 500) {
+         throw new Error(`HTTP ${res.status}`);
+      }
 
-      capabilities = JSON.stringify(device.services || {});
+      // We won't fetch full capabilities in the worker anymore to avoid node-onvif.
+      // The local-agent.js will handle full ONVIF parsing.
+      capabilities = JSON.stringify({ basic_verified: true });
+      subStreamUrl = null; // Let the local agent dynamically handle this or fall back to rtsp_url
       
-      // Attempt to get sub stream
-      if (device.profileList && device.profileList.length > 1) {
-        try {
-          const res = await device.services.media.getStreamUri({
-            ProfileToken: device.profileList[1].token,
-            Protocol: 'RTSP'
-          });
-          subStreamUrl = res.data.MediaUri.Uri;
-          const u = new URL(subStreamUrl);
-          subStreamUrl = `rtsp://${username}:${password}@${u.hostname}:${u.port || 554}${u.pathname}${u.search}`;
-        } catch(e) {}
-      }
-      if (!subStreamUrl) {
-        try {
-          subStreamUrl = device.getUdpStreamUrl(); 
-        } catch(e) {}
-      }
-    } catch (err) {
+    } catch (err: any) {
       console.error('ONVIF validation failed:', err);
-      let errMsg = String(err);
-      if (errMsg.includes('timeout')) errMsg = 'Connection timed out. Please check the IP and port.';
+      let errMsg = String(err.message || err);
+      if (err.name === 'AbortError' || errMsg.includes('timeout')) errMsg = 'Connection timed out. Please check the IP and port.';
       else if (errMsg.includes('ECONNREFUSED')) errMsg = 'Connection refused. Ensure the ONVIF port is correct and the service is enabled.';
       else if (errMsg.includes('401') || errMsg.toLowerCase().includes('auth')) errMsg = 'Authentication failed. Please check the username and password.';
       else errMsg = `Couldn't reach an ONVIF service at that address (${errMsg})`;

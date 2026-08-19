@@ -598,27 +598,43 @@ const addCamera = async () => {
       payload.rtsp_url = newCameraUrl.value
     }
     
-    const res = await $fetch('/api/admin/cameras', {
-      method: 'POST',
-      body: payload
-    })
-    
-    if (res.success) {
-      newCameraName.value = ''
-      newCameraDisplayName.value = ''
-      newCameraProtocol.value = 'onvif'
-      newCameraUrl.value = ''
-      newCameraIp.value = ''
-      newCameraPort.value = ''
-      newCameraUsername.value = ''
-      newCameraPassword.value = ''
-      await fetchCameras()
-    } else {
-      addCameraError.value = res.error || 'Failed to add camera.'
+    const abortController = new AbortController()
+    const timeoutId = setTimeout(() => abortController.abort(), 8000)
+
+    try {
+      const res = await $fetch('/api/admin/cameras', {
+        method: 'POST',
+        body: payload,
+        signal: abortController.signal
+      })
+      clearTimeout(timeoutId)
+      
+      if (res.success) {
+        newCameraName.value = ''
+        newCameraDisplayName.value = ''
+        newCameraProtocol.value = 'onvif'
+        newCameraUrl.value = ''
+        newCameraIp.value = ''
+        newCameraPort.value = ''
+        newCameraUsername.value = ''
+        newCameraPassword.value = ''
+        await fetchCameras()
+      } else {
+        addCameraError.value = res.error || 'Failed to add camera.'
+      }
+    } catch (err) {
+      clearTimeout(timeoutId)
+      if (err.name === 'AbortError' || err.message?.includes('aborted')) {
+        addCameraError.value = 'Request timed out — no response from the camera.'
+      } else {
+        throw err
+      }
     }
   } catch (error) {
     console.error('Failed to add camera:', error)
-    addCameraError.value = error.data?.error || 'Failed to connect/add camera.'
+    if (!addCameraError.value) {
+      addCameraError.value = error.data?.error || 'Failed to connect/add camera.'
+    }
   } finally {
     isAddingCamera.value = false
   }
