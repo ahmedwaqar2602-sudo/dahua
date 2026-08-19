@@ -13,10 +13,6 @@
           </h1>
           <p class="text-slate-400 mt-2 font-medium text-sm">Premium video access, DVR, and ONVIF session management.</p>
         </div>
-        <button @click="logout" class="px-5 py-2.5 bg-slate-800/50 hover:bg-slate-700/80 border border-slate-700/50 hover:border-slate-600 rounded-xl transition-all duration-300 text-sm font-semibold backdrop-blur-md shadow-lg hover:shadow-slate-900/50 flex items-center gap-2">
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-          Logout
-        </button>
       </header>
 
       <div class="space-y-8">

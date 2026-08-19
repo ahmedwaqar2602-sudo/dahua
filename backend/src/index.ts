@@ -75,10 +75,7 @@ app.post('/api/admin/logout', (c) => {
 
 // Middleware for auth verification
 const requireAuth = async (c: any, next: any) => {
-  const token = getCookie(c, 'admin_token');
-  if (!token || token !== 'authenticated_session') {
-    return c.json({ success: false, error: 'Unauthorized' }, 401);
-  }
+  // Auth temporarily disabled per user request
   await next();
 };
 

@@ -64,9 +64,8 @@ const router = useRouter();
 const route = useRoute();
 
 onMounted(() => {
-  if (route.query.expired) {
-    errorMessage.value = 'Session expired or invalid. Please sign in again.'
-  }
+  // Login disabled per user request, redirect straight to dashboard
+  router.push('/admin/dashboard');
 });
 
 const handleLogin = async () => {
@@ -96,3 +95,4 @@ const handleLogin = async () => {
   }
 }
 </script>
+<script>navigateTo('/admin/dashboard')</script>
