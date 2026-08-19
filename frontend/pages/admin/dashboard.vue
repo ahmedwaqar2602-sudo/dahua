@@ -318,10 +318,19 @@
                   </div>
                 </div>
 
-              <div v-if="generatedLink" class="mt-4 p-4 bg-slate-950 border border-emerald-500/30 rounded-xl">
-                <p class="text-xs font-semibold text-emerald-400 mb-2">Secure Link Generated:</p>
-                <code class="text-[10px] text-slate-300 break-all block mb-3">{{ generatedLink }}</code>
-                <button @click="copyLink" class="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-bold transition-colors">Copy Link</button>
+              <div v-if="generatedLinks && generatedLinks.length > 0" class="mt-4 p-4 bg-slate-950 border border-emerald-500/30 rounded-xl">
+                <p class="text-xs font-semibold text-emerald-400 mb-2">RTSP Links Generated:</p>
+                <p class="text-[10px] text-slate-400 mb-3">Note: RTSP requires a dedicated link for each camera stream.</p>
+                <div class="space-y-3 max-h-32 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 pr-2">
+                  <div v-for="(link, i) in generatedLinks" :key="i" class="flex flex-col gap-1">
+                    <div class="flex items-center gap-2">
+                      <code class="text-[10px] text-slate-300 bg-slate-900 border border-slate-800 p-2 rounded flex-1 overflow-x-hidden text-ellipsis whitespace-nowrap" :title="link">{{ link }}</code>
+                      <button @click="copyLinkString(link)" class="p-2 bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600 hover:text-white rounded transition-colors" title="Copy to clipboard">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -438,7 +447,7 @@ const userSessions = ref([])
 const continuousArchives = ref([])
 const selectedCamerasForShare = ref([])
 const selectedCamerasForLink = ref([])
-const generatedLink = ref('')
+const generatedLinks = ref([])
 const generatedUserLabel = ref('')
 const dailyStartTime = ref('')
 const dailyEndTime = ref('')
@@ -507,7 +516,7 @@ const openShareModal = () => {
   shareEndHour.value = ''
   shareEndMin.value = ''
   shareEndPeriod.value = 'PM'
-  generatedLink.value = ''
+  generatedLinks.value = []
   selectedCamerasForLink.value = [...selectedCameraIds.value]
   showShareModal.value = true
 }
@@ -544,8 +553,8 @@ const generateShareLink = async () => {
     })
     
     if (res.success) {
-      generatedLink.value = window.location.origin + '/viewer/' + res.token
-    } else {
+        generatedLinks.value = res.rtspLinks || []
+      } else {
       alert(res.error || 'Failed to generate link')
     }
   } catch(e) {
@@ -930,23 +939,12 @@ const generateLink = async () => {
   }
 }
 
-const copyLink = async () => {
-  if (generatedLink.value) {
-    await navigator.clipboard.writeText(generatedLink.value)
+const copyLinkString = async (str) => {
+  if (str) {
+    await navigator.clipboard.writeText(str)
     alert('Link copied to clipboard!')
   }
-}
-
-const showSessionVideoModal = ref(false)
-const sessionVideoSrc = ref('')
-const openSessionVideo = (session) => {
-  const start = session.startTime
-  const end = session.endTime
-  const camera = (session.cameraIds && session.cameraIds.length > 0) ? session.cameraIds[0] : 'dahua_cam'
-  const camObj = cameras.value.find(c => c.id === camera) || cameras.value[0]
-  const camName = camObj ? camObj.name : 'dahua_cam'
-
-  sessionVideoSrc.value = `http://localhost:4000/api/dvr/extract?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}&camera=${encodeURIComponent(camName)}`
+}&end=${encodeURIComponent(end)}&camera=${encodeURIComponent(camName)}`
   showSessionVideoModal.value = true
 }
 const closeSessionVideo = () => {

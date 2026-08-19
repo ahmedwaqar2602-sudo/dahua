@@ -203,7 +203,17 @@ app.post('/api/admin/generate-link', requireAuth, async (c) => {
     const userLabel = 'User ' + nextNum;
 
     await c.env.DB.prepare('INSERT INTO access_tokens (token, user_label, allowed_cameras, daily_start_time, daily_end_time, disable_ptz) VALUES (?, ?, ?, ?, ?, ?)').bind(token, userLabel, JSON.stringify(cameraIds), daily_start_time || null, daily_end_time || null, disable_ptz ? 1 : 0).run();
-    return c.json({ success: true, token, user_label: userLabel });
+
+    let rtspLinks = [];
+    if (cameraIds.length > 0) {
+      const placeholders = cameraIds.map(() => '?').join(',');
+      const { results } = await c.env.DB.prepare(`SELECT name FROM cameras WHERE id IN (${placeholders})`).bind(...cameraIds).all();
+      
+      const host = new URL(c.req.url).hostname || 'localhost';
+      rtspLinks = (results || []).map((cam: any) => `rtsp://${host}:8554/${cam.name}`);
+    }
+
+    return c.json({ success: true, token, user_label: userLabel, rtspLinks });
   } catch (err) {
     return c.json({ error: String(err) }, 500);
   }
