@@ -129,32 +129,12 @@ app.post('/api/admin/cameras/verify', requireAuth, async (c) => {
 });
 
 app.post('/api/admin/cameras', requireAuth, async (c) => {
-  const { name, display_name, protocol, rtsp_url, ip, port, username, password, public_ip, forwarded_port, stream_type, camera_brand } = await c.req.json();
+  const { name, protocol, rtsp_url } = await c.req.json();
   if (!name) return c.json({ error: 'Missing name' }, 400);
+  if (!rtsp_url) return c.json({ error: 'Missing Stream Link' }, 400);
   if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
 
-  let final_rtsp_url = '';
-  
-  if (protocol === 'onvif') {
-    if (!ip || !username || !password) return c.json({ error: 'Missing ONVIF connection details' }, 400);
-    final_rtsp_url = `onvif://${username}:${password}@${ip}:${port || 80}`;
-  } else if (protocol === 'rtsp') {
-    if (!rtsp_url) return c.json({ error: 'Missing RTSP URL' }, 400);
-    final_rtsp_url = rtsp_url;
-  } else if (protocol === 'public_rtsp') {
-    if (!public_ip || !username || !password || !camera_brand) return c.json({ error: 'Missing Public RTSP details' }, 400);
-    const fport = forwarded_port || 554;
-    const subtype = stream_type === 'sub' ? '1' : '0';
-    
-    if (camera_brand === 'Dahua') {
-      final_rtsp_url = `rtsp://${username}:${password}@${public_ip}:${fport}/cam/realmonitor?channel=1&subtype=${subtype}`;
-    } else if (camera_brand === 'EZVIZ') {
-      final_rtsp_url = `rtsp://${username}:${password}@${public_ip}:${fport}/Streaming/Channels/10${subtype === '0' ? '1' : '2'}`;
-    } else {
-      // Generic RTSP expects user to just pass rtsp_url manually, but for safety:
-      final_rtsp_url = rtsp_url || `rtsp://${username}:${password}@${public_ip}:${fport}/`;
-    }
-  } else {
+  if (protocol !== 'onvif' && protocol !== 'rtsp') {
     return c.json({ error: 'Invalid protocol specified' }, 400);
   }
   
@@ -167,16 +147,15 @@ app.post('/api/admin/cameras', requireAuth, async (c) => {
 
   try {
     await c.env.DB.prepare(`
-      INSERT INTO cameras (name, display_name, rtsp_url, sub_stream_url, capabilities, last_seen, public_ip, forwarded_port, stream_type, camera_brand, username, password) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO cameras (name, display_name, rtsp_url, sub_stream_url, capabilities, last_seen) 
+      VALUES (?, ?, ?, ?, ?, ?)
     `).bind(
-      name, display_name || null, final_rtsp_url, subStreamUrl, capabilities, new Date().toISOString(),
-      public_ip || null, forwarded_port || 554, stream_type || null, camera_brand || null, username || null, password || null
+      name, name, rtsp_url, subStreamUrl, capabilities, new Date().toISOString()
     ).run();
 
     // Dynamically register stream with go2rtc to avoid needing a reboot
     try {
-      await fetch(`http://127.0.0.1:1984/api/streams?name=${name}&src=${encodeURIComponent(final_rtsp_url)}`, { method: 'PUT' });
+      await fetch(`http://127.0.0.1:1984/api/streams?name=${name}&src=${encodeURIComponent(rtsp_url)}`, { method: 'PUT' });
     } catch (e) {
       console.warn('Failed to instantly sync with go2rtc:', e);
     }

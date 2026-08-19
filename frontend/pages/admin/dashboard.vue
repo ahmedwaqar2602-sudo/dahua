@@ -6,9 +6,10 @@
 
     <div class="max-w-7xl mx-auto space-y-10 relative z-10">
       <!-- Header -->
-      <header class="flex items-center justify-between bg-slate-900/30 border border-slate-800/50 rounded-2xl p-6 backdrop-blur-2xl shadow-xl">
+      <header class="flex items-center justify-between bg-slate-900/40 border border-slate-700/50 rounded-3xl p-8 backdrop-blur-3xl shadow-2xl relative overflow-hidden">
         <div>
-          <h1 class="text-4xl font-extrabold bg-gradient-to-r from-indigo-400 via-cyan-400 to-emerald-400 bg-clip-text text-transparent drop-shadow-sm tracking-tight">
+          <div class="absolute -top-24 -right-24 w-64 h-64 bg-cyan-500/10 rounded-full blur-[80px] pointer-events-none"></div>
+          <h1 class="text-4xl md:text-5xl font-black bg-gradient-to-r from-indigo-400 via-cyan-400 to-emerald-400 bg-clip-text text-transparent drop-shadow-sm tracking-tighter">
             Flexnook Edge Gateway
           </h1>
           <p class="text-slate-400 mt-2 font-medium text-sm">Premium video access, DVR, and ONVIF session management.</p>
@@ -28,7 +29,14 @@
               </div>
               Live Monitor (Multi-Grid)
             </h2>
-            <span class="mt-3 sm:mt-0 text-xs font-medium text-indigo-300/80 bg-indigo-500/10 px-4 py-1.5 rounded-full border border-indigo-500/20 shadow-inner">Click a camera for DVR & Settings</span>
+            <div class="flex items-center gap-4 mt-3 sm:mt-0">
+              <span class="hidden sm:inline-block text-xs font-medium text-indigo-300/80 bg-indigo-500/10 px-4 py-1.5 rounded-full border border-indigo-500/20 shadow-inner">Click a camera for settings</span>
+              <button @click="showAddCameraModal = true" class="group relative flex items-center gap-2 bg-slate-800/50 hover:bg-indigo-600/20 text-slate-200 hover:text-indigo-300 border border-slate-700/50 hover:border-indigo-500/50 px-5 py-2.5 rounded-xl font-medium text-sm transition-all overflow-hidden shadow-lg hover:shadow-indigo-500/20">
+                <div class="absolute inset-0 w-0 bg-gradient-to-r from-indigo-600/40 to-cyan-600/40 transition-all duration-300 ease-out group-hover:w-full"></div>
+                <svg class="w-4 h-4 relative z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg>
+                <span class="relative z-10">Add Camera</span>
+              </button>
+            </div>
           </div>
           
           <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-10 relative z-10">
@@ -62,59 +70,7 @@
             </div>
           </div>
 
-          <!-- Add Camera Form -->
-          <form @submit.prevent="addCamera" class="flex flex-col gap-4 mt-4 pt-8 border-t border-slate-800/60 relative z-10">
-            <h3 class="text-base font-bold text-slate-200 mb-2 flex items-center gap-2">
-              <svg class="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
-              Add New Camera
-            </h3>
-            
-            <div class="flex flex-col md:flex-row gap-4">
-              <input v-model="newCameraName" type="text" placeholder="Camera Proxy Name (e.g. cam_1)" required class="flex-1 bg-slate-900/50 border border-slate-700/80 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all text-slate-200 placeholder-slate-500 shadow-inner">
-              <input v-model="newCameraDisplayName" type="text" placeholder="Display Name (e.g. Lobby)" class="flex-1 bg-slate-900/50 border border-slate-700/80 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all placeholder-slate-500 shadow-inner">
-              <select v-model="newCameraProtocol" class="bg-slate-900/50 border border-slate-700/80 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all text-slate-200 cursor-pointer shadow-inner">
-                <option value="onvif">ONVIF (Recommended)</option>
-                <option value="rtsp">Local RTSP (Raw)</option>
-                <option value="public_rtsp">Public / Port-Forwarded Network</option>
-              </select>
-            </div>
-
-            <!-- ONVIF Fields -->
-            <div v-if="newCameraProtocol === 'onvif'" class="flex flex-col md:flex-row gap-4 p-5 bg-indigo-950/10 border border-indigo-500/10 rounded-2xl">
-              <input v-model="newCameraIp" type="text" placeholder="IP Address (e.g. 192.168.50.101)" required class="flex-1 bg-slate-900/80 border border-slate-700/80 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all placeholder-slate-500 shadow-inner">
-              <input v-model="newCameraPort" type="number" placeholder="Port (80)" class="w-full md:w-28 bg-slate-900/80 border border-slate-700/80 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all placeholder-slate-500 shadow-inner">
-              <input v-model="newCameraUsername" type="text" placeholder="Username" required class="flex-1 bg-slate-900/80 border border-slate-700/80 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all placeholder-slate-500 shadow-inner">
-              <input v-model="newCameraPassword" type="password" placeholder="Password" required class="flex-1 bg-slate-900/80 border border-slate-700/80 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all placeholder-slate-500 shadow-inner">
-            </div>
-
-            <!-- RTSP Field -->
-            <div v-if="newCameraProtocol === 'rtsp'" class="flex flex-col md:flex-row gap-4 p-5 bg-slate-900/30 border border-slate-700/30 rounded-2xl">
-              <input v-model="newCameraUrl" type="text" placeholder="rtsp://user:pass@ip:port/path" required class="w-full bg-slate-900/80 border border-slate-700/80 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all placeholder-slate-500 shadow-inner font-mono text-xs">
-            </div>
-
-            <div class="flex justify-end mt-2">
-              <button type="submit" :disabled="isAddingCamera" class="bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-700 hover:from-indigo-400 hover:via-indigo-500 hover:to-indigo-600 text-white px-8 py-3 rounded-xl text-sm font-bold transition-all duration-300 shadow-[0_0_20px_rgba(79,70,229,0.3)] hover:shadow-[0_0_30px_rgba(79,70,229,0.5)] border border-indigo-400/30 disabled:opacity-50 disabled:cursor-not-allowed transform hover:-translate-y-0.5 active:translate-y-0">
-                <span v-if="!isAddingCamera" class="flex items-center gap-2">
-                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                  Connect & Add Camera
-                </span>
-                <span v-else class="flex items-center gap-2">
-                  <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> 
-                  Validating...
-                </span>
-              </button>
-            </div>
-            
-            <transition enter-active-class="transition ease-out duration-300" enter-from-class="opacity-0 -translate-y-2" enter-to-class="opacity-100 translate-y-0" leave-active-class="transition ease-in duration-200" leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 -translate-y-2">
-              <div v-if="addCameraError" class="p-4 mt-2 bg-rose-500/10 border border-rose-500/30 rounded-xl flex items-center gap-3 backdrop-blur-sm shadow-[0_0_15px_rgba(225,29,72,0.1)]">
-                <div class="p-2 bg-rose-500/20 rounded-full">
-                  <svg class="w-5 h-5 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                </div>
-                <p class="text-sm text-rose-200 font-medium">{{ addCameraError }}</p>
-              </div>
-            </transition>
-          </form>
-        </section>
+          </section></section>
 
         <!-- Access Management & Audit Split -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -407,6 +363,86 @@
       </div>
     </div>
 
+    
+    <!-- Add Camera Modal -->
+    <transition enter-active-class="transition ease-out duration-300" enter-from-class="opacity-0 backdrop-blur-none" enter-to-class="opacity-100 backdrop-blur-md" leave-active-class="transition ease-in duration-200" leave-from-class="opacity-100 backdrop-blur-md" leave-to-class="opacity-0 backdrop-blur-none">
+      <div v-if="showAddCameraModal" class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+        <transition enter-active-class="transition ease-out duration-300 transform" enter-from-class="opacity-0 scale-95 translate-y-4" enter-to-class="opacity-100 scale-100 translate-y-0" leave-active-class="transition ease-in duration-200 transform" leave-from-class="opacity-100 scale-100 translate-y-0" leave-to-class="opacity-0 scale-95 translate-y-4">
+          <div v-if="showAddCameraModal" class="bg-slate-950/90 border border-slate-800/80 rounded-3xl shadow-[0_0_50px_rgba(79,70,229,0.15)] w-full max-w-xl relative overflow-hidden backdrop-blur-2xl">
+            <!-- Modal ambient glow -->
+            <div class="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-32 bg-indigo-500/20 blur-[80px] pointer-events-none"></div>
+            
+          <form @submit.prevent="addCamera" class="flex flex-col gap-6 relative z-10 p-8">
+            <div class="flex items-center justify-between mb-2 border-b border-slate-800/50 pb-4">
+              <h3 class="text-2xl font-bold text-slate-100 flex items-center gap-3">
+                <div class="p-2 bg-indigo-500/20 rounded-lg border border-indigo-500/30">
+                  <svg class="w-6 h-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                </div>
+                Add New Camera
+              </h3>
+              <button type="button" @click="showAddCameraModal = false" class="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-slate-800/50 transition-colors">
+                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+              </button>
+            </div>
+            
+            <div class="flex flex-col gap-5">
+              <div>
+                <label class="block text-sm font-semibold text-slate-300 mb-2">Camera Protocol</label>
+                <div class="flex gap-4">
+                  <label class="flex-1 relative cursor-pointer group">
+                    <input type="radio" v-model="newCameraProtocol" value="onvif" class="peer sr-only" name="protocol">
+                    <div class="p-4 rounded-xl border border-slate-700/80 bg-slate-900/50 peer-checked:bg-indigo-500/10 peer-checked:border-indigo-500/50 transition-all text-center">
+                      <span class="block text-sm font-bold text-slate-400 peer-checked:text-indigo-400 group-hover:text-slate-200">ONVIF URL</span>
+                    </div>
+                  </label>
+                  <label class="flex-1 relative cursor-pointer group">
+                    <input type="radio" v-model="newCameraProtocol" value="rtsp" class="peer sr-only" name="protocol">
+                    <div class="p-4 rounded-xl border border-slate-700/80 bg-slate-900/50 peer-checked:bg-indigo-500/10 peer-checked:border-indigo-500/50 transition-all text-center">
+                      <span class="block text-sm font-bold text-slate-400 peer-checked:text-indigo-400 group-hover:text-slate-200">RTSP URL</span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-sm font-semibold text-slate-300 mb-2">Camera Name (No Spaces)</label>
+                <input v-model="newCameraName" type="text" placeholder="e.g. lobby_cam" required class="w-full bg-slate-900/50 border border-slate-700/80 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all text-slate-200 placeholder-slate-500 shadow-inner">
+              </div>
+
+              <div>
+                <label class="block text-sm font-semibold text-slate-300 mb-2">Stream Link (ONVIF or RTSP)</label>
+                <input v-model="newCameraUrl" type="text" :placeholder="newCameraProtocol === 'onvif' ? 'onvif://user:pass@ip:port' : 'rtsp://user:pass@ip:port/path'" required class="w-full bg-slate-900/50 border border-slate-700/80 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all placeholder-slate-500 shadow-inner font-mono text-xs">
+              </div>
+            </div>
+
+            <div class="flex justify-end mt-4">
+              <button type="submit" :disabled="isAddingCamera" class="w-full sm:w-auto bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-700 hover:from-indigo-400 hover:via-indigo-500 hover:to-indigo-600 text-white px-10 py-3 rounded-xl text-sm font-bold transition-all duration-300 shadow-[0_0_20px_rgba(79,70,229,0.3)] hover:shadow-[0_0_30px_rgba(79,70,229,0.5)] border border-indigo-400/30 disabled:opacity-50 disabled:cursor-not-allowed transform hover:-translate-y-0.5 active:translate-y-0">
+                <span v-if="!isAddingCamera" class="flex items-center justify-center gap-2">
+                  <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                  Connect & Add Camera
+                </span>
+                <span v-else class="flex items-center justify-center gap-2">
+                  <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> 
+                  Validating...
+                </span>
+              </button>
+            </div>
+            
+            <transition enter-active-class="transition ease-out duration-300" enter-from-class="opacity-0 -translate-y-2" enter-to-class="opacity-100 translate-y-0" leave-active-class="transition ease-in duration-200" leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 -translate-y-2">
+              <div v-if="addCameraError" class="p-4 mt-2 bg-rose-500/10 border border-rose-500/30 rounded-xl flex items-center gap-3 backdrop-blur-sm shadow-[0_0_15px_rgba(225,29,72,0.1)]">
+                <div class="p-2 bg-rose-500/20 rounded-full">
+                  <svg class="w-5 h-5 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                </div>
+                <p class="text-sm text-rose-200 font-medium">{{ addCameraError }}</p>
+              </div>
+            </transition>
+          </form>
+          </div>
+        </transition>
+      </div>
+    </transition>
+    
+
     <!-- Edit Camera Name Modal -->
     <div v-if="showEditNameModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
       <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl w-full max-w-sm relative p-6">
@@ -458,6 +494,7 @@ const isTestingConnection = ref(false)
 const testConnectionResult = ref('')
 const addCameraError = ref('')
 const isAddingCamera = ref(false)
+const showAddCameraModal = ref(false)
 
 const scrubValue = ref(100)
 const scrubStartValue = ref(0)
@@ -693,10 +730,10 @@ const addCamera = async () => {
         newCameraDisplayName.value = ''
         newCameraProtocol.value = 'onvif'
         newCameraUrl.value = ''
-        newCameraIp.value = ''
-        newCameraPort.value = ''
-        newCameraUsername.value = ''
-        newCameraPassword.value = ''
+        
+        
+        
+        
         newCameraPublicIp.value = ''
         newCameraForwardedPort.value = ''
         testConnectionResult.value = ''
