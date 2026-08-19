@@ -60,7 +60,7 @@
               
               <!-- DVR Scrubber Overlay View -->
               <div v-if="isScrubbing" class="absolute inset-0 z-20 bg-black">
-                <img :src="\`http://localhost:1984/api/frame.jpeg?src=\${encodeURIComponent(cam.name)}\`" class="w-full h-full object-cover opacity-60" />
+                <img :src="`http://localhost:1984/api/frame.jpeg?src=${encodeURIComponent(cam.name)}`" class="w-full h-full object-cover opacity-60" />
                 <!-- Glitch/Overlay effect for DVR -->
                 <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSJub25lIj48L3JlY3Q+CjxyZWN0IHdpZHRoPSIzIiBoZWlnaHQ9IjMiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wMykiPjwvcmVjdD4KPC9zdmc+')] pointer-events-none"></div>
                 <div class="absolute top-4 right-4 bg-rose-600/90 text-white text-xs font-bold px-2 py-1 rounded backdrop-blur-sm flex items-center gap-2">
@@ -168,13 +168,13 @@ const simulatedPlaybackTime = computed(() => {
   const totalMinutes = Math.floor((scrubPercentage.value / 100) * 1440)
   const hours = Math.floor(totalMinutes / 60)
   const mins = totalMinutes % 60
-  return \`\${hours.toString().padStart(2, '0')}:\${mins.toString().padStart(2, '0')}\`
+  return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`
 })
 
 const simulatedPlaybackDate = computed(() => {
   const d = new Date()
   const dateStr = d.toISOString().split('T')[0]
-  return \`\${dateStr} \${simulatedPlaybackTime.value}\`
+  return `${dateStr} ${simulatedPlaybackTime.value}`
 })
 
 const startScrub = (e) => {
@@ -210,7 +210,7 @@ onMounted(async () => {
   }
 
   try {
-    const res = await $fetch(\`/api/view/verify?token=\${token}\`)
+    const res = await $fetch(`/api/view/verify?token=${token}`)
     if (res.success) {
       streams.value = res.streams
       
