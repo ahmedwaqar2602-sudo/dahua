@@ -56,15 +56,15 @@
       <div class="p-4 border-b border-[#2d3345]">
         <div class="relative">
           <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-          <input type="text" placeholder="Search" class="w-full bg-[#161a22] border border-[#3b4255] rounded-full pl-9 pr-4 py-1.5 text-xs focus:outline-none focus:border-cyan-500 transition-colors text-slate-200 placeholder-slate-500">
+          <input type="text" v-model="cameraSearch" placeholder="Search" class="w-full bg-[#161a22] border border-[#3b4255] rounded-full pl-9 pr-4 py-1.5 text-xs focus:outline-none focus:border-cyan-500 transition-colors text-slate-200 placeholder-slate-500">
         </div>
       </div>
 
       <div class="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-[#3b4255] scrollbar-track-transparent">
         <div class="flex items-center justify-between mb-4">
-          <label class="flex items-center gap-2 cursor-pointer group">
-            <div class="w-3.5 h-3.5 rounded-sm border border-cyan-500 bg-cyan-500 flex items-center justify-center">
-              <svg class="w-2.5 h-2.5 text-[#111827]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+          <label @click.prevent="toggleAllCameras" class="flex items-center gap-2 cursor-pointer group">
+            <div class="w-3.5 h-3.5 rounded-sm border border-cyan-500 flex items-center justify-center" :class="selectedCameraIds.length === cameras.length && cameras.length > 0 ? 'bg-cyan-500' : 'bg-transparent'">
+              <svg v-if="selectedCameraIds.length === cameras.length && cameras.length > 0" class="w-2.5 h-2.5 text-[#111827]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
             </div>
             <span class="text-xs font-semibold text-slate-200 group-hover:text-white transition-colors">Select all</span>
           </label>
@@ -83,10 +83,10 @@
             <span class="text-xs font-semibold text-slate-200 group-hover:text-white transition-colors">Network Cameras</span>
           </div>
           <div class="pl-5 space-y-2">
-            <div v-for="cam in cameras" :key="cam.id" class="flex items-center justify-between group cursor-pointer">
+            <div v-for="cam in filteredSidebarCameras" :key="cam.id" @click="toggleCameraSelection(cam.id)" class="flex items-center justify-between group cursor-pointer hover:bg-[#2d3345]/50 -mx-2 px-2 py-1 rounded">
               <div class="flex items-center gap-2">
-                <div class="w-3.5 h-3.5 rounded-sm border border-cyan-500 bg-cyan-500 flex items-center justify-center">
-                  <svg class="w-2.5 h-2.5 text-[#111827]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                <div class="w-3.5 h-3.5 rounded-sm border border-cyan-500 flex items-center justify-center transition-colors" :class="selectedCameraIds.includes(cam.id) ? 'bg-cyan-500' : 'bg-transparent'">
+                  <svg v-if="selectedCameraIds.includes(cam.id)" class="w-2.5 h-2.5 text-[#111827]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
                 </div>
                 <span class="text-xs text-slate-300 group-hover:text-white transition-colors truncate max-w-[120px]" :title="cam.display_name || cam.name">
                   {{ cam.display_name || cam.name }}
@@ -95,7 +95,7 @@
               <span class="w-1.5 h-1.5 rounded-full" :class="isOnline(cam) ? 'bg-cyan-400 shadow-[0_0_5px_#22d3ee]' : 'bg-rose-500'"></span>
             </div>
             
-            <div v-if="cameras.length === 0" class="text-xs text-slate-500 italic py-2">
+            <div v-if="filteredSidebarCameras.length === 0" class="text-xs text-slate-500 italic py-2 px-2">
               No cameras found.
             </div>
           </div>
@@ -108,15 +108,17 @@
       
       <!-- Top Navigation Tabs -->
       <div class="h-14 border-b border-[#2d3345] bg-[#161a22] flex items-end px-4 gap-8">
-        <button class="px-6 py-3 text-sm font-semibold text-cyan-400 relative">
+        <button @click="activeTab = 'grid'" class="px-6 py-3 text-sm transition-colors relative" :class="activeTab === 'grid' ? 'font-semibold text-cyan-400' : 'font-medium text-slate-400 hover:text-slate-200'">
           Grid View
-          <div class="absolute bottom-0 left-0 w-full h-0.5 bg-cyan-400 shadow-[0_0_8px_#22d3ee]"></div>
+          <div v-if="activeTab === 'grid'" class="absolute bottom-0 left-0 w-full h-0.5 bg-cyan-400 shadow-[0_0_8px_#22d3ee]"></div>
         </button>
-        <button class="px-6 py-3 text-sm font-medium text-slate-400 hover:text-slate-200 transition-colors">
+        <button @click="activeTab = 'layouts'" class="px-6 py-3 text-sm transition-colors relative" :class="activeTab === 'layouts' ? 'font-semibold text-cyan-400' : 'font-medium text-slate-400 hover:text-slate-200'">
           Layouts
+          <div v-if="activeTab === 'layouts'" class="absolute bottom-0 left-0 w-full h-0.5 bg-cyan-400 shadow-[0_0_8px_#22d3ee]"></div>
         </button>
-        <button class="px-6 py-3 text-sm font-medium text-slate-400 hover:text-slate-200 transition-colors">
+        <button @click="activeTab = 'presentation'" class="px-6 py-3 text-sm transition-colors relative" :class="activeTab === 'presentation' ? 'font-semibold text-cyan-400' : 'font-medium text-slate-400 hover:text-slate-200'">
           Presentation View
+          <div v-if="activeTab === 'presentation'" class="absolute bottom-0 left-0 w-full h-0.5 bg-cyan-400 shadow-[0_0_8px_#22d3ee]"></div>
         </button>
       </div>
 
@@ -146,20 +148,20 @@
           
           <div class="flex items-center gap-1.5 ml-2 font-semibold text-sm">
             <svg class="w-4 h-4 text-cyan-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 22h20L12 2zm0 4.5l6.5 13h-13L12 6.5z"/></svg>
-            {{ cameras.length }} Cameras
+            {{ selectedCameraIds.length }}/{{ cameras.length }} Cameras
           </div>
         </div>
 
         <div class="flex items-center gap-6">
           <div class="flex bg-[#1c212b] rounded-lg p-0.5 border border-[#3b4255]">
-            <button class="px-4 py-1.5 text-[10px] font-semibold bg-white text-[#111827] rounded-md shadow">Live Stills</button>
-            <button class="px-4 py-1.5 text-[10px] font-medium text-slate-400 hover:text-slate-200">Live Video</button>
+            <button @click="mediaMode = 'stills'" class="px-4 py-1.5 text-[10px] rounded-md transition-all" :class="mediaMode === 'stills' ? 'font-semibold bg-white text-[#111827] shadow' : 'font-medium text-slate-400 hover:text-slate-200'">Live Stills</button>
+            <button @click="mediaMode = 'video'" class="px-4 py-1.5 text-[10px] rounded-md transition-all" :class="mediaMode === 'video' ? 'font-semibold bg-white text-[#111827] shadow' : 'font-medium text-slate-400 hover:text-slate-200'">Live Video</button>
           </div>
           
           <div class="flex items-center gap-2">
             <span class="text-[10px] text-slate-400 font-medium">Camera names</span>
-            <div class="w-3.5 h-3.5 rounded-sm border border-cyan-500 bg-cyan-500 flex items-center justify-center cursor-pointer">
-              <svg class="w-2.5 h-2.5 text-[#111827]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+            <div @click="showCameraNames = !showCameraNames" class="w-3.5 h-3.5 rounded-sm border border-cyan-500 flex items-center justify-center cursor-pointer transition-colors" :class="showCameraNames ? 'bg-cyan-500' : 'bg-transparent'">
+              <svg v-if="showCameraNames" class="w-2.5 h-2.5 text-[#111827]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
             </div>
           </div>
           
@@ -170,11 +172,14 @@
       </div>
 
       <!-- Camera Grid Viewport -->
-      <div class="flex-1 p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-[#3b4255] scrollbar-track-transparent pb-32">
+      <div v-if="activeTab === 'grid'" class="flex-1 p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-[#3b4255] scrollbar-track-transparent pb-32">
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-4">
-          <div v-for="cam in cameras" :key="cam.id" class="bg-[#1c212b] rounded-md overflow-hidden shadow-lg border border-[#2d3345] group relative aspect-video cursor-pointer" @click="openCameraDetail(cam)">
+          <div v-for="cam in visibleGridCameras" :key="cam.id" class="bg-[#1c212b] rounded-md overflow-hidden shadow-lg border border-[#2d3345] group relative aspect-video cursor-pointer" @click="openCameraDetail(cam)">
             <!-- Stream Iframe -->
-            <iframe :src="`http://localhost:1984/stream.html?src=${encodeURIComponent(cam.name + '_sub')}`" class="w-full h-full border-none pointer-events-none" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
+            
+            <iframe v-if="mediaMode === 'video'" :src="`http://localhost:1984/stream.html?src=${encodeURIComponent(cam.name + '_sub')}`" class="w-full h-full border-none pointer-events-none" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
+            <img v-else :src="`http://localhost:1984/api/frame.jpeg?src=${encodeURIComponent(cam.name)}`" class="w-full h-full object-cover" />
+
             
             <!-- Controls Overlay (Hover) -->
             <div class="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
@@ -183,7 +188,7 @@
             </div>
             
             <!-- Camera Name Tag Overlay -->
-            <div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-black/80 to-transparent p-3 pt-8 pointer-events-none">
+            <div v-if="showCameraNames" class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-black/80 to-transparent p-3 pt-8 pointer-events-none">
               <span class="text-white text-xs font-semibold drop-shadow-md flex items-center gap-2">
                 Network Cameras - {{ cam.display_name || cam.name }}
                 <span v-if="cam.public_ip" class="px-1.5 py-0.5 rounded text-[8px] bg-cyan-500/30 text-cyan-200 border border-cyan-500/50">EXT</span>
@@ -191,11 +196,27 @@
             </div>
           </div>
           
-          <div v-if="cameras.length === 0" class="col-span-full h-64 flex flex-col items-center justify-center border border-dashed border-[#3b4255] rounded-xl text-slate-500">
+          <div v-if="visibleGridCameras.length === 0" class="col-span-full h-64 flex flex-col items-center justify-center border border-dashed border-[#3b4255] rounded-xl text-slate-500">
             <svg class="w-12 h-12 mb-3 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
             <span class="text-sm font-medium">No cameras configured.</span>
             <button @click="showAddCameraModal = true" class="mt-4 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-sm font-medium transition-colors">Add Camera</button>
           </div>
+        </div>
+      </div>
+      
+      <!-- Layouts View Placeholder -->
+      <div v-if="activeTab === 'layouts'" class="flex-1 flex items-center justify-center">
+        <div class="text-center text-slate-500">
+          <svg class="w-16 h-16 mx-auto mb-4 text-[#3b4255]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"></path></svg>
+          <h2 class="text-xl font-bold text-slate-300">Layout Builder</h2>
+          <p class="mt-2 text-sm">Drag and drop cameras to create custom viewing layouts.</p>
+        </div>
+      </div>
+
+      <!-- Presentation View Placeholder -->
+      <div v-if="activeTab === 'presentation'" class="flex-1 flex items-center justify-center bg-black">
+        <div class="w-full max-w-5xl aspect-video bg-[#1c212b] rounded-xl border border-[#2d3345] flex items-center justify-center shadow-2xl">
+           <span class="text-slate-500 font-bold">Presentation Carousel Active</span>
         </div>
       </div>
       
@@ -373,6 +394,45 @@ const testConnectionResult = ref('')
 const addCameraError = ref('')
 const isAddingCamera = ref(false)
 const showAddCameraModal = ref(false)
+const activeTab = ref('grid')
+const mediaMode = ref('video')
+const showCameraNames = ref(true)
+const selectedCameraIds = ref([])
+const cameraSearch = ref('')
+
+const toggleCameraSelection = (camId) => {
+  const idx = selectedCameraIds.value.indexOf(camId)
+  if (idx > -1) {
+    selectedCameraIds.value.splice(idx, 1)
+  } else {
+    selectedCameraIds.value.push(camId)
+  }
+}
+
+const toggleAllCameras = () => {
+  if (selectedCameraIds.value.length === cameras.value.length) {
+    selectedCameraIds.value = []
+  } else {
+    selectedCameraIds.value = cameras.value.map(c => c.id)
+  }
+}
+
+const filteredSidebarCameras = computed(() => {
+  if (!cameraSearch.value) return cameras.value
+  return cameras.value.filter(c => (c.display_name || c.name).toLowerCase().includes(cameraSearch.value.toLowerCase()))
+})
+
+const visibleGridCameras = computed(() => {
+  return cameras.value.filter(c => selectedCameraIds.value.includes(c.id))
+})
+
+// Watch for initial camera load to select all by default
+watch(cameras, (newCams) => {
+  if (newCams && newCams.length > 0 && selectedCameraIds.value.length === 0) {
+    selectedCameraIds.value = newCams.map(c => c.id)
+  }
+}, { immediate: true })
+
 
 const scrubValue = ref(100)
 const scrubStartValue = ref(0)
