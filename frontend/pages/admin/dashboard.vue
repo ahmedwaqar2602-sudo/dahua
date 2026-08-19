@@ -568,10 +568,7 @@ const generateShareLink = async () => {
   }
 }
 
-const copyLink = () => {
-  navigator.clipboard.writeText(generatedLink.value)
-  alert('Link copied to clipboard!')
-}
+
 
 
 // Playback & Scrubber State
