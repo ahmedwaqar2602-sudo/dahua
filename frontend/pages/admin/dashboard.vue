@@ -73,11 +73,7 @@
             </h3>
             
             <div class="flex flex-col md:flex-row gap-4">
-              <select v-model="newCameraName" required class="flex-1 bg-slate-900/50 border border-slate-700/80 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all text-slate-200 cursor-pointer shadow-inner">
-                <option value="" disabled selected>Select Camera Proxy Name</option>
-                <option value="dahua_cam">dahua_cam</option>
-                <option value="ezviz_cam">ezviz_cam</option>
-              </select>
+              <input v-model="newCameraName" type="text" placeholder="Camera Proxy Name (e.g. cam_1)" required class="flex-1 bg-slate-900/50 border border-slate-700/80 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all text-slate-200 placeholder-slate-500 shadow-inner">
               <input v-model="newCameraDisplayName" type="text" placeholder="Display Name (e.g. Lobby)" class="flex-1 bg-slate-900/50 border border-slate-700/80 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all placeholder-slate-500 shadow-inner">
               <select v-model="newCameraProtocol" class="bg-slate-900/50 border border-slate-700/80 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all text-slate-200 cursor-pointer shadow-inner">
                 <option value="onvif">ONVIF (Recommended)</option>
