@@ -459,11 +459,7 @@ const newCameraStreamType = ref('sub')
 const isTestingConnection = ref(false)
 const testConnectionResult = ref('')
 const addCameraError = ref('')
-const generatedLink = ref('')
-const generatedUserLabel = ref('')
-const dailyStartTime = ref('')
-const dailyEndTime = ref('')
-const disablePtz = ref(false)
+
 
 const newCameraName = ref('')
 const newCameraDisplayName = ref('')
