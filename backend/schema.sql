@@ -17,7 +17,19 @@ CREATE TABLE IF NOT EXISTS cameras (
     name TEXT NOT NULL,
     display_name TEXT,
     rtsp_url TEXT NOT NULL,
-    capabilities TEXT
+    sub_stream_url TEXT,
+    capabilities TEXT,
+    last_seen DATETIME,
+    day_mode_start TEXT,
+    night_mode_start TEXT
+);
+
+CREATE TABLE IF NOT EXISTS camera_patrols (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    camera_id INTEGER NOT NULL,
+    schedule_start TEXT,
+    schedule_end TEXT,
+    presets_json TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS access_tokens (

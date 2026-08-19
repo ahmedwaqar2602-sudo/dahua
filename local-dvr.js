@@ -117,7 +117,6 @@ app.get('/api/dvr/play/:camera/:filename', (req, res) => {
   }
 });
 
-// API: Extract User Session
 app.get('/api/dvr/extract', (req, res) => {
   const startIso = req.query.start;
   const endIso = req.query.end;
@@ -141,25 +140,39 @@ app.get('/api/dvr/extract', (req, res) => {
   const endTime = new Date(endIso).getTime();
   const duration = Math.max(1, (endTime - startTime) / 1000);
 
-  let targetFile = files[files.length - 1]; 
-  let chunkStartTime = 0;
+  const overlappingFiles = [];
   for (let i = 0; i < files.length; i++) {
-    const stat = fs.statSync(path.join(cameraDir, files[i]));
+    const filePath = path.join(cameraDir, files[i]);
+    const stat = fs.statSync(filePath);
     const mtime = stat.mtimeMs; 
-    if (mtime > startTime) {
-      targetFile = files[i];
-      chunkStartTime = mtime - 3600000;
-      break;
+    // chunk length is typically 3600s, assume it started 3600s before mtime
+    const chunkStart = mtime - 3600000;
+    
+    if (chunkStart <= endTime && mtime >= startTime) {
+      // Escape single quotes for ffmpeg concat file
+      overlappingFiles.push(`file '${filePath.replace(/'/g, "'\\''")}'`);
     }
   }
 
-  const offset = Math.max(0, (startTime - chunkStartTime) / 1000);
-  const inputFilePath = path.join(cameraDir, targetFile);
+  if (overlappingFiles.length === 0) {
+    return res.status(404).json({ error: 'No recordings in the specified range' });
+  }
 
-  console.log(`[DVR API] Streaming extracted session for ${camera} from offset ${offset} for ${duration}s`);
+  // Calculate the offset from the beginning of the very first chunk in our list
+  // Re-read the first chunk's start time
+  const firstStat = fs.statSync(path.join(cameraDir, overlappingFiles[0].match(/'(.*)'/)[1]));
+  const firstChunkStart = firstStat.mtimeMs - 3600000;
+  const offset = Math.max(0, (startTime - firstChunkStart) / 1000);
+
+  const concatListPath = path.join(RECORDINGS_DIR, `concat_${camera}_${Date.now()}.txt`);
+  fs.writeFileSync(concatListPath, overlappingFiles.join('\n'));
+
+  console.log(`[DVR API] Stitching ${overlappingFiles.length} files for ${camera}, offset ${offset}s, duration ${duration}s`);
   
+  // Send file as attachment
   res.writeHead(200, {
     'Content-Type': 'video/mp4',
+    'Content-Disposition': `attachment; filename="${camera}_export_${startIso.replace(/[:.]/g, '-')}.mp4"`,
     'Connection': 'keep-alive',
     'Accept-Ranges': 'bytes'
   });
@@ -167,9 +180,11 @@ app.get('/api/dvr/extract', (req, res) => {
   const ffmpegCmd = [
     'ffmpeg',
     '-y',
+    '-f', 'concat',
+    '-safe', '0',
+    '-i', concatListPath,
     '-ss', offset.toString(),
     '-t', duration.toString(),
-    '-i', inputFilePath,
     '-c', 'copy',
     '-movflags', 'frag_keyframe+empty_moov',
     '-f', 'mp4',
@@ -184,8 +199,13 @@ app.get('/api/dvr/extract', (req, res) => {
     // console.log(`ffmpeg err: ${data}`);
   });
 
+  ffmpeg.on('close', () => {
+    try { fs.unlinkSync(concatListPath); } catch(e) {}
+  });
+
   req.on('close', () => {
     ffmpeg.kill('SIGKILL');
+    try { fs.unlinkSync(concatListPath); } catch(e) {}
   });
 });
 

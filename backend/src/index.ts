@@ -109,6 +109,7 @@ app.post('/api/admin/cameras', requireAuth, async (c) => {
   if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
   
   let capabilities = null;
+  let subStreamUrl = null;
   if (rtsp_url.startsWith('onvif://')) {
     const urlRegex = /:\/\/(.+):(.+)@([^:]+)/;
     const match = rtsp_url.match(urlRegex);
@@ -122,13 +123,33 @@ app.post('/api/admin/cameras', requireAuth, async (c) => {
       });
       await device.init();
       capabilities = JSON.stringify(device.services || {});
+      
+      // Attempt to get sub stream
+      if (device.profileList && device.profileList.length > 1) {
+        // Assume profile 1 is sub-stream if available
+        try {
+          const res = await device.services.media.getStreamUri({
+            ProfileToken: device.profileList[1].token,
+            Protocol: 'RTSP'
+          });
+          subStreamUrl = res.data.MediaUri.Uri;
+          // Sub stream URI returned by ONVIF often has local IP, maybe need to re-inject creds
+          const u = new URL(subStreamUrl);
+          subStreamUrl = `rtsp://${username}:${password}@${u.hostname}:${u.port || 554}${u.pathname}${u.search}`;
+        } catch(e) {}
+      }
+      if (!subStreamUrl) {
+        try {
+          subStreamUrl = device.getUdpStreamUrl(); 
+        } catch(e) {}
+      }
     } catch (err) {
       return c.json({ error: 'Failed to verify ONVIF connection: ' + String(err) }, 400);
     }
   }
 
   try {
-    await c.env.DB.prepare('INSERT INTO cameras (name, display_name, rtsp_url, capabilities) VALUES (?, ?, ?, ?)').bind(name, display_name || null, rtsp_url, capabilities).run();
+    await c.env.DB.prepare('INSERT INTO cameras (name, display_name, rtsp_url, sub_stream_url, capabilities, last_seen) VALUES (?, ?, ?, ?, ?, ?)').bind(name, display_name || null, rtsp_url, subStreamUrl, capabilities, new Date().toISOString()).run();
     return c.json({ success: true, message: 'Camera added' });
   } catch (err) {
     return c.json({ error: String(err) }, 500);
@@ -449,6 +470,136 @@ app.post('/api/camera/alarms', requireAuth, async (c) => {
   const body = await c.req.json();
   console.log('Alarms Stub:', body);
   return c.json({ success: true, message: 'Alarm config applied (stub)' });
+});
+
+// -----------------------------------------------------------------------------
+// Watchdog & Extra Endpoints
+// -----------------------------------------------------------------------------
+app.put('/api/admin/cameras/:id/status', async (c) => {
+  const id = c.req.param('id');
+  const { last_seen } = await c.req.json();
+  if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+  try {
+    await c.env.DB.prepare('UPDATE cameras SET last_seen = ? WHERE id = ?').bind(last_seen, id).run();
+    return c.json({ success: true });
+  } catch(err) {
+    return c.json({ error: String(err) }, 500);
+  }
+});
+
+app.put('/api/admin/cameras/:id/daynight', requireAuth, async (c) => {
+  const id = c.req.param('id');
+  const { day_mode_start, night_mode_start } = await c.req.json();
+  if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+  try {
+    await c.env.DB.prepare('UPDATE cameras SET day_mode_start = ?, night_mode_start = ? WHERE id = ?').bind(day_mode_start || null, night_mode_start || null, id).run();
+    return c.json({ success: true });
+  } catch(err) {
+    return c.json({ error: String(err) }, 500);
+  }
+});
+
+app.get('/api/admin/patrols', requireAuth, async (c) => {
+  if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+  const { results } = await c.env.DB.prepare('SELECT * FROM camera_patrols').all();
+  return c.json({ success: true, patrols: results || [] });
+});
+
+app.post('/api/admin/patrols', requireAuth, async (c) => {
+  const { camera_id, schedule_start, schedule_end, presets_json } = await c.req.json();
+  if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+  try {
+    await c.env.DB.prepare('INSERT INTO camera_patrols (camera_id, schedule_start, schedule_end, presets_json) VALUES (?, ?, ?, ?)').bind(camera_id, schedule_start || null, schedule_end || null, presets_json).run();
+    return c.json({ success: true });
+  } catch(err) {
+    return c.json({ error: String(err) }, 500);
+  }
+});
+
+app.put('/api/admin/patrols/:id', requireAuth, async (c) => {
+  const id = c.req.param('id');
+  const { schedule_start, schedule_end, presets_json } = await c.req.json();
+  if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+  try {
+    await c.env.DB.prepare('UPDATE camera_patrols SET schedule_start=?, schedule_end=?, presets_json=? WHERE id=?').bind(schedule_start || null, schedule_end || null, presets_json, id).run();
+    return c.json({ success: true });
+  } catch(err) {
+    return c.json({ error: String(err) }, 500);
+  }
+});
+
+app.delete('/api/admin/patrols/:id', requireAuth, async (c) => {
+  const id = c.req.param('id');
+  if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+  try {
+    await c.env.DB.prepare('DELETE FROM camera_patrols WHERE id=?').bind(id).run();
+    return c.json({ success: true });
+  } catch(err) {
+    return c.json({ error: String(err) }, 500);
+  }
+});
+
+async function getOnvifDevice(c, cameraId) {
+  const cam = await c.env.DB.prepare('SELECT rtsp_url FROM cameras WHERE id = ?').bind(cameraId).first();
+  if (!cam || !cam.rtsp_url) throw new Error('Camera not found');
+  if (!cam.rtsp_url.startsWith('onvif://')) throw new Error('Not ONVIF');
+  const urlRegex = /:\/\/(.+):(.+)@([^:]+)/;
+  const match = cam.rtsp_url.match(urlRegex);
+  if (!match) throw new Error('Invalid URL');
+  const [, username, password, hostname] = match;
+  const device = new onvif.OnvifDevice({
+    xaddr: `http://${hostname}:80/onvif/device_service`,
+    user: username,
+    pass: password
+  });
+  await device.init();
+  return device;
+}
+
+app.get('/api/camera/:id/presets', requireAuth, async (c) => {
+  const id = c.req.param('id');
+  if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+  try {
+    const device = await getOnvifDevice(c, id);
+    if (!device.services.ptz) return c.json({ error: 'No PTZ service' }, 400);
+    const res = await device.services.ptz.getPresets({ ProfileToken: device.getCurrentProfile().token });
+    const presets = Array.isArray(res.data.Preset) ? res.data.Preset : (res.data.Preset ? [res.data.Preset] : []);
+    return c.json({ success: true, presets });
+  } catch(err) {
+    return c.json({ error: String(err) }, 500);
+  }
+});
+
+app.post('/api/camera/:id/presets', requireAuth, async (c) => {
+  const id = c.req.param('id');
+  const { presetName, presetToken, action } = await c.req.json(); // action: set or goto
+  if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+  try {
+    const device = await getOnvifDevice(c, id);
+    if (!device.services.ptz) return c.json({ error: 'No PTZ service' }, 400);
+    if (action === 'set') {
+      await device.services.ptz.setPreset({ ProfileToken: device.getCurrentProfile().token, PresetName: presetName });
+    } else if (action === 'goto') {
+      await device.services.ptz.gotoPreset({ ProfileToken: device.getCurrentProfile().token, PresetToken: presetToken });
+    }
+    return c.json({ success: true });
+  } catch(err) {
+    return c.json({ error: String(err) }, 500);
+  }
+});
+
+app.get('/api/camera/:id/osd', requireAuth, async (c) => {
+  const id = c.req.param('id');
+  if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+  try {
+    const device = await getOnvifDevice(c, id);
+    if (!device.services.media.getOSDs) return c.json({ error: 'No OSD service' }, 400);
+    const res = await device.services.media.getOSDs({ ConfigurationToken: device.getCurrentProfile().videoSourceConfiguration.token });
+    const osds = Array.isArray(res.data.OSD) ? res.data.OSD : (res.data.OSD ? [res.data.OSD] : []);
+    return c.json({ success: true, osds });
+  } catch(err) {
+    return c.json({ error: String(err) }, 500);
+  }
 });
 
 export default app;

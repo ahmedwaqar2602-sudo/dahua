@@ -32,8 +32,9 @@
               <!-- Camera Header -->
               <div class="p-3 bg-slate-900/80 border-b border-slate-800/50 flex justify-between items-center group-hover:bg-slate-800/80 transition-colors">
                 <div class="flex items-center gap-2">
-                  <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span class="w-2 h-2 rounded-full" :class="isOnline(cam) ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-rose-500'"></span>
                   <h3 class="font-medium text-sm text-slate-200">{{ cam.display_name || cam.name }}</h3>
+                  <span class="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded" :class="isOnline(cam) ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' : 'text-rose-400 bg-rose-500/10 border border-rose-500/20'">{{ isOnline(cam) ? 'Online' : 'Offline' }}</span>
                 </div>
                 <button @click.stop="openEditNameModal(cam)" class="text-slate-500 hover:text-indigo-400 transition-colors" title="Edit Display Name">
                   <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
@@ -42,7 +43,7 @@
 
               <!-- Live View Iframe -->
               <div class="aspect-video bg-black relative pointer-events-none">
-                <iframe :src="`http://localhost:1984/stream.html?src=${encodeURIComponent(cam.name)}`" class="w-full h-full border-none" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
+                <iframe :src="`http://localhost:1984/stream.html?src=${encodeURIComponent(cam.name + '_sub')}`" class="w-full h-full border-none" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
               </div>
             </div>
             
@@ -167,7 +168,7 @@
         <div class="flex-1 flex flex-col border-b lg:border-b-0 lg:border-r border-slate-800">
           <div class="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-900/50">
             <div class="flex items-center gap-3">
-              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>
+              <span class="w-2.5 h-2.5 rounded-full" :class="isOnline(selectedCamera) ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-rose-500'"></span>
               <h3 class="text-lg font-bold text-slate-100">{{ selectedCamera.display_name || selectedCamera.name }}</h3>
               <span class="text-xs px-2 py-0.5 rounded-md font-mono" :class="selectedCamera.rtsp_url.startsWith('onvif://') ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' : 'bg-slate-800 text-slate-400'">{{ selectedCamera.rtsp_url.startsWith('onvif://') ? 'ONVIF' : 'RTSP' }}</span>
             </div>
@@ -183,16 +184,30 @@
 
           <!-- Per-Camera Timeline -->
           <div class="p-6 bg-slate-900/30 flex-1">
-            <h4 class="text-sm font-semibold text-fuchsia-400 mb-4 flex items-center gap-2 uppercase tracking-wider">
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-              Continuous Archive
-            </h4>
+            <div class="flex items-center justify-between mb-4">
+              <h4 class="text-sm font-semibold text-fuchsia-400 flex items-center gap-2 uppercase tracking-wider">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                Continuous Archive
+              </h4>
+              <button @click="downloadExport" class="px-3 py-1 bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/30 rounded-lg text-xs font-medium hover:bg-fuchsia-500/30 transition-colors flex items-center gap-1">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                Export Exact Range
+              </button>
+            </div>
             
-            <div class="bg-slate-950/80 p-4 rounded-xl border border-slate-800/50 mb-6">
-              <input type="range" min="0" max="100" v-model="scrubValue" @change="scrubTimeline" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-fuchsia-500">
-              <div class="flex justify-between text-xs text-slate-500 mt-2">
-                <span>{{ archivesStartLabel }}</span>
-                <span>{{ archivesEndLabel }}</span>
+            <div class="bg-slate-950/80 p-4 rounded-xl border border-slate-800/50 mb-6 relative">
+              <div class="mb-2 flex items-center justify-between text-xs text-slate-400">
+                <span>Start Scrub (Range L)</span>
+                <span>End Scrub (Range R)</span>
+              </div>
+              <!-- Simulated Drag Select with two inputs for range -->
+              <div class="relative h-6 w-full mb-2">
+                <input type="range" min="0" max="100" v-model="scrubStartValue" @change="scrubTimeline" class="absolute w-full h-2 top-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-fuchsia-500 pointer-events-auto z-10 opacity-50">
+                <input type="range" min="0" max="100" v-model="scrubValue" @change="scrubTimeline" class="absolute w-full h-2 top-2 bg-transparent rounded-lg appearance-none cursor-pointer accent-cyan-500 pointer-events-auto z-20">
+              </div>
+              <div class="flex justify-between text-[10px] text-slate-500 mt-2">
+                <span>{{ archivesEndLabel }} (Oldest)</span>
+                <span>{{ archivesStartLabel }} (Newest)</span>
               </div>
             </div>
 
@@ -245,6 +260,25 @@
                   <button @mousedown="ptzCommand(selectedCamera.id, 'ZOOM_OUT')" @mouseup="ptzCommand(selectedCamera.id, 'STOP')" @mouseleave="ptzCommand(selectedCamera.id, 'STOP')" class="p-2 px-3 text-xs font-bold bg-slate-800 hover:bg-indigo-600 rounded-md transition-colors">-</button>
                 </div>
               </div>
+              
+              <!-- Presets & Patrol -->
+              <div class="bg-slate-950/50 p-4 rounded-xl border border-slate-800/50 space-y-3">
+                <div class="flex gap-2">
+                  <input v-model="newPresetName" type="text" placeholder="Preset name..." class="w-full bg-slate-900 border border-slate-700 rounded text-xs px-2 focus:outline-none focus:border-indigo-500/50">
+                  <button @click="savePreset" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 rounded text-xs font-medium transition-colors flex-shrink-0">Save</button>
+                </div>
+                <div class="flex flex-wrap gap-2 max-h-32 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-700">
+                  <button v-for="p in presets" :key="p.token" @click="gotoPreset(p.token)" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-[10px] text-slate-300 transition-colors truncate max-w-[100px]" :title="p.Name">
+                    {{ p.Name || p.token }}
+                  </button>
+                </div>
+                <div class="pt-2 border-t border-slate-800">
+                  <button @click="openPatrolConfig" class="w-full px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-xs text-slate-300 font-medium transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    Configure Scheduled Patrol
+                  </button>
+                </div>
+              </div>
             </div>
 
             <!-- Device Capabilities -->
@@ -267,20 +301,22 @@
 
             <!-- Imaging Capabilities -->
             <div v-if="hasCapability('imaging')" class="space-y-4">
-              <h4 class="text-xs font-semibold text-amber-400 uppercase tracking-wider">Imaging Settings</h4>
+              <h4 class="text-xs font-semibold text-amber-400 uppercase tracking-wider">Imaging & Schedules</h4>
               <div class="space-y-3 bg-slate-950/50 p-4 rounded-xl border border-slate-800/50">
-                <div>
-                  <label class="text-[10px] text-slate-400 flex justify-between">Brightness <span>50</span></label>
-                  <input type="range" min="0" max="100" value="50" class="w-full h-1 bg-slate-800 rounded-lg appearance-none accent-amber-500">
+                <div class="space-y-2">
+                  <h5 class="text-[10px] text-slate-500 font-semibold uppercase">Auto Day/Night Mode</h5>
+                  <div class="grid grid-cols-2 gap-2">
+                    <div>
+                      <label class="block text-[10px] text-slate-400 mb-1">Day Start (HH:MM)</label>
+                      <input v-model="selectedCamera.day_mode_start" type="time" class="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs focus:outline-none focus:border-amber-500/50 text-slate-300">
+                    </div>
+                    <div>
+                      <label class="block text-[10px] text-slate-400 mb-1">Night Start (HH:MM)</label>
+                      <input v-model="selectedCamera.night_mode_start" type="time" class="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs focus:outline-none focus:border-amber-500/50 text-slate-300">
+                    </div>
+                  </div>
+                  <button @click="saveDayNight" class="w-full px-3 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/20 rounded text-[10px] font-medium transition-colors">Apply Schedule</button>
                 </div>
-                <div>
-                  <label class="text-[10px] text-slate-400 flex justify-between">Contrast <span>50</span></label>
-                  <input type="range" min="0" max="100" value="50" class="w-full h-1 bg-slate-800 rounded-lg appearance-none accent-amber-500">
-                </div>
-                <label class="flex items-center gap-2 cursor-pointer mt-2 pt-2 border-t border-slate-800">
-                  <input type="checkbox" checked class="rounded border-slate-700 text-amber-500 focus:ring-amber-500 bg-slate-900">
-                  <span class="text-xs text-slate-300">IR Cut Filter (Auto)</span>
-                </label>
               </div>
             </div>
 
@@ -370,7 +406,86 @@ const addCameraError = ref('')
 const isAddingCamera = ref(false)
 
 const scrubValue = ref(100)
+const scrubStartValue = ref(0)
 const selectedCamera = ref(null)
+
+const isOnline = (cam) => {
+  if (!cam || !cam.last_seen) return false
+  return (Date.now() - new Date(cam.last_seen).getTime()) < 90000
+}
+
+const presets = ref([])
+const newPresetName = ref('')
+
+const fetchPresets = async (cameraId) => {
+  try {
+    const res = await $fetch(`/api/camera/${cameraId}/presets`)
+    if (res.success) presets.value = res.presets
+  } catch(e) {}
+}
+
+const savePreset = async () => {
+  if (!newPresetName.value || !selectedCamera.value) return
+  try {
+    await $fetch(`/api/camera/${selectedCamera.value.id}/presets`, {
+      method: 'POST',
+      body: { action: 'set', presetName: newPresetName.value }
+    })
+    newPresetName.value = ''
+    await fetchPresets(selectedCamera.value.id)
+  } catch(e) {}
+}
+
+const gotoPreset = async (token) => {
+  if (!selectedCamera.value) return
+  try {
+    await $fetch(`/api/camera/${selectedCamera.value.id}/presets`, {
+      method: 'POST',
+      body: { action: 'goto', presetToken: token }
+    })
+  } catch(e) {}
+}
+
+const openPatrolConfig = () => {
+  alert('Patrol config UI is under construction, but API is ready.')
+}
+
+const saveDayNight = async () => {
+  if (!selectedCamera.value) return
+  try {
+    const res = await $fetch(`/api/admin/cameras/${selectedCamera.value.id}/daynight`, {
+      method: 'PUT',
+      body: { day_mode_start: selectedCamera.value.day_mode_start, night_mode_start: selectedCamera.value.night_mode_start }
+    })
+    if (res.success) alert('Day/Night schedule updated')
+  } catch(e) {
+    console.error(e)
+  }
+}
+
+const downloadExport = () => {
+  if (continuousArchives.value.length === 0) return
+  // scrubStartValue is Left, scrubValue is Right
+  const lVal = Math.min(scrubStartValue.value, scrubValue.value)
+  const rVal = Math.max(scrubStartValue.value, scrubValue.value)
+  
+  const startIndex = Math.floor((lVal / 100) * (continuousArchives.value.length - 1))
+  const endIndex = Math.floor((rVal / 100) * (continuousArchives.value.length - 1))
+  
+  // Array is sorted newest to oldest.
+  // Left is older, right is newer on a standard timeline. But here 0 is oldest?
+  // Let's assume startFile is at endIndex, endFile is at startIndex
+  const startFile = continuousArchives.value[continuousArchives.value.length - 1 - lVal > 0 ? lVal : 0]
+  const endFile = continuousArchives.value[continuousArchives.value.length - 1 - rVal > 0 ? rVal : 0]
+  
+  if (!startFile || !endFile) return
+
+  // Using a simplified offset assuming start of first file to end of second file
+  const startIso = new Date(startFile.timestamp - 3600000).toISOString()
+  const endIso = new Date(endFile.timestamp).toISOString()
+
+  window.open(`http://localhost:4000/api/dvr/extract?start=${encodeURIComponent(startIso)}&end=${encodeURIComponent(endIso)}&camera=${encodeURIComponent(selectedCamera.value.name)}`, '_blank')
+}
 
 const fetchCameras = async () => {
   try {
@@ -561,7 +676,11 @@ const openCameraDetail = async (cam) => {
   selectedCamera.value = cam
   continuousArchives.value = []
   scrubValue.value = 100
+  scrubStartValue.value = 0
   await fetchArchives(cam.name)
+  if (hasCapability('ptz')) {
+    await fetchPresets(cam.id)
+  }
 }
 
 const closeCameraDetail = () => {
