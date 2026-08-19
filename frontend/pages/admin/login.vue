@@ -95,4 +95,3 @@ const handleLogin = async () => {
   }
 }
 </script>
-<script>navigateTo('/admin/dashboard')</script>
