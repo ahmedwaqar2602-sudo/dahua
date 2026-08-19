@@ -1,8 +1,8 @@
 <template>
-  <div class="h-screen w-screen bg-[#111827] text-slate-200 font-sans flex flex-col overflow-hidden selection:bg-cyan-500/30 relative">
+  <div class="h-screen w-screen bg-slate-950 text-slate-200 font-sans flex flex-col overflow-hidden selection:bg-cyan-500/30 relative">
     
     <!-- Top Header -->
-    <header class="h-16 bg-[#161a22] border-b border-[#2d3345] flex items-center justify-between px-6 shrink-0 z-30">
+    <header class="h-16 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-6 shrink-0 z-30">
       <div class="flex items-center gap-4">
         <div class="text-cyan-400">
           <svg class="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
@@ -31,10 +31,10 @@
 
     <div class="flex-1 flex overflow-hidden">
       <!-- Main Content Area -->
-      <main class="flex-1 flex flex-col relative z-10 bg-[#111827]">
+      <main class="flex-1 flex flex-col relative z-10 bg-slate-950">
         
         <!-- Filter Toolbar -->
-        <div class="p-4 bg-[#111827] flex items-center justify-between border-b border-[#2d3345]">
+        <div class="p-4 bg-slate-950 flex items-center justify-between border-b border-slate-800">
           <div class="flex items-center gap-3">
             <div class="flex items-center gap-1.5 font-semibold text-sm">
               <svg class="w-4 h-4 text-cyan-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 22h20L12 2zm0 4.5l6.5 13h-13L12 6.5z"/></svg>
@@ -46,17 +46,17 @@
             <div class="flex items-center gap-2">
               <span class="text-[10px] text-slate-400 font-medium">Camera names</span>
               <div @click="showCameraNames = !showCameraNames" class="w-3.5 h-3.5 rounded-sm border border-cyan-500 flex items-center justify-center cursor-pointer transition-colors" :class="showCameraNames ? 'bg-cyan-500' : 'bg-transparent'">
-                <svg v-if="showCameraNames" class="w-2.5 h-2.5 text-[#111827]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                <svg v-if="showCameraNames" class="w-2.5 h-2.5 text-slate-950" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
               </div>
             </div>
           </div>
         </div>
 
         <!-- Camera Grid -->
-        <div class="flex-1 p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-[#3b4255] scrollbar-track-transparent pb-32">
+        <div class="flex-1 p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent pb-32">
           
           <div v-if="!isLoading && streams.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-4">
-            <div v-for="cam in streams" :key="cam.id" class="bg-[#1c212b] rounded-md overflow-hidden shadow-lg border border-[#2d3345] relative aspect-video">
+            <div v-for="cam in streams" :key="cam.id" class="bg-slate-900/60 backdrop-blur-md rounded-md overflow-hidden shadow-lg border border-slate-800 relative aspect-video">
               
               <!-- DVR Scrubber Overlay View -->
               <div v-if="isScrubbing" class="absolute inset-0 z-20 bg-black">
@@ -87,7 +87,7 @@
             </div>
           </div>
           
-          <div v-if="!isLoading && streams.length === 0 && !errorMsg" class="flex flex-col items-center justify-center h-64 border border-dashed border-[#3b4255] rounded-xl text-slate-500">
+          <div v-if="!isLoading && streams.length === 0 && !errorMsg" class="flex flex-col items-center justify-center h-64 border border-dashed border-slate-700 rounded-xl text-slate-500">
             <svg class="w-12 h-12 mb-3 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
             <span class="text-sm font-medium">No cameras authorized or available.</span>
           </div>
@@ -95,17 +95,17 @@
         </div>
         
         <!-- DVR Playback Timeline -->
-        <div v-if="!errorMsg && !isLoading" class="absolute bottom-4 left-4 right-4 bg-[#1c212b]/95 backdrop-blur-xl border border-[#3b4255] rounded-xl shadow-2xl p-4 flex flex-col z-40">
+        <div v-if="!errorMsg && !isLoading" class="absolute bottom-4 left-4 right-4 bg-slate-900/60 backdrop-blur-md/95 backdrop-blur-xl border border-slate-700 rounded-xl shadow-2xl p-4 flex flex-col z-40">
           <div class="flex items-center justify-between mb-2">
             <div class="flex items-center gap-3">
               <span class="text-sm font-bold text-slate-200">24/7 NVR Playback</span>
-              <button class="bg-[#2d3345] px-2 py-1 rounded text-[10px] text-cyan-400 border border-cyan-500/30">Mocked Interface</button>
+              <button class="bg-slate-800 px-2 py-1 rounded text-[10px] text-cyan-400 border border-cyan-500/30">Mocked Interface</button>
             </div>
             <div class="text-xs text-rose-400 flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span> Recording Active</div>
           </div>
           
           <!-- Interactive Timeline Scrubber -->
-          <div class="relative h-16 w-full flex items-center justify-between text-[10px] text-slate-500 font-medium px-2 border-t border-[#2d3345] pt-6 mt-2 cursor-pointer group" @mousedown="startScrub" @mousemove="onScrub" @mouseup="endScrub" @mouseleave="endScrub">
+          <div class="relative h-16 w-full flex items-center justify-between text-[10px] text-slate-500 font-medium px-2 border-t border-slate-800 pt-6 mt-2 cursor-pointer group" @mousedown="startScrub" @mousemove="onScrub" @mouseup="endScrub" @mouseleave="endScrub">
             <!-- Time Markers -->
             <div class="flex flex-col items-center pointer-events-none"><span class="mb-1">00:00</span><div class="h-1.5 w-0.5 bg-slate-700"></div></div>
             <div class="flex flex-col items-center pointer-events-none"><span class="mb-1">04:00</span><div class="h-1.5 w-0.5 bg-slate-700"></div></div>
@@ -122,7 +122,7 @@
             <div class="absolute top-10 right-[12%] w-[25%] h-1.5 bg-cyan-500 rounded-full pointer-events-none"></div>
             
             <!-- Current Time Scrubber Pill -->
-            <div class="absolute top-2 -translate-x-1/2 -translate-y-full bg-white text-[#111827] px-4 py-1.5 rounded shadow-[0_4px_15px_rgba(0,0,0,0.3)] font-bold text-xs whitespace-nowrap transition-transform duration-75 pointer-events-none" :style="{ left: scrubPercentage + '%' }">
+            <div class="absolute top-2 -translate-x-1/2 -translate-y-full bg-white text-slate-950 px-4 py-1.5 rounded shadow-[0_4px_15px_rgba(0,0,0,0.3)] font-bold text-xs whitespace-nowrap transition-transform duration-75 pointer-events-none" :style="{ left: scrubPercentage + '%' }">
               {{ simulatedPlaybackTime }}
               <div class="absolute bottom-[-6px] left-1/2 -translate-x-1/2 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-white"></div>
               <!-- Vertical Scrubber Line -->

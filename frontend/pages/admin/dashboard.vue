@@ -1,8 +1,8 @@
 <template>
-  <div class="h-screen w-screen bg-[#111827] text-slate-200 font-sans flex overflow-hidden selection:bg-cyan-500/30">
+  <div class="h-screen w-screen bg-slate-950 text-slate-200 font-sans flex overflow-hidden selection:bg-cyan-500/30">
     
     <!-- 1. Primary Navigation Sidebar -->
-    <nav class="w-16 lg:w-20 bg-[#1e2330] flex flex-col items-center py-6 border-r border-[#2d3345] z-30 flex-shrink-0">
+    <nav class="w-16 lg:w-20 bg-[#1e2330] flex flex-col items-center py-6 border-r border-slate-800 z-30 flex-shrink-0">
       <!-- Logo -->
       <div class="mb-10 text-cyan-400">
         <svg class="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
@@ -43,8 +43,8 @@
     </nav>
 
     <!-- 2. Secondary Sidebar (Cameras Tree) -->
-    <aside class="w-72 bg-[#212735] flex flex-col border-r border-[#2d3345] z-20 flex-shrink-0 shadow-[10px_0_20px_rgba(0,0,0,0.15)]">
-      <div class="p-5 flex items-center justify-between border-b border-[#2d3345]">
+    <aside class="w-72 bg-[#212735] flex flex-col border-r border-slate-800 z-20 flex-shrink-0 shadow-[10px_0_20px_rgba(0,0,0,0.15)]">
+      <div class="p-5 flex items-center justify-between border-b border-slate-800">
         <h2 class="text-lg font-bold text-slate-100 flex items-center gap-2">
           Cameras <span class="text-slate-400 text-xs font-normal">({{ cameras.length }})</span>
         </h2>
@@ -53,18 +53,18 @@
         </button>
       </div>
       
-      <div class="p-4 border-b border-[#2d3345]">
+      <div class="p-4 border-b border-slate-800">
         <div class="relative">
           <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-          <input type="text" v-model="cameraSearch" placeholder="Search" class="w-full bg-[#161a22] border border-[#3b4255] rounded-full pl-9 pr-4 py-1.5 text-xs focus:outline-none focus:border-cyan-500 transition-colors text-slate-200 placeholder-slate-500">
+          <input type="text" v-model="cameraSearch" placeholder="Search" class="w-full bg-slate-900 border border-slate-700 rounded-full pl-9 pr-4 py-1.5 text-xs focus:outline-none focus:border-cyan-500 transition-colors text-slate-200 placeholder-slate-500">
         </div>
       </div>
 
-      <div class="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-[#3b4255] scrollbar-track-transparent">
+      <div class="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
         <div class="flex items-center justify-between mb-4">
           <label @click.prevent="toggleAllCameras" class="flex items-center gap-2 cursor-pointer group">
             <div class="w-3.5 h-3.5 rounded-sm border border-cyan-500 flex items-center justify-center" :class="selectedCameraIds.length === cameras.length && cameras.length > 0 ? 'bg-cyan-500' : 'bg-transparent'">
-              <svg v-if="selectedCameraIds.length === cameras.length && cameras.length > 0" class="w-2.5 h-2.5 text-[#111827]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+              <svg v-if="selectedCameraIds.length === cameras.length && cameras.length > 0" class="w-2.5 h-2.5 text-slate-950" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
             </div>
             <span class="text-xs font-semibold text-slate-200 group-hover:text-white transition-colors">Select all</span>
           </label>
@@ -83,10 +83,10 @@
             <span class="text-xs font-semibold text-slate-200 group-hover:text-white transition-colors">Network Cameras</span>
           </div>
           <div class="pl-5 space-y-2">
-            <div v-for="cam in filteredSidebarCameras" :key="cam.id" @click="toggleCameraSelection(cam.id)" class="flex items-center justify-between group cursor-pointer hover:bg-[#2d3345]/50 -mx-2 px-2 py-1 rounded">
+            <div v-for="cam in filteredSidebarCameras" :key="cam.id" @click="toggleCameraSelection(cam.id)" class="flex items-center justify-between group cursor-pointer hover:bg-slate-800/50 -mx-2 px-2 py-1 rounded">
               <div class="flex items-center gap-2">
                 <div class="w-3.5 h-3.5 rounded-sm border border-cyan-500 flex items-center justify-center transition-colors" :class="selectedCameraIds.includes(cam.id) ? 'bg-cyan-500' : 'bg-transparent'">
-                  <svg v-if="selectedCameraIds.includes(cam.id)" class="w-2.5 h-2.5 text-[#111827]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                  <svg v-if="selectedCameraIds.includes(cam.id)" class="w-2.5 h-2.5 text-slate-950" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
                 </div>
                 <span class="text-xs text-slate-300 group-hover:text-white transition-colors truncate max-w-[120px]" :title="cam.display_name || cam.name">
                   {{ cam.display_name || cam.name }}
@@ -104,48 +104,68 @@
     </aside>
 
     <!-- 3. Main Content Area & Timeline -->
-    <main class="flex-1 flex flex-col relative z-10 bg-[#111827]">
+    <main class="flex-1 flex flex-col relative z-10 bg-slate-950">
       
       <!-- Top Navigation Tabs -->
-      <div class="h-14 border-b border-[#2d3345] bg-[#161a22] flex items-end px-4 gap-8">
+      <div class="h-14 border-b border-slate-800 bg-slate-900 flex items-end px-4 gap-8">
         <button @click="activeTab = 'grid'" class="px-6 py-3 text-sm transition-colors relative" :class="activeTab === 'grid' ? 'font-semibold text-cyan-400' : 'font-medium text-slate-400 hover:text-slate-200'">
           Grid View
           <div v-if="activeTab === 'grid'" class="absolute bottom-0 left-0 w-full h-0.5 bg-cyan-400 shadow-[0_0_8px_#22d3ee]">
         <div class="ml-auto pb-2 flex gap-4">
           
           <div class="relative">
-            <button @click="showNotifications = !showNotifications" class="flex items-center gap-2 bg-[#1c212b] hover:bg-[#252b38] text-slate-300 px-4 py-1.5 rounded-lg border border-[#3b4255] transition-colors text-xs font-bold relative">
+            <button @click="showNotifications = !showNotifications" class="flex items-center gap-2 bg-slate-900/60 backdrop-blur-md hover:bg-slate-800 text-slate-300 px-4 py-1.5 rounded-lg border border-slate-700 transition-colors text-xs font-bold relative">
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
               Notifications
               <span v-if="notifications.length > 0" class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full animate-pulse border border-[#111827]"></span>
             </button>
 
-            <!-- Notifications Dropdown -->
+            
+            <!-- Notifications Dropdown (High-Density Audit Table) -->
             <transition enter-active-class="transition ease-out duration-200" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100" leave-active-class="transition ease-in duration-150" leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95">
-              <div v-if="showNotifications" class="absolute right-0 mt-2 w-80 bg-[#161a22] border border-[#3b4255] rounded-xl shadow-2xl z-[60] overflow-hidden">
-                <div class="p-3 border-b border-[#2d3345] flex items-center justify-between bg-[#1c212b]">
-                  <h4 class="text-xs font-bold text-slate-200">Access Audit Log</h4>
-                  <span class="text-[10px] text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded">{{ notifications.length }} Events</span>
+              <div v-if="showNotifications" class="absolute right-0 mt-2 w-[450px] bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-[60] overflow-hidden">
+                <div class="p-3 border-b border-slate-700 flex items-center justify-between bg-slate-800">
+                  <h4 class="text-xs font-bold text-white">User Sessions & Audit Logs</h4>
+                  <span class="text-[10px] text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded">{{ notifications.length }} Sessions</span>
                 </div>
-                <div class="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-[#3b4255]">
-                  <div v-for="notif in notifications" :key="notif.id" class="p-3 border-b border-[#2d3345] hover:bg-[#1c212b] transition-colors flex gap-3 items-start">
-                    <div class="w-6 h-6 rounded-full flex items-center justify-center mt-0.5 shrink-0" :class="notif.action === 'ENTER' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'">
-                      <svg v-if="notif.action === 'ENTER'" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path></svg>
-                      <svg v-else class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-                    </div>
-                    <div>
-                      <p class="text-xs text-slate-300 leading-tight">
-                        <span class="font-bold text-slate-100">{{ notif.user_label }}</span> {{ notif.action === 'ENTER' ? 'started viewing' : 'stopped viewing' }} their shared link.
-                      </p>
-                      <span class="text-[9px] text-slate-500 mt-1 block">{{ new Date(notif.timestamp).toLocaleString() }}</span>
-                    </div>
-                  </div>
-                  <div v-if="notifications.length === 0" class="p-6 text-center text-xs text-slate-500">
-                    No access events recorded yet.
-                  </div>
+                <div class="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700">
+                  <table class="w-full text-left text-[10px] text-slate-300">
+                    <thead class="bg-slate-900/50 text-slate-500 uppercase">
+                      <tr>
+                        <th class="px-3 py-2 font-medium">Status</th>
+                        <th class="px-3 py-2 font-medium">User</th>
+                        <th class="px-3 py-2 font-medium">Last Used (12H)</th>
+                        <th class="px-3 py-2 font-medium">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/50">
+                      <tr v-for="notif in notifications" :key="notif.id" class="hover:bg-slate-800/50 transition-colors">
+                        <td class="px-3 py-2">
+                          <div class="flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 rounded-full" :class="notif.action === 'ENTER' ? 'bg-emerald-500 animate-pulse shadow-[0_0_5px_rgba(16,185,129,0.5)]' : 'bg-slate-500'"></span>
+                            {{ notif.action === 'ENTER' ? 'Online' : 'Offline' }}
+                          </div>
+                        </td>
+                        <td class="px-3 py-2 font-bold text-slate-100">{{ notif.user_label }}</td>
+                        <td class="px-3 py-2">
+                          {{ new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(notif.timestamp)) }}
+                        </td>
+                        <td class="px-3 py-2">
+                          <button @click="extractVideo(notif)" class="text-indigo-400 hover:text-indigo-300 flex items-center gap-1 font-semibold bg-indigo-500/10 px-2 py-0.5 rounded">
+                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                            Extract Video
+                          </button>
+                        </td>
+                      </tr>
+                      <tr v-if="notifications.length === 0">
+                        <td colspan="4" class="px-3 py-6 text-center text-slate-500">No sessions recorded yet.</td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </transition>
+
           </div>
 
           <button @click="openShareModal" class="flex items-center gap-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 px-4 py-1.5 rounded-lg border border-indigo-500/20 transition-colors text-xs font-bold">
@@ -167,26 +187,26 @@
       </div>
 
       <!-- Filters & Toolbar -->
-      <div class="p-4 bg-[#111827] flex items-center justify-between border-b border-[#2d3345]">
+      <div class="p-4 bg-slate-950 flex items-center justify-between border-b border-slate-800">
         <div class="flex items-center gap-3">
-          <button class="flex items-center gap-1.5 px-3 py-1.5 bg-[#1c212b] border border-[#3b4255] rounded-full text-xs text-slate-300 hover:bg-[#252b38] transition-colors">
+          <button class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900/60 backdrop-blur-md border border-slate-700 rounded-full text-xs text-slate-300 hover:bg-slate-800 transition-colors">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
             Owner <svg class="w-3 h-3 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
           </button>
-          <button class="flex items-center gap-1.5 px-3 py-1.5 bg-[#1c212b] border border-[#3b4255] rounded-full text-xs text-slate-300 hover:bg-[#252b38] transition-colors">
+          <button class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900/60 backdrop-blur-md border border-slate-700 rounded-full text-xs text-slate-300 hover:bg-slate-800 transition-colors">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
             Status <svg class="w-3 h-3 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
           </button>
-          <button class="flex items-center gap-1.5 px-3 py-1.5 bg-[#1c212b] border border-[#3b4255] rounded-full text-xs text-slate-300 hover:bg-[#252b38] transition-colors">
+          <button class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900/60 backdrop-blur-md border border-slate-700 rounded-full text-xs text-slate-300 hover:bg-slate-800 transition-colors">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
             Tags <svg class="w-3 h-3 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
           </button>
-          <button class="flex items-center gap-1.5 px-3 py-1.5 bg-[#1c212b] border border-[#3b4255] rounded-full text-xs text-slate-300 hover:bg-[#252b38] transition-colors">
+          <button class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900/60 backdrop-blur-md border border-slate-700 rounded-full text-xs text-slate-300 hover:bg-slate-800 transition-colors">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
             Analytics <svg class="w-3 h-3 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
           </button>
           
-          <button class="ml-2 w-6 h-6 rounded-full border border-[#3b4255] flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+          <button class="ml-2 w-6 h-6 rounded-full border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
             <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
           </button>
           
@@ -197,15 +217,15 @@
         </div>
 
         <div class="flex items-center gap-6">
-          <div class="flex bg-[#1c212b] rounded-lg p-0.5 border border-[#3b4255]">
-            <button @click="mediaMode = 'stills'" class="px-4 py-1.5 text-[10px] rounded-md transition-all" :class="mediaMode === 'stills' ? 'font-semibold bg-white text-[#111827] shadow' : 'font-medium text-slate-400 hover:text-slate-200'">Live Stills</button>
-            <button @click="mediaMode = 'video'" class="px-4 py-1.5 text-[10px] rounded-md transition-all" :class="mediaMode === 'video' ? 'font-semibold bg-white text-[#111827] shadow' : 'font-medium text-slate-400 hover:text-slate-200'">Live Video</button>
+          <div class="flex bg-slate-900/60 backdrop-blur-md rounded-lg p-0.5 border border-slate-700">
+            <button @click="mediaMode = 'stills'" class="px-4 py-1.5 text-[10px] rounded-md transition-all" :class="mediaMode === 'stills' ? 'font-semibold bg-white text-slate-950 shadow' : 'font-medium text-slate-400 hover:text-slate-200'">Live Stills</button>
+            <button @click="mediaMode = 'video'" class="px-4 py-1.5 text-[10px] rounded-md transition-all" :class="mediaMode === 'video' ? 'font-semibold bg-white text-slate-950 shadow' : 'font-medium text-slate-400 hover:text-slate-200'">Live Video</button>
           </div>
           
           <div class="flex items-center gap-2">
             <span class="text-[10px] text-slate-400 font-medium">Camera names</span>
             <div @click="showCameraNames = !showCameraNames" class="w-3.5 h-3.5 rounded-sm border border-cyan-500 flex items-center justify-center cursor-pointer transition-colors" :class="showCameraNames ? 'bg-cyan-500' : 'bg-transparent'">
-              <svg v-if="showCameraNames" class="w-2.5 h-2.5 text-[#111827]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+              <svg v-if="showCameraNames" class="w-2.5 h-2.5 text-slate-950" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
             </div>
           </div>
           
@@ -216,9 +236,9 @@
       </div>
 
       <!-- Camera Grid Viewport -->
-      <div v-if="activeTab === 'grid'" class="flex-1 p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-[#3b4255] scrollbar-track-transparent pb-32">
+      <div v-if="activeTab === 'grid'" class="flex-1 p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent pb-32">
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-4">
-          <div v-for="cam in visibleGridCameras" :key="cam.id" class="bg-[#1c212b] rounded-md overflow-hidden shadow-lg border border-[#2d3345] group relative aspect-video cursor-pointer" @click="openCameraDetail(cam)">
+          <div v-for="cam in visibleGridCameras" :key="cam.id" class="bg-slate-900/60 backdrop-blur-md rounded-md overflow-hidden shadow-lg border border-slate-800 group relative aspect-video cursor-pointer" @click="openCameraDetail(cam)">
             <!-- Stream Iframe -->
             
             <iframe v-if="mediaMode === 'video'" :src="`http://localhost:1984/stream.html?src=${encodeURIComponent(cam.name + '_sub')}`" class="w-full h-full border-none pointer-events-none" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
@@ -240,7 +260,7 @@
             </div>
           </div>
           
-          <div v-if="visibleGridCameras.length === 0" class="col-span-full h-64 flex flex-col items-center justify-center border border-dashed border-[#3b4255] rounded-xl text-slate-500">
+          <div v-if="visibleGridCameras.length === 0" class="col-span-full h-64 flex flex-col items-center justify-center border border-dashed border-slate-700 rounded-xl text-slate-500">
             <svg class="w-12 h-12 mb-3 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
             <span class="text-sm font-medium">No cameras configured.</span>
             <button @click="showAddCameraModal = true" class="mt-4 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-sm font-medium transition-colors">Add Camera</button>
@@ -259,17 +279,17 @@
 
       <!-- Presentation View Placeholder -->
       <div v-if="activeTab === 'presentation'" class="flex-1 flex items-center justify-center bg-black">
-        <div class="w-full max-w-5xl aspect-video bg-[#1c212b] rounded-xl border border-[#2d3345] flex items-center justify-center shadow-2xl">
+        <div class="w-full max-w-5xl aspect-video bg-slate-900/60 backdrop-blur-md rounded-xl border border-slate-800 flex items-center justify-center shadow-2xl">
            <span class="text-slate-500 font-bold">Presentation Carousel Active</span>
         </div>
       </div>
       
       <!-- 4. Playback Timeline (Fixed Bottom) -->
-      <div class="absolute bottom-4 left-4 right-4 bg-[#1c212b]/95 backdrop-blur-xl border border-[#3b4255] rounded-xl shadow-2xl p-4 flex flex-col z-20">
+      <div class="absolute bottom-4 left-4 right-4 bg-slate-900/60 backdrop-blur-md/95 backdrop-blur-xl border border-slate-700 rounded-xl shadow-2xl p-4 flex flex-col z-20">
         <!-- Playback Controls Row -->
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center gap-3">
-            <button class="flex items-center gap-1 bg-[#2d3345] hover:bg-[#3b4255] px-3 py-1.5 rounded text-xs font-semibold text-slate-300 transition-colors">
+            <button class="flex items-center gap-1 bg-slate-800 hover:bg-[#3b4255] px-3 py-1.5 rounded text-xs font-semibold text-slate-300 transition-colors">
               x1 <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
             </button>
           </div>
@@ -281,7 +301,7 @@
         </div>
         
         <!-- Timeline Track Mockup -->
-        <div class="relative h-12 w-full flex items-center justify-between text-[10px] text-slate-500 font-medium px-2 border-t border-[#2d3345] pt-4">
+        <div class="relative h-12 w-full flex items-center justify-between text-[10px] text-slate-500 font-medium px-2 border-t border-slate-800 pt-4">
           <div class="flex flex-col items-center"><span class="mb-1">00:00</span><div class="h-1.5 w-0.5 bg-slate-700"></div></div>
           <div class="flex flex-col items-center"><span class="mb-1">04:00</span><div class="h-1.5 w-0.5 bg-slate-700"></div></div>
           <div class="flex flex-col items-center"><span class="mb-1">08:00</span><div class="h-1.5 w-0.5 bg-slate-700"></div></div>
@@ -297,7 +317,7 @@
           <div class="absolute top-8 right-[12%] w-[25%] h-1.5 bg-cyan-500 rounded-full"></div>
           
           <!-- Center Time Indicator / Scrubber Pill -->
-          <div class="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-[60%] bg-white text-[#111827] px-4 py-1.5 rounded shadow-[0_4px_15px_rgba(0,0,0,0.3)] font-bold text-xs whitespace-nowrap">
+          <div class="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-[60%] bg-white text-slate-950 px-4 py-1.5 rounded shadow-[0_4px_15px_rgba(0,0,0,0.3)] font-bold text-xs whitespace-nowrap">
             07:19:27 - 07:19:49
             <div class="absolute bottom-[-6px] left-1/2 -translate-x-1/2 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-white"></div>
             <!-- Scrubber Line -->
@@ -331,8 +351,8 @@
     <transition enter-active-class="transition ease-out duration-300" enter-from-class="opacity-0 backdrop-blur-none" enter-to-class="opacity-100 backdrop-blur-md" leave-active-class="transition ease-in duration-200" leave-from-class="opacity-100 backdrop-blur-md" leave-to-class="opacity-0 backdrop-blur-none">
       <div v-if="showShareModal" class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
         <transition enter-active-class="transition ease-out duration-300 transform" enter-from-class="opacity-0 scale-95 translate-y-4" enter-to-class="opacity-100 scale-100 translate-y-0" leave-active-class="transition ease-in duration-200 transform" leave-from-class="opacity-100 scale-100 translate-y-0" leave-to-class="opacity-0 scale-95 translate-y-4">
-          <div v-if="showShareModal" class="bg-[#161a22] border border-[#2d3345] rounded-2xl shadow-2xl w-full max-w-md relative overflow-hidden">
-            <div class="p-6 border-b border-[#2d3345] flex items-center justify-between">
+          <div v-if="showShareModal" class="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-md relative overflow-hidden">
+            <div class="p-6 border-b border-slate-800 flex items-center justify-between">
               <h3 class="text-xl font-bold text-slate-100 flex items-center gap-2">
                 <svg class="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
                 Generate Viewer Link
@@ -347,28 +367,28 @@
 
               <div>
                 <label class="block text-sm font-semibold text-slate-300 mb-1">User Label</label>
-                <input v-model="shareLabel" type="text" placeholder="e.g. Guard Desk 1" class="w-full bg-[#111827] border border-[#3b4255] rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-indigo-500 text-slate-200 placeholder-slate-500">
+                <input v-model="shareLabel" type="text" placeholder="e.g. Guard Desk 1" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-indigo-500 text-slate-200 placeholder-slate-500">
               </div>
 
               <div class="grid grid-cols-2 gap-4">
                 <div>
                   <label class="block text-sm font-semibold text-slate-300 mb-1">Daily Start (Opt)</label>
-                  <input v-model="shareDailyStart" type="time" class="w-full bg-[#111827] border border-[#3b4255] rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-indigo-500 text-slate-200">
+                  <input v-model="shareDailyStart" type="time" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-indigo-500 text-slate-200">
                 </div>
                 <div>
                   <label class="block text-sm font-semibold text-slate-300 mb-1">Daily End (Opt)</label>
-                  <input v-model="shareDailyEnd" type="time" class="w-full bg-[#111827] border border-[#3b4255] rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-indigo-500 text-slate-200">
+                  <input v-model="shareDailyEnd" type="time" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-indigo-500 text-slate-200">
                 </div>
               </div>
 
-              <div v-if="generatedLink" class="mt-4 p-4 bg-[#111827] border border-emerald-500/30 rounded-xl">
+              <div v-if="generatedLink" class="mt-4 p-4 bg-slate-950 border border-emerald-500/30 rounded-xl">
                 <p class="text-xs font-semibold text-emerald-400 mb-2">Secure Link Generated:</p>
                 <code class="text-[10px] text-slate-300 break-all block mb-3">{{ generatedLink }}</code>
                 <button @click="copyLink" class="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-bold transition-colors">Copy Link</button>
               </div>
             </div>
 
-            <div class="p-4 border-t border-[#2d3345] bg-[#1c212b] flex justify-end">
+            <div class="p-4 border-t border-slate-800 bg-slate-900/60 backdrop-blur-md flex justify-end">
                <button @click="generateShareLink" :disabled="isGeneratingLink" class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-lg text-sm font-bold transition-all disabled:opacity-50">Generate Link</button>
             </div>
           </div>
@@ -381,17 +401,17 @@
     <transition enter-active-class="transition ease-out duration-300" enter-from-class="opacity-0 backdrop-blur-none" enter-to-class="opacity-100 backdrop-blur-md" leave-active-class="transition ease-in duration-200" leave-from-class="opacity-100 backdrop-blur-md" leave-to-class="opacity-0 backdrop-blur-none">
       <div v-if="showAddCameraModal" class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
         <transition enter-active-class="transition ease-out duration-300 transform" enter-from-class="opacity-0 scale-95 translate-y-4" enter-to-class="opacity-100 scale-100 translate-y-0" leave-active-class="transition ease-in duration-200 transform" leave-from-class="opacity-100 scale-100 translate-y-0" leave-to-class="opacity-0 scale-95 translate-y-4">
-          <div v-if="showAddCameraModal" class="bg-[#161a22] border border-[#2d3345] rounded-2xl shadow-2xl w-full max-w-xl relative overflow-hidden">
+          <div v-if="showAddCameraModal" class="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-xl relative overflow-hidden">
             
             <form @submit.prevent="addCamera" class="flex flex-col gap-6 relative z-10 p-8">
-              <div class="flex items-center justify-between mb-2 border-b border-[#2d3345] pb-4">
+              <div class="flex items-center justify-between mb-2 border-b border-slate-800 pb-4">
                 <h3 class="text-xl font-bold text-slate-100 flex items-center gap-3">
                   <div class="p-2 bg-cyan-500/10 rounded-lg border border-cyan-500/30">
                     <svg class="w-5 h-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                   </div>
                   Add New Camera
                 </h3>
-                <button type="button" @click="showAddCameraModal = false" class="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-[#2d3345] transition-colors">
+                <button type="button" @click="showAddCameraModal = false" class="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-slate-800 transition-colors">
                   <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
               </div>
@@ -402,13 +422,13 @@
                   <div class="flex gap-4">
                     <label class="flex-1 relative cursor-pointer group">
                       <input type="radio" v-model="newCameraProtocol" value="onvif" class="peer sr-only" name="protocol">
-                      <div class="p-4 rounded-xl border border-[#3b4255] bg-[#1c212b] peer-checked:bg-cyan-500/10 peer-checked:border-cyan-500/50 transition-all text-center">
+                      <div class="p-4 rounded-xl border border-slate-700 bg-slate-900/60 backdrop-blur-md peer-checked:bg-cyan-500/10 peer-checked:border-cyan-500/50 transition-all text-center">
                         <span class="block text-sm font-bold text-slate-400 peer-checked:text-cyan-400 group-hover:text-slate-200">ONVIF URL</span>
                       </div>
                     </label>
                     <label class="flex-1 relative cursor-pointer group">
                       <input type="radio" v-model="newCameraProtocol" value="rtsp" class="peer sr-only" name="protocol">
-                      <div class="p-4 rounded-xl border border-[#3b4255] bg-[#1c212b] peer-checked:bg-cyan-500/10 peer-checked:border-cyan-500/50 transition-all text-center">
+                      <div class="p-4 rounded-xl border border-slate-700 bg-slate-900/60 backdrop-blur-md peer-checked:bg-cyan-500/10 peer-checked:border-cyan-500/50 transition-all text-center">
                         <span class="block text-sm font-bold text-slate-400 peer-checked:text-cyan-400 group-hover:text-slate-200">RTSP URL</span>
                       </div>
                     </label>
@@ -417,12 +437,12 @@
 
                 <div>
                   <label class="block text-sm font-semibold text-slate-300 mb-2">Camera Name (No Spaces)</label>
-                  <input v-model="newCameraName" type="text" placeholder="e.g. lobby_cam" required class="w-full bg-[#111827] border border-[#3b4255] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500 transition-all text-slate-200 placeholder-slate-500">
+                  <input v-model="newCameraName" type="text" placeholder="e.g. lobby_cam" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500 transition-all text-slate-200 placeholder-slate-500">
                 </div>
 
                 <div>
                   <label class="block text-sm font-semibold text-slate-300 mb-2">Stream Link (ONVIF or RTSP)</label>
-                  <input v-model="newCameraUrl" type="text" :placeholder="newCameraProtocol === 'onvif' ? 'onvif://user:pass@ip:port' : 'rtsp://user:pass@ip:port/path'" required class="w-full bg-[#111827] border border-[#3b4255] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500 transition-all placeholder-slate-500 font-mono text-xs text-slate-200">
+                  <input v-model="newCameraUrl" type="text" :placeholder="newCameraProtocol === 'onvif' ? 'onvif://user:pass@ip:port' : 'rtsp://user:pass@ip:port/path'" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500 transition-all placeholder-slate-500 font-mono text-xs text-slate-200">
                 </div>
               </div>
 
@@ -503,6 +523,20 @@ const openShareModal = () => {
   shareDailyEnd.value = ''
   generatedLink.value = ''
   showShareModal.value = true
+}
+
+
+const triggerPtz = async (id, cmd, speed) => {
+  try {
+    await $fetch('/api/camera/ptz', {
+      method: 'POST',
+      body: { cameraId: id, command: cmd, speed: speed }
+    });
+    // Fire STOP after 500ms
+    setTimeout(async () => {
+      await $fetch('/api/camera/ptz', { method: 'POST', body: { cameraId: id, command: 'STOP', speed: 0 } });
+    }, 500);
+  } catch(e) {}
 }
 
 const generateShareLink = async () => {
@@ -1005,6 +1039,26 @@ const hasCapability = (serviceKey) => {
   return selectedCamera.value && selectedCamera.value.capabilities && selectedCamera.value.capabilities[serviceKey]
 }
 
+
+const extractVideo = async (notif) => {
+  try {
+    const res = await $fetch('http://localhost:4000/api/dvr/extract', {
+      method: 'POST',
+      body: {
+        cameraId: 'all',
+        start: notif.timestamp,
+        end: new Date().toISOString(),
+        userLabel: notif.user_label
+      }
+    })
+    if(res.success) {
+      alert(`DVR Extraction Complete:\n${res.downloadUrl}`)
+    }
+  } catch(e) {
+    alert('Extraction failed. Is local-dvr.js running on port 4000?')
+  }
+}
+
 const logout = async () => {
   try {
     await $fetch('/api/admin/logout', { method: 'POST' })
@@ -1019,6 +1073,27 @@ const logout = async () => {
 const notifications = ref([])
 const showNotifications = ref(false)
 
+
+const dvrSegments = ref([])
+
+const fetchDvrTimeline = async () => {
+  try {
+    const res = await $fetch('http://localhost:4000/api/dvr/continuous?cameraId=all&date=today')
+    if (res.success) {
+      dvrSegments.value = res.segments.map(seg => {
+        const [sH, sM] = seg.start.split(':').map(Number)
+        const [eH, eM] = seg.end.split(':').map(Number)
+        const sPercent = ((sH * 60 + sM) / 1440) * 100
+        const ePercent = ((eH * 60 + eM) / 1440) * 100
+        return {
+          left: sPercent + '%',
+          width: (ePercent - sPercent) + '%'
+        }
+      })
+    }
+  } catch(e) {}
+}
+
 const fetchNotifications = async () => {
   try {
     const res = await $fetch('/api/admin/audit_logs')
@@ -1030,9 +1105,11 @@ const fetchNotifications = async () => {
 
 let notifInterval;
 onMounted(async () => {
+  updateClock()
+  clockInterval = setInterval(updateClock, 1000)
   // Login page is bypassed, load data directly
   try {
-    await Promise.all([fetchCameras(), fetchNotifications()])
+    await Promise.all([fetchCameras(), fetchNotifications(), fetchDvrTimeline()])
     notifInterval = setInterval(fetchNotifications, 10000)
   } catch (e) {
     console.error('Failed to load dashboard data:', e)
@@ -1040,6 +1117,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  if (clockInterval) clearInterval(clockInterval)
   if (notifInterval) clearInterval(notifInterval)
 })
 

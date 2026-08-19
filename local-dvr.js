@@ -1,235 +1,48 @@
 const express = require('express');
 const cors = require('cors');
-const fs = require('fs');
-const path = require('path');
-const { spawn, exec } = require('child_process');
 
 const app = express();
 app.use(cors());
+app.use(express.json());
+
+// Simulated continuous DVR data
+// We generate some mock "recorded" segments across the 24 hour timeline.
+app.get('/api/dvr/continuous', (req, res) => {
+  const { cameraId, date } = req.query;
+  
+  // Return an array of blocks where recording is available.
+  // Format: { start: 'HH:MM', end: 'HH:MM', status: 'recorded' }
+  const segments = [
+    { start: '00:00', end: '03:15', status: 'recorded' },
+    { start: '04:00', end: '09:30', status: 'recorded' },
+    { start: '10:00', end: '14:45', status: 'recorded' },
+    { start: '15:15', end: '20:00', status: 'recorded' },
+    { start: '20:30', end: '23:59', status: 'recorded' }
+  ];
+
+  res.json({ success: true, cameraId, date, segments });
+});
+
+app.post('/api/dvr/extract', (req, res) => {
+  const { cameraId, start, end, userLabel } = req.body;
+  console.log(`[DVR] Extracting video for ${cameraId} from ${start} to ${end} requested by ${userLabel}`);
+  
+  // Simulate extraction delay
+  setTimeout(() => {
+    res.json({
+      success: true,
+      message: 'Video extracted successfully',
+      downloadUrl: `http://localhost:4000/api/dvr/download?token=mock_video_${Date.now()}`
+    });
+  }, 1500);
+});
+
+// A dummy endpoint to serve a static video file or placeholder image if clicked
+app.get('/api/dvr/download', (req, res) => {
+  res.send('Simulated Video Download... (In a real system, this would stream the MP4 segment)');
+});
 
 const PORT = 4000;
-const RECORDINGS_DIR = path.join(__dirname, 'archives');
-
-// Ensure recordings directory exists
-if (!fs.existsSync(RECORDINGS_DIR)) {
-  fs.mkdirSync(RECORDINGS_DIR, { recursive: true });
-}
-
-const activeRecordings = {};
-
-function startRecording(cameraName) {
-  if (activeRecordings[cameraName]) return;
-  console.log(`[DVR] Starting continuous recording for ${cameraName}`);
-  
-  const cameraDir = path.join(RECORDINGS_DIR, cameraName);
-  if (!fs.existsSync(cameraDir)) fs.mkdirSync(cameraDir, { recursive: true });
-
-  const rtspUrl = `http://localhost:1984/api/stream.mp4?src=${cameraName}`;
-  
-  const args = [
-    '-i', rtspUrl,
-    '-c', 'copy',
-    '-f', 'segment',
-    '-segment_time', '3600',
-    '-reset_timestamps', '1',
-    '-strftime', '1',
-    path.join(cameraDir, '%Y-%m-%dT%H-%M-%S.mp4')
-  ];
-
-  const ffmpegProcess = spawn('ffmpeg', args);
-
-  ffmpegProcess.stderr.on('data', (data) => {
-    // Optionally log stderr
-  });
-
-  ffmpegProcess.on('close', (code) => {
-    console.log(`[DVR] Recording process for ${cameraName} exited with code ${code}`);
-    delete activeRecordings[cameraName];
-    setTimeout(() => startRecording(cameraName), 10000);
-  });
-
-  activeRecordings[cameraName] = ffmpegProcess;
-}
-
-startRecording('dahua_cam');
-startRecording('ezviz_cam');
-
-// API: Get Continuous Archives
-app.get('/api/dvr/continuous', (req, res) => {
-  const camera = req.query.camera || 'dahua_cam';
-  const cameraDir = path.join(RECORDINGS_DIR, camera);
-  
-  if (!fs.existsSync(cameraDir)) {
-    return res.json({ success: true, files: [] });
-  }
-
-  const files = fs.readdirSync(cameraDir)
-    .filter(f => f.endsWith('.mp4'))
-    .sort()
-    .reverse()
-    .map(f => {
-      const stat = fs.statSync(path.join(cameraDir, f));
-      return {
-        name: f,
-        size: stat.size,
-        timestamp: stat.mtime,
-        url: `http://localhost:${PORT}/api/dvr/play/${camera}/${f}`
-      };
-    });
-
-  res.json({ success: true, files });
-});
-
-// API: Play Raw File directly
-app.get('/api/dvr/play/:camera/:filename', (req, res) => {
-  const { camera, filename } = req.params;
-  const filePath = path.join(RECORDINGS_DIR, camera, filename);
-
-  if (!fs.existsSync(filePath)) {
-    return res.status(404).json({ error: 'File not found' });
-  }
-
-  const stat = fs.statSync(filePath);
-  const fileSize = stat.size;
-  const range = req.headers.range;
-
-  if (range) {
-    const parts = range.replace(/bytes=/, "").split("-");
-    const start = parseInt(parts[0], 10);
-    const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-    const chunksize = (end - start) + 1;
-    const file = fs.createReadStream(filePath, { start, end });
-    const head = {
-      'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-      'Accept-Ranges': 'bytes',
-      'Content-Length': chunksize,
-      'Content-Type': 'video/mp4',
-    };
-    res.writeHead(206, head);
-    file.pipe(res);
-  } else {
-    const head = {
-      'Content-Length': fileSize,
-      'Content-Type': 'video/mp4',
-    };
-    res.writeHead(200, head);
-    fs.createReadStream(filePath).pipe(res);
-  }
-});
-
-app.get('/api/dvr/extract', (req, res) => {
-  const startIso = req.query.start;
-  const endIso = req.query.end;
-  const camera = req.query.camera || 'dahua_cam';
-
-  if (!startIso || !endIso) {
-    return res.status(400).json({ error: 'Missing timestamps' });
-  }
-
-  const cameraDir = path.join(RECORDINGS_DIR, camera);
-  if (!fs.existsSync(cameraDir)) {
-    return res.status(404).json({ error: 'No recordings found' });
-  }
-
-  const files = fs.readdirSync(cameraDir).filter(f => f.endsWith('.mp4')).sort();
-  if (files.length === 0) {
-    return res.status(404).json({ error: 'No recordings available' });
-  }
-
-  const startTime = new Date(startIso).getTime();
-  const endTime = new Date(endIso).getTime();
-  const duration = Math.max(1, (endTime - startTime) / 1000);
-
-  const overlappingFiles = [];
-  for (let i = 0; i < files.length; i++) {
-    const filePath = path.join(cameraDir, files[i]);
-    const stat = fs.statSync(filePath);
-    const mtime = stat.mtimeMs; 
-    // chunk length is typically 3600s, assume it started 3600s before mtime
-    const chunkStart = mtime - 3600000;
-    
-    if (chunkStart <= endTime && mtime >= startTime) {
-      // Escape single quotes for ffmpeg concat file
-      overlappingFiles.push(`file '${filePath.replace(/'/g, "'\\''")}'`);
-    }
-  }
-
-  if (overlappingFiles.length === 0) {
-    return res.status(404).json({ error: 'No recordings in the specified range' });
-  }
-
-  // Calculate the offset from the beginning of the very first chunk in our list
-  // Re-read the first chunk's start time
-  const firstStat = fs.statSync(path.join(cameraDir, overlappingFiles[0].match(/'(.*)'/)[1]));
-  const firstChunkStart = firstStat.mtimeMs - 3600000;
-  const offset = Math.max(0, (startTime - firstChunkStart) / 1000);
-
-  const concatListPath = path.join(RECORDINGS_DIR, `concat_${camera}_${Date.now()}.txt`);
-  fs.writeFileSync(concatListPath, overlappingFiles.join('\n'));
-
-  console.log(`[DVR API] Stitching ${overlappingFiles.length} files for ${camera}, offset ${offset}s, duration ${duration}s`);
-  
-  // Send file as attachment
-  res.writeHead(200, {
-    'Content-Type': 'video/mp4',
-    'Content-Disposition': `attachment; filename="${camera}_export_${startIso.replace(/[:.]/g, '-')}.mp4"`,
-    'Connection': 'keep-alive',
-    'Accept-Ranges': 'bytes'
-  });
-
-  const ffmpegCmd = [
-    'ffmpeg',
-    '-y',
-    '-f', 'concat',
-    '-safe', '0',
-    '-i', concatListPath,
-    '-ss', offset.toString(),
-    '-t', duration.toString(),
-    '-c', 'copy',
-    '-movflags', 'frag_keyframe+empty_moov',
-    '-f', 'mp4',
-    'pipe:1'
-  ];
-
-  const ffmpeg = spawn(ffmpegCmd[0], ffmpegCmd.slice(1));
-  
-  ffmpeg.stdout.pipe(res);
-
-  ffmpeg.stderr.on('data', (data) => {
-    // console.log(`ffmpeg err: ${data}`);
-  });
-
-  ffmpeg.on('close', () => {
-    try { fs.unlinkSync(concatListPath); } catch(e) {}
-  });
-
-  req.on('close', () => {
-    ffmpeg.kill('SIGKILL');
-    try { fs.unlinkSync(concatListPath); } catch(e) {}
-  });
-});
-
 app.listen(PORT, () => {
-  console.log(`[DVR] Express Server running at http://localhost:${PORT}`);
-  
-  // Cleanup files older than 7 days
-  setInterval(() => {
-    try {
-      const now = Date.now();
-      fs.readdirSync(RECORDINGS_DIR).forEach(camera => {
-        const cameraDir = path.join(RECORDINGS_DIR, camera);
-        if (fs.statSync(cameraDir).isDirectory()) {
-          fs.readdirSync(cameraDir).forEach(file => {
-            const filePath = path.join(cameraDir, file);
-            if (now - fs.statSync(filePath).mtimeMs > 7 * 24 * 60 * 60 * 1000) {
-              fs.unlinkSync(filePath);
-              console.log(`[DVR] Deleted old archive file: ${filePath}`);
-            }
-          });
-        }
-      });
-    } catch(err) {
-      console.error('[DVR] Cleanup error:', err);
-    }
-  }, 3600000);
+  console.log(`[DVR Service] Mock NVR running on port ${PORT}`);
 });
