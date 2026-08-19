@@ -476,7 +476,21 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
+
+const liveClock = ref('')
+let clockInterval;
+
+const updateClock = () => {
+  const formatter = new Intl.DateTimeFormat('en-US', { 
+    timeZone: 'Asia/Karachi', 
+    hour: '2-digit', 
+    minute: '2-digit', 
+    second: '2-digit', 
+    hour12: true 
+  });
+  liveClock.value = formatter.format(new Date());
+}
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
