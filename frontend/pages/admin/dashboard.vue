@@ -913,37 +913,6 @@ const addCamera = async () => {
   }
 }
 
-const generateLink = async () => {
-  try {
-    const res = await $fetch('/api/admin/generate-link', {
-      method: 'POST',
-      body: { 
-        cameraIds: selectedCamerasForShare.value,
-        daily_start_time: dailyStartTime.value,
-        daily_end_time: dailyEndTime.value,
-        disable_ptz: disablePtz.value
-      }
-    })
-    if (res.success) {
-      const baseUrl = window.location.origin
-      generatedLink.value = `${baseUrl}/view?token=${res.token}`
-      generatedUserLabel.value = res.user_label
-      selectedCamerasForShare.value = []
-      dailyStartTime.value = ''
-      dailyEndTime.value = ''
-      disablePtz.value = false
-      await fetchShares()
-    }
-  } catch (e) {
-    console.error(e)
-  }
-}
-
-    }
-  } catch (e) {
-    console.error(e)
-  }
-}
 
 const copyLinkString = async (str) => {
   if (str) {
