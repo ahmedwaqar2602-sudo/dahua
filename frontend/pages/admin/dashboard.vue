@@ -785,13 +785,11 @@ const logout = async () => {
 }
 
 onMounted(async () => {
+  // Login page is bypassed, load data directly
   try {
-    const auth = await $fetch('/api/admin/me')
-    if (auth.authenticated) {
-      await Promise.all([fetchCameras(), fetchShares(), fetchSessions()])
-    }
+    await Promise.all([fetchCameras(), fetchShares(), fetchSessions()])
   } catch (e) {
-    router.push('/admin/login')
+    console.error('Failed to load dashboard data:', e)
   }
 })
 </script>
