@@ -510,6 +510,18 @@ const openShareModal = () => {
   generatedLink.value = ''
   selectedCamerasForLink.value = [...selectedCameraIds.value]
   showShareModal.value = true
+}
+
+const triggerPtz = async (id, cmd, speed) => {
+  try {
+    await $fetch('/api/camera/ptz', {
+      method: 'POST',
+      body: { cameraId: id, command: cmd, speed: speed }
+    });
+    // Fire STOP after 500ms
+    setTimeout(async () => {
+      await $fetch('/api/camera/ptz', { method: 'POST', body: { cameraId: id, command: 'STOP', speed: 0 } });
+    }, 500);
   } catch(e) {}
 }
 
