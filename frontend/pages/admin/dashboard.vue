@@ -1,463 +1,341 @@
 <template>
-  <div class="min-h-screen bg-[#050B14] text-slate-200 font-sans p-4 md:p-8 selection:bg-indigo-500/30 relative overflow-hidden">
-    <!-- Ambient Background Gradients -->
-    <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-600/20 blur-[120px] pointer-events-none"></div>
-    <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-cyan-600/20 blur-[120px] pointer-events-none"></div>
-
-    <div class="max-w-7xl mx-auto space-y-10 relative z-10">
-      <!-- Header -->
-      <header class="flex items-center justify-between bg-slate-900/40 border border-slate-700/50 rounded-3xl p-8 backdrop-blur-3xl shadow-2xl relative overflow-hidden">
-        <div>
-          <div class="absolute -top-24 -right-24 w-64 h-64 bg-cyan-500/10 rounded-full blur-[80px] pointer-events-none"></div>
-          <h1 class="text-4xl md:text-5xl font-black bg-gradient-to-r from-indigo-400 via-cyan-400 to-emerald-400 bg-clip-text text-transparent drop-shadow-sm tracking-tighter">
-            Flexnook Edge Gateway
-          </h1>
-          <p class="text-slate-400 mt-2 font-medium text-sm">Premium video access, DVR, and ONVIF session management.</p>
-        </div>
-      </header>
-
-      <div class="space-y-8">
-        
-        <!-- Cameras Multi-Grid View Section -->
-        <section class="bg-slate-900/30 border border-slate-800/60 rounded-3xl p-8 backdrop-blur-2xl shadow-2xl relative overflow-hidden">
-          <div class="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none"></div>
-          
-          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 relative z-10">
-            <h2 class="text-2xl font-bold flex items-center gap-3 text-slate-100 tracking-tight">
-              <div class="p-2 bg-indigo-500/20 rounded-lg border border-indigo-500/30">
-                <svg class="w-6 h-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-              </div>
-              Live Monitor (Multi-Grid)
-            </h2>
-            <div class="flex items-center gap-4 mt-3 sm:mt-0">
-              <span class="hidden sm:inline-block text-xs font-medium text-indigo-300/80 bg-indigo-500/10 px-4 py-1.5 rounded-full border border-indigo-500/20 shadow-inner">Click a camera for settings</span>
-              <button @click="showAddCameraModal = true" class="group relative flex items-center gap-2 bg-slate-800/50 hover:bg-indigo-600/20 text-slate-200 hover:text-indigo-300 border border-slate-700/50 hover:border-indigo-500/50 px-5 py-2.5 rounded-xl font-medium text-sm transition-all overflow-hidden shadow-lg hover:shadow-indigo-500/20">
-                <div class="absolute inset-0 w-0 bg-gradient-to-r from-indigo-600/40 to-cyan-600/40 transition-all duration-300 ease-out group-hover:w-full"></div>
-                <svg class="w-4 h-4 relative z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg>
-                <span class="relative z-10">Add Camera</span>
-              </button>
-            </div>
-          </div>
-          
-          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-10 relative z-10">
-            <div v-for="cam in cameras" :key="cam.id" class="flex flex-col bg-slate-950/80 border border-slate-700/50 rounded-2xl overflow-hidden hover:border-indigo-400/60 hover:shadow-[0_8px_30px_rgb(99,102,241,0.15)] transition-all duration-300 transform hover:-translate-y-1 cursor-pointer group" @click="openCameraDetail(cam)">
-              
-              <!-- Camera Header -->
-              <div class="p-4 bg-slate-900/90 border-b border-slate-800/80 flex justify-between items-center group-hover:bg-slate-800 transition-colors backdrop-blur-md">
-                <div class="flex items-center gap-3">
-                  <span class="relative flex h-3 w-3">
-                    <span v-if="isOnline(cam)" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span class="relative inline-flex rounded-full h-3 w-3" :class="isOnline(cam) ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(225,29,72,0.8)]'"></span>
-                  </span>
-                  <h3 class="font-bold text-sm text-slate-100 tracking-wide">{{ cam.display_name || cam.name }}</h3>
-                  <span class="text-[9px] uppercase font-bold px-2 py-0.5 rounded-md tracking-wider" :class="isOnline(cam) ? 'text-emerald-300 bg-emerald-500/20 border border-emerald-500/30' : 'text-rose-300 bg-rose-500/20 border border-rose-500/30'">{{ isOnline(cam) ? 'Online' : 'Offline' }}</span>
-                  <span v-if="cam.public_ip" class="text-[9px] text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20" title="Public RTSP Stream">EXT: {{cam.public_ip}}:{{cam.forwarded_port || 554}}</span>
-                </div>
-                <button @click.stop="openEditNameModal(cam)" class="text-slate-400 hover:text-indigo-400 bg-slate-800/50 hover:bg-slate-700 p-1.5 rounded-md transition-all border border-transparent hover:border-indigo-500/30" title="Edit Display Name">
-                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-                </button>
-              </div>
-
-              <!-- Live View Iframe -->
-              <div class="aspect-video bg-black relative pointer-events-none">
-                <iframe :src="`http://localhost:1984/stream.html?src=${encodeURIComponent(cam.name + '_sub')}`" class="w-full h-full border-none" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
-              </div>
-            </div>
-            
-            <div v-if="cameras.length === 0" class="col-span-full py-12 flex flex-col items-center justify-center text-slate-500 border border-dashed border-slate-800 rounded-xl bg-slate-950/30">
-              <svg class="w-12 h-12 mb-3 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-              <span class="text-sm">No cameras configured.</span>
-            </div>
-          </div>
-
-          </section></section>
-
-        <!-- Access Management & Audit Split -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          
-          <!-- Access Control -->
-          <section class="bg-slate-900/40 border border-slate-800/50 rounded-2xl p-6 backdrop-blur-xl shadow-2xl flex flex-col">
-            <h2 class="text-xl font-semibold flex items-center gap-2 mb-6 text-slate-100">
-              <svg class="w-5 h-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
-              Share Granular Access
-            </h2>
-            
-            <div class="flex-1 space-y-5">
-              <div>
-                <label class="block text-sm text-slate-400 font-medium mb-2">Select Cameras</label>
-                <div v-if="cameras.length > 0" class="flex flex-wrap gap-3">
-                  <label v-for="cam in cameras" :key="cam.id" class="flex items-center gap-2 bg-slate-950/50 border border-slate-800/50 px-4 py-2 rounded-lg cursor-pointer hover:border-slate-600 transition-colors">
-                    <input type="checkbox" :value="cam.id" v-model="selectedCamerasForShare" class="rounded border-slate-700 text-cyan-600 focus:ring-cyan-500 bg-slate-900">
-                    <span class="text-sm text-slate-300">{{ cam.display_name || cam.name }}</span>
-                  </label>
-                </div>
-                <div v-else class="text-sm text-slate-500 italic">No cameras available to share.</div>
-              </div>
-
-              <div class="grid grid-cols-2 gap-4">
-                <div>
-                  <label class="block text-sm text-slate-400 font-medium mb-2">Daily Start (Opt)</label>
-                  <input v-model="dailyStartTime" type="time" step="60" class="w-full bg-slate-950/50 border border-slate-800/50 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-cyan-500/50 transition-all text-slate-200">
-                </div>
-                <div>
-                  <label class="block text-sm text-slate-400 font-medium mb-2">Daily End (Opt)</label>
-                  <input v-model="dailyEndTime" type="time" step="60" class="w-full bg-slate-950/50 border border-slate-800/50 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-cyan-500/50 transition-all text-slate-200">
-                </div>
-              </div>
-
-              <div>
-                <label class="flex items-center gap-2 cursor-pointer bg-slate-950/30 p-3 rounded-lg border border-slate-800/30 w-fit">
-                  <input type="checkbox" v-model="disablePtz" class="rounded border-slate-700 text-cyan-600 focus:ring-cyan-500 bg-slate-900">
-                  <span class="text-sm text-slate-300 font-medium">Disable PTZ Controls for this link</span>
-                </label>
-              </div>
-
-              <button @click="generateLink" :disabled="selectedCamerasForShare.length === 0" class="w-full bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 rounded-xl font-medium transition-all shadow-lg shadow-cyan-500/20 border border-cyan-400/20 mt-4">
-                Generate Viewer Link
-              </button>
-
-              <div v-if="generatedLink" class="mt-4 p-4 bg-slate-950/50 border border-slate-800/50 rounded-xl flex items-center justify-between">
-                <code class="text-xs text-cyan-300 break-all">{{ generatedLink }}</code>
-                <button @click="copyLink" class="ml-4 p-2 text-cyan-400 hover:text-cyan-300 bg-cyan-500/10 rounded-lg transition-colors border border-cyan-500/20 flex-shrink-0">
-                  Copy
-                </button>
-              </div>
-            </div>
-          </section>
-
-          <!-- User Sessions Audit -->
-          <section class="bg-slate-900/40 border border-slate-800/50 rounded-2xl p-6 backdrop-blur-xl shadow-2xl flex flex-col h-full">
-            <h2 class="text-xl font-semibold flex items-center gap-2 mb-6 text-slate-100">
-              <svg class="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-              Session Audit & Playback
-            </h2>
-            <div class="flex-1 overflow-y-auto pr-2 space-y-4 max-h-[400px] scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
-              <div v-for="session in userSessions" :key="session.sessionId" class="p-4 bg-slate-950/50 border border-slate-800/50 rounded-xl hover:border-amber-500/30 transition-all flex flex-col justify-between group">
-                <div class="flex items-center justify-between mb-2">
-                  <span class="text-sm font-semibold text-slate-200">{{ session.userLabel }}</span>
-                  <span class="text-xs text-slate-500 font-mono">{{ session.token.substring(0,8) }}</span>
-                </div>
-                <div class="text-xs text-slate-400 mb-3 flex items-center gap-2">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                  {{ formatTime12h(session.startTime) }} - {{ formatTime12h(session.endTime) }}
-                </div>
-                <button @click="openSessionVideo(session)" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-amber-400 hover:text-amber-300 text-xs font-medium rounded-lg transition-colors border border-slate-700 flex items-center justify-center gap-2 group-hover:border-amber-500/30">
-                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                  View DVR Extraction
-                </button>
-              </div>
-              <div v-if="userSessions.length === 0" class="text-center flex flex-col items-center justify-center text-slate-500 py-12 border border-dashed border-slate-800 rounded-xl bg-slate-950/30">
-                <svg class="w-10 h-10 mb-3 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                <span class="text-sm">No completed sessions found.</span>
-              </div>
-            </div>
-          </section>
-        </div>
-        
+  <div class="h-screen w-screen bg-[#111827] text-slate-200 font-sans flex overflow-hidden selection:bg-cyan-500/30">
+    
+    <!-- 1. Primary Navigation Sidebar -->
+    <nav class="w-16 lg:w-20 bg-[#1e2330] flex flex-col items-center py-6 border-r border-[#2d3345] z-30 flex-shrink-0">
+      <!-- Logo -->
+      <div class="mb-10 text-cyan-400">
+        <svg class="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2L2 22h20L12 2zm0 4.5l6.5 13h-13L12 6.5z"/>
+          <circle cx="12" cy="14" r="2" class="text-rose-500"/>
+        </svg>
       </div>
-    </div>
 
-    <!-- Modals -->
+      <!-- Nav Items -->
+      <div class="flex flex-col gap-6 w-full px-2">
+        <!-- Live (Active) -->
+        <button class="relative flex flex-col items-center justify-center p-2 text-cyan-400 group">
+          <div class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-cyan-400 rounded-r-full shadow-[0_0_10px_#22d3ee]"></div>
+          <svg class="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+          <span class="text-[10px] font-medium tracking-wide">Live</span>
+        </button>
+        <!-- Events -->
+        <button class="flex flex-col items-center justify-center p-2 text-slate-400 hover:text-slate-200 transition-colors">
+          <svg class="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+          <span class="text-[10px] font-medium tracking-wide">Events</span>
+        </button>
+        <!-- Playback -->
+        <button class="flex flex-col items-center justify-center p-2 text-slate-400 hover:text-slate-200 transition-colors">
+          <svg class="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          <span class="text-[10px] font-medium tracking-wide">Playback</span>
+        </button>
+        <!-- Dashboard -->
+        <button class="flex flex-col items-center justify-center p-2 text-slate-400 hover:text-slate-200 transition-colors">
+          <svg class="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+          <span class="text-[10px] font-medium tracking-wide">Dashboard</span>
+        </button>
+        <!-- Settings -->
+        <button class="flex flex-col items-center justify-center p-2 text-slate-400 hover:text-slate-200 transition-colors mt-auto">
+          <svg class="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+          <span class="text-[10px] font-medium tracking-wide">Settings</span>
+        </button>
+      </div>
+    </nav>
 
-    <!-- Camera Detail Modal -->
-    <div v-if="selectedCamera" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md overflow-y-auto">
-      <div class="bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-6xl relative my-auto flex flex-col lg:flex-row overflow-hidden">
-        
-        <!-- Left: Live View & Timeline -->
-        <div class="flex-1 flex flex-col border-b lg:border-b-0 lg:border-r border-slate-800">
-          <div class="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-900/50">
-            <div class="flex items-center gap-3">
-              <span class="w-2.5 h-2.5 rounded-full" :class="isOnline(selectedCamera) ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-rose-500'"></span>
-              <h3 class="text-lg font-bold text-slate-100">{{ selectedCamera.display_name || selectedCamera.name }}</h3>
-              <span class="text-xs px-2 py-0.5 rounded-md font-mono" :class="selectedCamera.rtsp_url.startsWith('onvif://') ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' : 'bg-slate-800 text-slate-400'">{{ selectedCamera.rtsp_url.startsWith('onvif://') ? 'ONVIF' : 'RTSP' }}</span>
+    <!-- 2. Secondary Sidebar (Cameras Tree) -->
+    <aside class="w-72 bg-[#212735] flex flex-col border-r border-[#2d3345] z-20 flex-shrink-0 shadow-[10px_0_20px_rgba(0,0,0,0.15)]">
+      <div class="p-5 flex items-center justify-between border-b border-[#2d3345]">
+        <h2 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+          Cameras <span class="text-slate-400 text-xs font-normal">({{ cameras.length }})</span>
+        </h2>
+        <button @click="showAddCameraModal = true" class="text-cyan-400 hover:text-cyan-300 p-1 rounded transition-colors" title="Add Camera">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+        </button>
+      </div>
+      
+      <div class="p-4 border-b border-[#2d3345]">
+        <div class="relative">
+          <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+          <input type="text" placeholder="Search" class="w-full bg-[#161a22] border border-[#3b4255] rounded-full pl-9 pr-4 py-1.5 text-xs focus:outline-none focus:border-cyan-500 transition-colors text-slate-200 placeholder-slate-500">
+        </div>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-[#3b4255] scrollbar-track-transparent">
+        <div class="flex items-center justify-between mb-4">
+          <label class="flex items-center gap-2 cursor-pointer group">
+            <div class="w-3.5 h-3.5 rounded-sm border border-cyan-500 bg-cyan-500 flex items-center justify-center">
+              <svg class="w-2.5 h-2.5 text-[#111827]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
             </div>
-            <!-- Close button for mobile inside left panel if stacked -->
-            <button @click="closeCameraDetail" class="lg:hidden text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors">
-              <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            <span class="text-xs font-semibold text-slate-200 group-hover:text-white transition-colors">Select all</span>
+          </label>
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] text-slate-400">Preview</span>
+            <div class="w-6 h-3.5 bg-cyan-500 rounded-full relative cursor-pointer">
+              <div class="w-2.5 h-2.5 bg-white rounded-full absolute right-0.5 top-0.5"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Simulated "Group" - We'll just group all dynamically fetched cameras under "Network Cameras" -->
+        <div class="mb-4">
+          <div class="flex items-center gap-1.5 mb-2 cursor-pointer group">
+            <svg class="w-3 h-3 text-slate-400 group-hover:text-slate-200 transition-colors transform rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+            <span class="text-xs font-semibold text-slate-200 group-hover:text-white transition-colors">Network Cameras</span>
+          </div>
+          <div class="pl-5 space-y-2">
+            <div v-for="cam in cameras" :key="cam.id" class="flex items-center justify-between group cursor-pointer">
+              <div class="flex items-center gap-2">
+                <div class="w-3.5 h-3.5 rounded-sm border border-cyan-500 bg-cyan-500 flex items-center justify-center">
+                  <svg class="w-2.5 h-2.5 text-[#111827]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                </div>
+                <span class="text-xs text-slate-300 group-hover:text-white transition-colors truncate max-w-[120px]" :title="cam.display_name || cam.name">
+                  {{ cam.display_name || cam.name }}
+                </span>
+              </div>
+              <span class="w-1.5 h-1.5 rounded-full" :class="isOnline(cam) ? 'bg-cyan-400 shadow-[0_0_5px_#22d3ee]' : 'bg-rose-500'"></span>
+            </div>
+            
+            <div v-if="cameras.length === 0" class="text-xs text-slate-500 italic py-2">
+              No cameras found.
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 3. Main Content Area & Timeline -->
+    <main class="flex-1 flex flex-col relative z-10 bg-[#111827]">
+      
+      <!-- Top Navigation Tabs -->
+      <div class="h-14 border-b border-[#2d3345] bg-[#161a22] flex items-end px-4 gap-8">
+        <button class="px-6 py-3 text-sm font-semibold text-cyan-400 relative">
+          Grid View
+          <div class="absolute bottom-0 left-0 w-full h-0.5 bg-cyan-400 shadow-[0_0_8px_#22d3ee]"></div>
+        </button>
+        <button class="px-6 py-3 text-sm font-medium text-slate-400 hover:text-slate-200 transition-colors">
+          Layouts
+        </button>
+        <button class="px-6 py-3 text-sm font-medium text-slate-400 hover:text-slate-200 transition-colors">
+          Presentation View
+        </button>
+      </div>
+
+      <!-- Filters & Toolbar -->
+      <div class="p-4 bg-[#111827] flex items-center justify-between border-b border-[#2d3345]">
+        <div class="flex items-center gap-3">
+          <button class="flex items-center gap-1.5 px-3 py-1.5 bg-[#1c212b] border border-[#3b4255] rounded-full text-xs text-slate-300 hover:bg-[#252b38] transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+            Owner <svg class="w-3 h-3 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+          </button>
+          <button class="flex items-center gap-1.5 px-3 py-1.5 bg-[#1c212b] border border-[#3b4255] rounded-full text-xs text-slate-300 hover:bg-[#252b38] transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            Status <svg class="w-3 h-3 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+          </button>
+          <button class="flex items-center gap-1.5 px-3 py-1.5 bg-[#1c212b] border border-[#3b4255] rounded-full text-xs text-slate-300 hover:bg-[#252b38] transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
+            Tags <svg class="w-3 h-3 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+          </button>
+          <button class="flex items-center gap-1.5 px-3 py-1.5 bg-[#1c212b] border border-[#3b4255] rounded-full text-xs text-slate-300 hover:bg-[#252b38] transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+            Analytics <svg class="w-3 h-3 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+          </button>
+          
+          <button class="ml-2 w-6 h-6 rounded-full border border-[#3b4255] flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
+          
+          <div class="flex items-center gap-1.5 ml-2 font-semibold text-sm">
+            <svg class="w-4 h-4 text-cyan-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 22h20L12 2zm0 4.5l6.5 13h-13L12 6.5z"/></svg>
+            {{ cameras.length }} Cameras
+          </div>
+        </div>
+
+        <div class="flex items-center gap-6">
+          <div class="flex bg-[#1c212b] rounded-lg p-0.5 border border-[#3b4255]">
+            <button class="px-4 py-1.5 text-[10px] font-semibold bg-white text-[#111827] rounded-md shadow">Live Stills</button>
+            <button class="px-4 py-1.5 text-[10px] font-medium text-slate-400 hover:text-slate-200">Live Video</button>
+          </div>
+          
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] text-slate-400 font-medium">Camera names</span>
+            <div class="w-3.5 h-3.5 rounded-sm border border-cyan-500 bg-cyan-500 flex items-center justify-center cursor-pointer">
+              <svg class="w-2.5 h-2.5 text-[#111827]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+            </div>
+          </div>
+          
+          <button class="text-slate-400 hover:text-white transition-colors">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Camera Grid Viewport -->
+      <div class="flex-1 p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-[#3b4255] scrollbar-track-transparent pb-32">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-4">
+          <div v-for="cam in cameras" :key="cam.id" class="bg-[#1c212b] rounded-md overflow-hidden shadow-lg border border-[#2d3345] group relative aspect-video cursor-pointer" @click="openCameraDetail(cam)">
+            <!-- Stream Iframe -->
+            <iframe :src="`http://localhost:1984/stream.html?src=${encodeURIComponent(cam.name + '_sub')}`" class="w-full h-full border-none pointer-events-none" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
+            
+            <!-- Controls Overlay (Hover) -->
+            <div class="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+              <button class="p-1 bg-black/50 text-white rounded hover:bg-cyan-500/80 transition-colors backdrop-blur"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg></button>
+              <button class="p-1 bg-black/50 text-white rounded hover:bg-cyan-500/80 transition-colors backdrop-blur"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg></button>
+            </div>
+            
+            <!-- Camera Name Tag Overlay -->
+            <div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-black/80 to-transparent p-3 pt-8 pointer-events-none">
+              <span class="text-white text-xs font-semibold drop-shadow-md flex items-center gap-2">
+                Network Cameras - {{ cam.display_name || cam.name }}
+                <span v-if="cam.public_ip" class="px-1.5 py-0.5 rounded text-[8px] bg-cyan-500/30 text-cyan-200 border border-cyan-500/50">EXT</span>
+              </span>
+            </div>
+          </div>
+          
+          <div v-if="cameras.length === 0" class="col-span-full h-64 flex flex-col items-center justify-center border border-dashed border-[#3b4255] rounded-xl text-slate-500">
+            <svg class="w-12 h-12 mb-3 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+            <span class="text-sm font-medium">No cameras configured.</span>
+            <button @click="showAddCameraModal = true" class="mt-4 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-sm font-medium transition-colors">Add Camera</button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 4. Playback Timeline (Fixed Bottom) -->
+      <div class="absolute bottom-4 left-4 right-4 bg-[#1c212b]/95 backdrop-blur-xl border border-[#3b4255] rounded-xl shadow-2xl p-4 flex flex-col z-20">
+        <!-- Playback Controls Row -->
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-3">
+            <button class="flex items-center gap-1 bg-[#2d3345] hover:bg-[#3b4255] px-3 py-1.5 rounded text-xs font-semibold text-slate-300 transition-colors">
+              x1 <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
             </button>
           </div>
           
-          <div class="aspect-video bg-black relative pointer-events-none">
-            <iframe :src="`http://localhost:1984/stream.html?src=${encodeURIComponent(selectedCamera.name)}`" class="w-full h-full border-none" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
+          <div class="flex items-center gap-4">
+            <button class="text-slate-400 hover:text-white transition-colors"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg></button>
+            <button class="text-slate-400 hover:text-white transition-colors"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z"></path></svg></button>
           </div>
-
-          <!-- Per-Camera Timeline -->
-          <div class="p-6 bg-slate-900/30 flex-1">
-            <div class="flex items-center justify-between mb-4">
-              <h4 class="text-sm font-semibold text-fuchsia-400 flex items-center gap-2 uppercase tracking-wider">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                Continuous Archive
-              </h4>
-              <button @click="downloadExport" class="px-3 py-1 bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/30 rounded-lg text-xs font-medium hover:bg-fuchsia-500/30 transition-colors flex items-center gap-1">
-                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                Export Exact Range
-              </button>
-            </div>
-            
-            <div class="bg-slate-950/80 p-4 rounded-xl border border-slate-800/50 mb-6 relative">
-              <div class="mb-2 flex items-center justify-between text-xs text-slate-400">
-                <span>Start Scrub (Range L)</span>
-                <span>End Scrub (Range R)</span>
-              </div>
-              <!-- Simulated Drag Select with two inputs for range -->
-              <div class="relative h-6 w-full mb-2">
-                <input type="range" min="0" max="100" v-model="scrubStartValue" @change="scrubTimeline" class="absolute w-full h-2 top-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-fuchsia-500 pointer-events-auto z-10 opacity-50">
-                <input type="range" min="0" max="100" v-model="scrubValue" @change="scrubTimeline" class="absolute w-full h-2 top-2 bg-transparent rounded-lg appearance-none cursor-pointer accent-cyan-500 pointer-events-auto z-20">
-              </div>
-              <div class="flex justify-between text-[10px] text-slate-500 mt-2">
-                <span>{{ archivesEndLabel }} (Oldest)</span>
-                <span>{{ archivesStartLabel }} (Newest)</span>
-              </div>
-            </div>
-
-            <div class="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
-              <div v-for="file in continuousArchives" :key="file.name" class="flex-none w-48 p-3 bg-slate-950/80 border border-slate-800/50 rounded-xl hover:border-fuchsia-500/50 transition-all group cursor-pointer" @click="playArchive(file)">
-                <div class="aspect-video bg-black rounded-lg mb-2 flex items-center justify-center relative overflow-hidden group-hover:bg-slate-800 transition-colors">
-                  <svg class="w-6 h-6 text-slate-500 group-hover:text-fuchsia-400 transition-colors" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
-                </div>
-                <div class="text-xs text-slate-400 truncate" :title="file.name">{{ file.name }}</div>
-              </div>
-              <div v-if="continuousArchives.length === 0" class="text-slate-500 text-sm w-full text-center py-6 border border-dashed border-slate-800 rounded-xl">
-                No continuous archives found for this camera.
-              </div>
-            </div>
+        </div>
+        
+        <!-- Timeline Track Mockup -->
+        <div class="relative h-12 w-full flex items-center justify-between text-[10px] text-slate-500 font-medium px-2 border-t border-[#2d3345] pt-4">
+          <div class="flex flex-col items-center"><span class="mb-1">00:00</span><div class="h-1.5 w-0.5 bg-slate-700"></div></div>
+          <div class="flex flex-col items-center"><span class="mb-1">04:00</span><div class="h-1.5 w-0.5 bg-slate-700"></div></div>
+          <div class="flex flex-col items-center"><span class="mb-1">08:00</span><div class="h-1.5 w-0.5 bg-slate-700"></div></div>
+          <div class="flex flex-col items-center"><span class="mb-1">12:00</span><div class="h-1.5 w-0.5 bg-slate-700"></div></div>
+          <div class="flex flex-col items-center"><span class="mb-1">16:00</span><div class="h-1.5 w-0.5 bg-slate-700"></div></div>
+          <div class="flex flex-col items-center"><span class="mb-1">20:00</span><div class="h-1.5 w-0.5 bg-slate-700"></div></div>
+          <div class="flex flex-col items-center"><span class="mb-1">24:00</span><div class="h-1.5 w-0.5 bg-slate-700"></div></div>
+          
+          <!-- Event Bars -->
+          <div class="absolute top-8 left-[15%] w-[10%] h-1.5 bg-cyan-500 rounded-full"></div>
+          <div class="absolute top-8 left-[35%] w-[20%] h-1.5 bg-amber-500 rounded-full"></div>
+          <div class="absolute top-8 right-[10%] w-[15%] h-1.5 bg-amber-500 rounded-full"></div>
+          <div class="absolute top-8 right-[12%] w-[25%] h-1.5 bg-cyan-500 rounded-full"></div>
+          
+          <!-- Center Time Indicator / Scrubber Pill -->
+          <div class="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-[60%] bg-white text-[#111827] px-4 py-1.5 rounded shadow-[0_4px_15px_rgba(0,0,0,0.3)] font-bold text-xs whitespace-nowrap">
+            07:19:27 - 07:19:49
+            <div class="absolute bottom-[-6px] left-1/2 -translate-x-1/2 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-white"></div>
+            <!-- Scrubber Line -->
+            <div class="absolute top-full left-1/2 -translate-x-1/2 w-0.5 h-16 bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)] z-[-1]"></div>
           </div>
         </div>
 
-        <!-- Right: Dynamic Capabilities Panel -->
-        <div class="w-full lg:w-80 bg-slate-900 flex flex-col">
-          <div class="hidden lg:flex items-center justify-between p-4 border-b border-slate-800 bg-slate-900/50">
-            <h3 class="text-sm font-semibold text-slate-400 uppercase tracking-wider">Control Panel</h3>
-            <button @click="closeCameraDetail" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors">
-              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-            </button>
+        <!-- Timeline Footer Tools -->
+        <div class="flex items-center justify-between mt-4">
+          <div class="flex items-center gap-4 text-[10px] font-semibold text-slate-300">
+            <span class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-amber-300"></div> Person</span>
+            <span class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-amber-500"></div> Vehicle</span>
+            <span class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-cyan-500"></div> All motion</span>
           </div>
           
-          <div class="p-6 overflow-y-auto flex-1 space-y-8 scrollbar-thin scrollbar-thumb-slate-800">
-            
-            <div v-if="!selectedCamera.capabilities" class="text-center text-slate-500 text-sm py-8 border border-dashed border-slate-800 rounded-xl">
-              Camera reported no ONVIF capabilities or is an RTSP stream.
+          <div class="flex items-center gap-2">
+            <div class="flex items-center bg-white rounded-full p-0.5 px-1 shadow-lg">
+              <button class="p-1 hover:bg-slate-200 rounded-full"><svg class="w-4 h-4 text-slate-800" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg></button>
+              <span class="px-3 text-xs font-bold text-slate-800 whitespace-nowrap">Thu, 11 Dec 2025 | 07:19:49</span>
+              <button class="p-1 hover:bg-slate-200 rounded-full"><svg class="w-4 h-4 text-slate-800" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></button>
             </div>
-            
-            <!-- PTZ Capabilities -->
-            <div v-if="hasCapability('ptz')" class="space-y-4">
-              <h4 class="text-xs font-semibold text-indigo-400 uppercase tracking-wider flex items-center gap-2">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path></svg>
-                Pan / Tilt / Zoom
-              </h4>
-              <div class="flex gap-2 justify-center bg-slate-950/50 p-4 rounded-xl border border-slate-800/50">
-                <div class="grid grid-cols-3 gap-1">
-                  <div></div>
-                  <button @mousedown="ptzCommand(selectedCamera.id, 'UP')" @mouseup="ptzCommand(selectedCamera.id, 'STOP')" @mouseleave="ptzCommand(selectedCamera.id, 'STOP')" class="p-2 bg-slate-800 hover:bg-indigo-600 rounded-md transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg></button>
-                  <div></div>
-                  <button @mousedown="ptzCommand(selectedCamera.id, 'LEFT')" @mouseup="ptzCommand(selectedCamera.id, 'STOP')" @mouseleave="ptzCommand(selectedCamera.id, 'STOP')" class="p-2 bg-slate-800 hover:bg-indigo-600 rounded-md transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg></button>
-                  <button @mousedown="ptzCommand(selectedCamera.id, 'DOWN')" @mouseup="ptzCommand(selectedCamera.id, 'STOP')" @mouseleave="ptzCommand(selectedCamera.id, 'STOP')" class="p-2 bg-slate-800 hover:bg-indigo-600 rounded-md transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></button>
-                  <button @mousedown="ptzCommand(selectedCamera.id, 'RIGHT')" @mouseup="ptzCommand(selectedCamera.id, 'STOP')" @mouseleave="ptzCommand(selectedCamera.id, 'STOP')" class="p-2 bg-slate-800 hover:bg-indigo-600 rounded-md transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></button>
-                </div>
-                <div class="flex flex-col gap-1 ml-4 justify-center">
-                  <button @mousedown="ptzCommand(selectedCamera.id, 'ZOOM_IN')" @mouseup="ptzCommand(selectedCamera.id, 'STOP')" @mouseleave="ptzCommand(selectedCamera.id, 'STOP')" class="p-2 px-3 text-xs font-bold bg-slate-800 hover:bg-indigo-600 rounded-md transition-colors">+</button>
-                  <button @mousedown="ptzCommand(selectedCamera.id, 'ZOOM_OUT')" @mouseup="ptzCommand(selectedCamera.id, 'STOP')" @mouseleave="ptzCommand(selectedCamera.id, 'STOP')" class="p-2 px-3 text-xs font-bold bg-slate-800 hover:bg-indigo-600 rounded-md transition-colors">-</button>
-                </div>
-              </div>
-              
-              <!-- Presets & Patrol -->
-              <div class="bg-slate-950/50 p-4 rounded-xl border border-slate-800/50 space-y-3">
-                <div class="flex gap-2">
-                  <input v-model="newPresetName" type="text" placeholder="Preset name..." class="w-full bg-slate-900 border border-slate-700 rounded text-xs px-2 focus:outline-none focus:border-indigo-500/50">
-                  <button @click="savePreset" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 rounded text-xs font-medium transition-colors flex-shrink-0">Save</button>
-                </div>
-                <div class="flex flex-wrap gap-2 max-h-32 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-700">
-                  <button v-for="p in presets" :key="p.token" @click="gotoPreset(p.token)" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-[10px] text-slate-300 transition-colors truncate max-w-[100px]" :title="p.Name">
-                    {{ p.Name || p.token }}
-                  </button>
-                </div>
-                <div class="pt-2 border-t border-slate-800">
-                  <button @click="openPatrolConfig" class="w-full px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-xs text-slate-300 font-medium transition-colors flex items-center justify-center gap-2">
-                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    Configure Scheduled Patrol
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- Device Capabilities -->
-            <div v-if="hasCapability('device')" class="space-y-4">
-              <h4 class="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Device & System</h4>
-              <div class="grid grid-cols-2 gap-2">
-                <button class="bg-slate-950 hover:bg-slate-800 border border-slate-800 py-2 rounded-lg text-xs font-medium text-slate-300 transition-colors">Reboot Device</button>
-                <button class="bg-slate-950 hover:bg-slate-800 border border-slate-800 py-2 rounded-lg text-xs font-medium text-slate-300 transition-colors">Sync Time</button>
-              </div>
-            </div>
-
-            <!-- Media Capabilities -->
-            <div v-if="hasCapability('media')" class="space-y-4">
-              <h4 class="text-xs font-semibold text-cyan-400 uppercase tracking-wider">Media Profiles</h4>
-              <select class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-cyan-500/50 text-slate-300">
-                <option>Main Stream (H.265)</option>
-                <option>Sub Stream (H.264)</option>
-              </select>
-            </div>
-
-            <!-- Imaging Capabilities -->
-            <div v-if="hasCapability('imaging')" class="space-y-4">
-              <h4 class="text-xs font-semibold text-amber-400 uppercase tracking-wider">Imaging & Schedules</h4>
-              <div class="space-y-3 bg-slate-950/50 p-4 rounded-xl border border-slate-800/50">
-                <div class="space-y-2">
-                  <h5 class="text-[10px] text-slate-500 font-semibold uppercase">Auto Day/Night Mode</h5>
-                  <div class="grid grid-cols-2 gap-2">
-                    <div>
-                      <label class="block text-[10px] text-slate-400 mb-1">Day Start (HH:MM)</label>
-                      <input v-model="selectedCamera.day_mode_start" type="time" class="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs focus:outline-none focus:border-amber-500/50 text-slate-300">
-                    </div>
-                    <div>
-                      <label class="block text-[10px] text-slate-400 mb-1">Night Start (HH:MM)</label>
-                      <input v-model="selectedCamera.night_mode_start" type="time" class="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs focus:outline-none focus:border-amber-500/50 text-slate-300">
-                    </div>
-                  </div>
-                  <button @click="saveDayNight" class="w-full px-3 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/20 rounded text-[10px] font-medium transition-colors">Apply Schedule</button>
-                </div>
-              </div>
-            </div>
-
-            <!-- Events Capabilities -->
-            <div v-if="hasCapability('events')" class="space-y-4">
-              <h4 class="text-xs font-semibold text-rose-400 uppercase tracking-wider">Events</h4>
-              <label class="flex items-center gap-2 cursor-pointer bg-slate-950 p-3 rounded-lg border border-slate-800">
-                <div class="w-8 h-4 bg-slate-800 rounded-full relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:rounded-full after:h-3 after:w-3 after:transition-all"></div>
-                <span class="text-xs text-slate-300">Motion Detection</span>
-              </label>
-            </div>
-
+            <button class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-1.5 rounded-full text-xs font-bold transition-colors">Today</button>
           </div>
         </div>
       </div>
-    </div>
-    
-    <!-- User Session Video Modal -->
-    <div v-if="showSessionVideoModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl w-full max-w-4xl relative">
-        <div class="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-950/50">
-          <h3 class="text-lg font-semibold text-slate-200">Extracted Session Recording</h3>
-          <button @click="closeSessionVideo" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors">
-            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-          </button>
-        </div>
-        <div class="aspect-video bg-black relative flex items-center justify-center">
-          <video :src="sessionVideoSrc" class="w-full h-full" controls autoplay playsinline></video>
-        </div>
-      </div>
-    </div>
+      
+    </main>
 
-    <!-- Continuous Archive Modal -->
-    <div v-if="showArchiveModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl w-full max-w-4xl relative">
-        <div class="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-950/50">
-          <h3 class="text-lg font-semibold text-slate-200">Archive Playback</h3>
-          <button @click="showArchiveModal = false; archiveVideoSrc = ''" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors">
-            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-          </button>
-        </div>
-        <div class="aspect-video bg-black relative flex items-center justify-center">
-          <video :src="archiveVideoSrc" class="w-full h-full" controls autoplay playsinline></video>
-        </div>
-      </div>
-    </div>
-
-    
     <!-- Add Camera Modal -->
     <transition enter-active-class="transition ease-out duration-300" enter-from-class="opacity-0 backdrop-blur-none" enter-to-class="opacity-100 backdrop-blur-md" leave-active-class="transition ease-in duration-200" leave-from-class="opacity-100 backdrop-blur-md" leave-to-class="opacity-0 backdrop-blur-none">
       <div v-if="showAddCameraModal" class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
         <transition enter-active-class="transition ease-out duration-300 transform" enter-from-class="opacity-0 scale-95 translate-y-4" enter-to-class="opacity-100 scale-100 translate-y-0" leave-active-class="transition ease-in duration-200 transform" leave-from-class="opacity-100 scale-100 translate-y-0" leave-to-class="opacity-0 scale-95 translate-y-4">
-          <div v-if="showAddCameraModal" class="bg-slate-950/90 border border-slate-800/80 rounded-3xl shadow-[0_0_50px_rgba(79,70,229,0.15)] w-full max-w-xl relative overflow-hidden backdrop-blur-2xl">
-            <!-- Modal ambient glow -->
-            <div class="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-32 bg-indigo-500/20 blur-[80px] pointer-events-none"></div>
+          <div v-if="showAddCameraModal" class="bg-[#161a22] border border-[#2d3345] rounded-2xl shadow-2xl w-full max-w-xl relative overflow-hidden">
             
-          <form @submit.prevent="addCamera" class="flex flex-col gap-6 relative z-10 p-8">
-            <div class="flex items-center justify-between mb-2 border-b border-slate-800/50 pb-4">
-              <h3 class="text-2xl font-bold text-slate-100 flex items-center gap-3">
-                <div class="p-2 bg-indigo-500/20 rounded-lg border border-indigo-500/30">
-                  <svg class="w-6 h-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+            <form @submit.prevent="addCamera" class="flex flex-col gap-6 relative z-10 p-8">
+              <div class="flex items-center justify-between mb-2 border-b border-[#2d3345] pb-4">
+                <h3 class="text-xl font-bold text-slate-100 flex items-center gap-3">
+                  <div class="p-2 bg-cyan-500/10 rounded-lg border border-cyan-500/30">
+                    <svg class="w-5 h-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                  </div>
+                  Add New Camera
+                </h3>
+                <button type="button" @click="showAddCameraModal = false" class="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-[#2d3345] transition-colors">
+                  <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+              </div>
+              
+              <div class="flex flex-col gap-5">
+                <div>
+                  <label class="block text-sm font-semibold text-slate-300 mb-2">Camera Protocol</label>
+                  <div class="flex gap-4">
+                    <label class="flex-1 relative cursor-pointer group">
+                      <input type="radio" v-model="newCameraProtocol" value="onvif" class="peer sr-only" name="protocol">
+                      <div class="p-4 rounded-xl border border-[#3b4255] bg-[#1c212b] peer-checked:bg-cyan-500/10 peer-checked:border-cyan-500/50 transition-all text-center">
+                        <span class="block text-sm font-bold text-slate-400 peer-checked:text-cyan-400 group-hover:text-slate-200">ONVIF URL</span>
+                      </div>
+                    </label>
+                    <label class="flex-1 relative cursor-pointer group">
+                      <input type="radio" v-model="newCameraProtocol" value="rtsp" class="peer sr-only" name="protocol">
+                      <div class="p-4 rounded-xl border border-[#3b4255] bg-[#1c212b] peer-checked:bg-cyan-500/10 peer-checked:border-cyan-500/50 transition-all text-center">
+                        <span class="block text-sm font-bold text-slate-400 peer-checked:text-cyan-400 group-hover:text-slate-200">RTSP URL</span>
+                      </div>
+                    </label>
+                  </div>
                 </div>
-                Add New Camera
-              </h3>
-              <button type="button" @click="showAddCameraModal = false" class="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-slate-800/50 transition-colors">
-                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-              </button>
-            </div>
-            
-            <div class="flex flex-col gap-5">
-              <div>
-                <label class="block text-sm font-semibold text-slate-300 mb-2">Camera Protocol</label>
-                <div class="flex gap-4">
-                  <label class="flex-1 relative cursor-pointer group">
-                    <input type="radio" v-model="newCameraProtocol" value="onvif" class="peer sr-only" name="protocol">
-                    <div class="p-4 rounded-xl border border-slate-700/80 bg-slate-900/50 peer-checked:bg-indigo-500/10 peer-checked:border-indigo-500/50 transition-all text-center">
-                      <span class="block text-sm font-bold text-slate-400 peer-checked:text-indigo-400 group-hover:text-slate-200">ONVIF URL</span>
-                    </div>
-                  </label>
-                  <label class="flex-1 relative cursor-pointer group">
-                    <input type="radio" v-model="newCameraProtocol" value="rtsp" class="peer sr-only" name="protocol">
-                    <div class="p-4 rounded-xl border border-slate-700/80 bg-slate-900/50 peer-checked:bg-indigo-500/10 peer-checked:border-indigo-500/50 transition-all text-center">
-                      <span class="block text-sm font-bold text-slate-400 peer-checked:text-indigo-400 group-hover:text-slate-200">RTSP URL</span>
-                    </div>
-                  </label>
+
+                <div>
+                  <label class="block text-sm font-semibold text-slate-300 mb-2">Camera Name (No Spaces)</label>
+                  <input v-model="newCameraName" type="text" placeholder="e.g. lobby_cam" required class="w-full bg-[#111827] border border-[#3b4255] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500 transition-all text-slate-200 placeholder-slate-500">
+                </div>
+
+                <div>
+                  <label class="block text-sm font-semibold text-slate-300 mb-2">Stream Link (ONVIF or RTSP)</label>
+                  <input v-model="newCameraUrl" type="text" :placeholder="newCameraProtocol === 'onvif' ? 'onvif://user:pass@ip:port' : 'rtsp://user:pass@ip:port/path'" required class="w-full bg-[#111827] border border-[#3b4255] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500 transition-all placeholder-slate-500 font-mono text-xs text-slate-200">
                 </div>
               </div>
 
-              <div>
-                <label class="block text-sm font-semibold text-slate-300 mb-2">Camera Name (No Spaces)</label>
-                <input v-model="newCameraName" type="text" placeholder="e.g. lobby_cam" required class="w-full bg-slate-900/50 border border-slate-700/80 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all text-slate-200 placeholder-slate-500 shadow-inner">
+              <div class="flex justify-end mt-4">
+                <button type="submit" :disabled="isAddingCamera" class="w-full sm:w-auto bg-cyan-600 hover:bg-cyan-500 text-white px-10 py-3 rounded-xl text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                  <span v-if="!isAddingCamera" class="flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    Connect & Add Camera
+                  </span>
+                  <span v-else class="flex items-center justify-center gap-2">
+                    <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> 
+                    Validating...
+                  </span>
+                </button>
               </div>
-
-              <div>
-                <label class="block text-sm font-semibold text-slate-300 mb-2">Stream Link (ONVIF or RTSP)</label>
-                <input v-model="newCameraUrl" type="text" :placeholder="newCameraProtocol === 'onvif' ? 'onvif://user:pass@ip:port' : 'rtsp://user:pass@ip:port/path'" required class="w-full bg-slate-900/50 border border-slate-700/80 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all placeholder-slate-500 shadow-inner font-mono text-xs">
-              </div>
-            </div>
-
-            <div class="flex justify-end mt-4">
-              <button type="submit" :disabled="isAddingCamera" class="w-full sm:w-auto bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-700 hover:from-indigo-400 hover:via-indigo-500 hover:to-indigo-600 text-white px-10 py-3 rounded-xl text-sm font-bold transition-all duration-300 shadow-[0_0_20px_rgba(79,70,229,0.3)] hover:shadow-[0_0_30px_rgba(79,70,229,0.5)] border border-indigo-400/30 disabled:opacity-50 disabled:cursor-not-allowed transform hover:-translate-y-0.5 active:translate-y-0">
-                <span v-if="!isAddingCamera" class="flex items-center justify-center gap-2">
-                  <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                  Connect & Add Camera
-                </span>
-                <span v-else class="flex items-center justify-center gap-2">
-                  <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> 
-                  Validating...
-                </span>
-              </button>
-            </div>
-            
-            <transition enter-active-class="transition ease-out duration-300" enter-from-class="opacity-0 -translate-y-2" enter-to-class="opacity-100 translate-y-0" leave-active-class="transition ease-in duration-200" leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 -translate-y-2">
-              <div v-if="addCameraError" class="p-4 mt-2 bg-rose-500/10 border border-rose-500/30 rounded-xl flex items-center gap-3 backdrop-blur-sm shadow-[0_0_15px_rgba(225,29,72,0.1)]">
-                <div class="p-2 bg-rose-500/20 rounded-full">
-                  <svg class="w-5 h-5 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              
+              <transition enter-active-class="transition ease-out duration-300" enter-from-class="opacity-0 -translate-y-2" enter-to-class="opacity-100 translate-y-0" leave-active-class="transition ease-in duration-200" leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 -translate-y-2">
+                <div v-if="addCameraError" class="p-4 mt-2 bg-rose-500/10 border border-rose-500/30 rounded-xl flex items-center gap-3">
+                  <div class="p-2 bg-rose-500/20 rounded-full">
+                    <svg class="w-5 h-5 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                  </div>
+                  <p class="text-sm text-rose-200 font-medium">{{ addCameraError }}</p>
                 </div>
-                <p class="text-sm text-rose-200 font-medium">{{ addCameraError }}</p>
-              </div>
-            </transition>
-          </form>
+              </transition>
+            </form>
           </div>
         </transition>
       </div>
     </transition>
-    
-
-    <!-- Edit Camera Name Modal -->
-    <div v-if="showEditNameModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl w-full max-w-sm relative p-6">
-        <h3 class="text-lg font-semibold text-slate-200 mb-4">Edit Display Name</h3>
-        <div class="space-y-3 mb-6">
-          <label class="block text-sm text-slate-400 font-medium">Display Name</label>
-          <input v-model="editCameraDisplayName" type="text" placeholder="e.g. Main Office" class="w-full bg-slate-950/50 border border-slate-800/50 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all text-slate-200">
-        </div>
-        <div class="flex justify-end gap-3">
-          <button @click="showEditNameModal = false" class="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 rounded-lg transition-colors">Cancel</button>
-          <button @click="saveEditCameraName" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors">Save</button>
-        </div>
-      </div>
-    </div>
-
   </div>
 </template>
 
