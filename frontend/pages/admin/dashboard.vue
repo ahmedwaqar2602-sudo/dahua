@@ -104,7 +104,7 @@
     </aside>
 
     <!-- 3. Main Content Area & Timeline -->
-    <main class="flex-1 flex flex-col relative z-10 bg-slate-950">
+    <main ref="mainContentRef" class="flex-1 flex flex-col relative z-10 bg-slate-950">
       
       <!-- Top Navigation Tabs -->
       <div class="h-14 border-b border-slate-800 bg-slate-900 flex items-end px-4 gap-8">
@@ -1130,5 +1130,55 @@ onUnmounted(() => {
   if (clockInterval) clearInterval(clockInterval)
   if (notifInterval) clearInterval(notifInterval)
 })
+
+
+const mainContentRef = ref(null)
+
+const toggleFullscreen = () => {
+  if (!document.fullscreenElement) {
+    if (mainContentRef.value?.requestFullscreen) {
+      mainContentRef.value.requestFullscreen()
+    }
+  } else {
+    if (document.exitFullscreen) {
+      document.exitFullscreen()
+    }
+  }
+}
+
+const downloadSnapshot = () => {
+  if (selectedCameraIds.value.length === 0) {
+    alert("Please select a camera to snapshot")
+    return
+  }
+  const camId = selectedCameraIds.value[0]
+  const cam = cameras.value.find(c => c.id === camId)
+  if (cam) {
+    const a = document.createElement('a')
+    a.href = `http://localhost:1984/api/frame.jpeg?src=${cam.name}`
+    a.download = `snapshot_${cam.name}_${Date.now()}.jpg`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  }
+}
+
+const extractVideoFromTimeline = () => {
+  if (selectedCameraIds.value.length === 0) {
+    alert("Please select a camera for extraction")
+    return
+  }
+  // Base off the scrub percentage (which corresponds to simulatedPlaybackTime)
+  const d = new Date()
+  d.setHours(0,0,0,0)
+  const totalMinutes = Math.floor((scrubPercentage.value / 100) * 1440)
+  const startTimestamp = new Date(d.getTime() + totalMinutes * 60000).toISOString()
+  const endTimestamp = new Date(d.getTime() + (totalMinutes + 5) * 60000).toISOString() // Extract 5 min window
+  
+  extractVideo({
+    timestamp: startTimestamp,
+    user_label: 'Timeline Export'
+  })
+}
 
 </script>
