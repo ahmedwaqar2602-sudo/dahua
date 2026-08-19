@@ -282,25 +282,41 @@
             </div>
             
             <div class="p-6 space-y-4">
-              <div class="bg-indigo-500/10 border border-indigo-500/20 p-3 rounded-lg text-xs text-indigo-200">
-                The generated link will only grant access to the <b>{{ selectedCameraIds.length }} cameras</b> you currently have selected in the sidebar.
-              </div>
-
               <div>
                 <label class="block text-sm font-semibold text-slate-300 mb-1">User Label</label>
                 <input v-model="shareLabel" type="text" placeholder="e.g. Guard Desk 1" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-indigo-500 text-slate-200 placeholder-slate-500">
               </div>
 
-              <div class="grid grid-cols-2 gap-4">
-                <div>
-                  <label class="block text-sm font-semibold text-slate-300 mb-1">Daily Start (Opt)</label>
-                  <input v-model="shareDailyStart" type="time" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-indigo-500 text-slate-200">
-                </div>
-                <div>
-                  <label class="block text-sm font-semibold text-slate-300 mb-1">Daily End (Opt)</label>
-                  <input v-model="shareDailyEnd" type="time" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-indigo-500 text-slate-200">
+              <div>
+                <label class="block text-sm font-semibold text-slate-300 mb-2">Select Cameras</label>
+                <div class="max-h-40 overflow-y-auto space-y-2 pr-2 scrollbar-thin scrollbar-thumb-slate-700">
+                  <label v-for="cam in cameras" :key="cam.id" class="flex items-center gap-3 p-2 bg-slate-900 border border-slate-800 rounded-lg cursor-pointer hover:bg-slate-800/50 transition-colors">
+                    <input type="checkbox" :value="cam.id" v-model="selectedCamerasForLink" class="w-4 h-4 rounded border-slate-700 text-indigo-500 bg-slate-950 focus:ring-indigo-500 focus:ring-offset-slate-900">
+                    <span class="text-sm font-medium text-slate-300">{{ cam.display_name || cam.name }}</span>
+                  </label>
                 </div>
               </div>
+
+              <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-sm font-semibold text-slate-300 mb-1">Daily Start (Opt)</label>
+                    <div class="flex items-center gap-2 bg-slate-950 border border-slate-700 rounded-xl px-2 py-1.5 focus-within:border-indigo-500">
+                      <input v-model="shareStartHour" @blur="padTime('start', 'hour')" type="text" maxlength="2" placeholder="HH" class="w-8 bg-transparent text-center text-sm font-medium text-slate-200 focus:outline-none">
+                      <span class="text-slate-500 font-bold">:</span>
+                      <input v-model="shareStartMin" @blur="padTime('start', 'min')" type="text" maxlength="2" placeholder="MM" class="w-8 bg-transparent text-center text-sm font-medium text-slate-200 focus:outline-none">
+                      <button type="button" @click="shareStartPeriod = shareStartPeriod === 'AM' ? 'PM' : 'AM'" class="ml-auto px-2 py-1 rounded text-[10px] font-bold transition-colors" :class="shareStartPeriod === 'AM' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'">{{ shareStartPeriod }}</button>
+                    </div>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-semibold text-slate-300 mb-1">Daily End (Opt)</label>
+                    <div class="flex items-center gap-2 bg-slate-950 border border-slate-700 rounded-xl px-2 py-1.5 focus-within:border-indigo-500">
+                      <input v-model="shareEndHour" @blur="padTime('end', 'hour')" type="text" maxlength="2" placeholder="HH" class="w-8 bg-transparent text-center text-sm font-medium text-slate-200 focus:outline-none">
+                      <span class="text-slate-500 font-bold">:</span>
+                      <input v-model="shareEndMin" @blur="padTime('end', 'min')" type="text" maxlength="2" placeholder="MM" class="w-8 bg-transparent text-center text-sm font-medium text-slate-200 focus:outline-none">
+                      <button type="button" @click="shareEndPeriod = shareEndPeriod === 'AM' ? 'PM' : 'AM'" class="ml-auto px-2 py-1 rounded text-[10px] font-bold transition-colors" :class="shareEndPeriod === 'AM' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'">{{ shareEndPeriod }}</button>
+                    </div>
+                  </div>
+                </div>
 
               <div v-if="generatedLink" class="mt-4 p-4 bg-slate-950 border border-emerald-500/30 rounded-xl">
                 <p class="text-xs font-semibold text-emerald-400 mb-2">Secure Link Generated:</p>
@@ -421,6 +437,7 @@ const activeShares = ref([])
 const userSessions = ref([])
 const continuousArchives = ref([])
 const selectedCamerasForShare = ref([])
+const selectedCamerasForLink = ref([])
 const generatedLink = ref('')
 const generatedUserLabel = ref('')
 const dailyStartTime = ref('')
@@ -453,8 +470,12 @@ const isGeneratingLink = ref(false)
 
 const openShareModal = () => {
   shareLabel.value = ''
-  shareDailyStart.value = ''
-  shareDailyEnd.value = ''
+  shareStartHour.value = ''
+  shareStartMin.value = ''
+  shareStartPeriod.value = 'AM'
+  shareEndHour.value = ''
+  shareEndMin.value = ''
+  shareEndPeriod.value = 'PM'
   generatedLink.value = ''
   showShareModal.value = true
 }
@@ -474,20 +495,20 @@ const triggerPtz = async (id, cmd, speed) => {
 }
 
 const generateShareLink = async () => {
-  if (selectedCameraIds.value.length === 0) {
-    alert('Please select at least one camera from the sidebar first.')
+  if (selectedCamerasForLink.value.length === 0) {
+    alert('Please select at least one camera first.')
     return
   }
   isGeneratingLink.value = true
   try {
-    const res = await $fetch('/api/admin/share', {
+    const res = await $fetch('/api/admin/generate-link', {
       method: 'POST',
       body: {
         userLabel: shareLabel.value || 'Viewer',
-        cameraIds: selectedCameraIds.value,
-        dailyStartTime: shareDailyStart.value || null,
-        dailyEndTime: shareDailyEnd.value || null,
-        disablePtz: true
+        cameraIds: selectedCamerasForLink.value,
+        daily_start_time: shareDailyStart.value || null,
+        daily_end_time: shareDailyEnd.value || null,
+        disable_ptz: true
       }
     })
     
