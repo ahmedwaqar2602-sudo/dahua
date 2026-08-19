@@ -21,7 +21,13 @@ CREATE TABLE IF NOT EXISTS cameras (
     capabilities TEXT,
     last_seen DATETIME,
     day_mode_start TEXT,
-    night_mode_start TEXT
+    night_mode_start TEXT,
+    public_ip TEXT,
+    forwarded_port INTEGER DEFAULT 554,
+    stream_type TEXT,
+    camera_brand TEXT,
+    username TEXT,
+    password TEXT
 );
 
 CREATE TABLE IF NOT EXISTS camera_patrols (

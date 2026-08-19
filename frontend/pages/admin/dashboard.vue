@@ -43,6 +43,7 @@
                   </span>
                   <h3 class="font-bold text-sm text-slate-100 tracking-wide">{{ cam.display_name || cam.name }}</h3>
                   <span class="text-[9px] uppercase font-bold px-2 py-0.5 rounded-md tracking-wider" :class="isOnline(cam) ? 'text-emerald-300 bg-emerald-500/20 border border-emerald-500/30' : 'text-rose-300 bg-rose-500/20 border border-rose-500/30'">{{ isOnline(cam) ? 'Online' : 'Offline' }}</span>
+                  <span v-if="cam.public_ip" class="text-[9px] text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20" title="Public RTSP Stream">EXT: {{cam.public_ip}}:{{cam.forwarded_port || 554}}</span>
                 </div>
                 <button @click.stop="openEditNameModal(cam)" class="text-slate-400 hover:text-indigo-400 bg-slate-800/50 hover:bg-slate-700 p-1.5 rounded-md transition-all border border-transparent hover:border-indigo-500/30" title="Edit Display Name">
                   <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
@@ -73,7 +74,8 @@
               <input v-model="newCameraDisplayName" type="text" placeholder="Display Name (e.g. Lobby)" class="flex-1 bg-slate-900/50 border border-slate-700/80 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all placeholder-slate-500 shadow-inner">
               <select v-model="newCameraProtocol" class="bg-slate-900/50 border border-slate-700/80 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all text-slate-200 cursor-pointer shadow-inner">
                 <option value="onvif">ONVIF (Recommended)</option>
-                <option value="rtsp">RTSP (Raw)</option>
+                <option value="rtsp">Local RTSP (Raw)</option>
+                <option value="public_rtsp">Public / Port-Forwarded Network</option>
               </select>
             </div>
 
@@ -448,6 +450,12 @@ const newCameraIp = ref('')
 const newCameraPort = ref('')
 const newCameraUsername = ref('')
 const newCameraPassword = ref('')
+const newCameraPublicIp = ref('')
+const newCameraForwardedPort = ref('')
+const newCameraBrand = ref('Dahua')
+const newCameraStreamType = ref('sub')
+const isTestingConnection = ref(false)
+const testConnectionResult = ref('')
 const addCameraError = ref('')
 const isAddingCamera = ref(false)
 
@@ -596,6 +604,53 @@ const ptzCommand = async (cameraId, command) => {
   }
 }
 
+
+const testConnection = async () => {
+  if (!newCameraPublicIp.value || !newCameraUsername.value || !newCameraPassword.value) {
+    testConnectionResult.value = 'Please fill IP, Username, and Password first.'
+    return
+  }
+  isTestingConnection.value = true
+  testConnectionResult.value = ''
+  try {
+    const fport = newCameraForwardedPort.value || 554;
+    const subtype = newCameraStreamType.value === 'sub' ? '1' : '0';
+    let url = '';
+    if (newCameraBrand.value === 'Dahua') {
+      url = `rtsp://${newCameraUsername.value}:${newCameraPassword.value}@${newCameraPublicIp.value}:${fport}/cam/realmonitor?channel=1&subtype=${subtype}`;
+    } else if (newCameraBrand.value === 'EZVIZ') {
+      url = `rtsp://${newCameraUsername.value}:${newCameraPassword.value}@${newCameraPublicIp.value}:${fport}/Streaming/Channels/10${subtype === '0' ? '1' : '2'}`;
+    } else {
+      url = `rtsp://${newCameraUsername.value}:${newCameraPassword.value}@${newCameraPublicIp.value}:${fport}/`;
+    }
+
+    const res = await $fetch('/api/admin/cameras/verify', {
+      method: 'POST',
+      body: { rtsp_url: url }
+    })
+    testConnectionResult.value = res.success ? 'Connection Successful!' : 'Failed'
+  } catch(e) {
+    testConnectionResult.value = e.data?.error || 'Connection Failed / Timeout'
+  } finally {
+    isTestingConnection.value = false
+  }
+}
+
+const copyTestUrl = () => {
+  const fport = newCameraForwardedPort.value || 554;
+  const subtype = newCameraStreamType.value === 'sub' ? '1' : '0';
+  let url = '';
+  if (newCameraBrand.value === 'Dahua') {
+    url = `rtsp://${newCameraUsername.value}:${newCameraPassword.value}@${newCameraPublicIp.value}:${fport}/cam/realmonitor?channel=1&subtype=${subtype}`;
+  } else if (newCameraBrand.value === 'EZVIZ') {
+    url = `rtsp://${newCameraUsername.value}:${newCameraPassword.value}@${newCameraPublicIp.value}:${fport}/Streaming/Channels/10${subtype === '0' ? '1' : '2'}`;
+  } else {
+    url = `rtsp://${newCameraUsername.value}:${newCameraPassword.value}@${newCameraPublicIp.value}:${fport}/`;
+  }
+  navigator.clipboard.writeText(url)
+  alert('URL copied to clipboard! Test it in VLC.')
+}
+
 const addCamera = async () => {
   addCameraError.value = ''
   isAddingCamera.value = true
@@ -611,8 +666,15 @@ const addCamera = async () => {
       payload.port = newCameraPort.value || 80
       payload.username = newCameraUsername.value
       payload.password = newCameraPassword.value
-    } else {
+    } else if (newCameraProtocol.value === 'rtsp') {
       payload.rtsp_url = newCameraUrl.value
+    } else if (newCameraProtocol.value === 'public_rtsp') {
+      payload.public_ip = newCameraPublicIp.value
+      payload.forwarded_port = newCameraForwardedPort.value
+      payload.camera_brand = newCameraBrand.value
+      payload.username = newCameraUsername.value
+      payload.password = newCameraPassword.value
+      payload.stream_type = newCameraStreamType.value
     }
     
     const abortController = new AbortController()
@@ -635,6 +697,9 @@ const addCamera = async () => {
         newCameraPort.value = ''
         newCameraUsername.value = ''
         newCameraPassword.value = ''
+        newCameraPublicIp.value = ''
+        newCameraForwardedPort.value = ''
+        testConnectionResult.value = ''
         await fetchCameras()
       } else {
         addCameraError.value = res.error || 'Failed to add camera.'

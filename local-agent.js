@@ -6,8 +6,22 @@ const onvif = require('node-onvif');
 function buildGo2rtcYaml(cameras) {
   let yml = 'streams:\n';
   for (const cam of cameras) {
-    const mainUrl = cam.rtsp_url;
-    const subUrl = cam.sub_stream_url || cam.rtsp_url;
+    let mainUrl = cam.rtsp_url;
+    let subUrl = cam.sub_stream_url || cam.rtsp_url;
+    
+    // go2rtc's native ONVIF often throws 400 Bad Request on Dahua cameras.
+    // Since we know this is a Dahua ONVIF camera (if it starts with onvif://),
+    // we can explicitly translate it to the standard Dahua RTSP URL for go2rtc,
+    // while keeping the onvif:// protocol in the database for local-agent's PTZ.
+    if (mainUrl.startsWith('onvif://')) {
+      const match = mainUrl.match(/onvif:\/\/(.+):(.+)@([^:]+)/);
+      if (match) {
+        const [, user, pass, ip] = match;
+        mainUrl = `rtsp://${user}:${pass}@${ip}:554/cam/realmonitor?channel=1&subtype=0`;
+        subUrl = `rtsp://${user}:${pass}@${ip}:554/cam/realmonitor?channel=1&subtype=1`;
+      }
+    }
+    
     yml += `  ${cam.name}: "${mainUrl}"\n`;
     yml += `  ${cam.name}_sub: "${subUrl}"\n`;
   }
