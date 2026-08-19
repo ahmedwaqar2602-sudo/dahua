@@ -54,8 +54,9 @@
           </div>
 
           <!-- Add Camera Form -->
-          <form @submit.prevent="addCamera" class="flex flex-col gap-3 mt-4 pt-6 border-t border-slate-800/50">
-            <h3 class="text-sm font-semibold text-slate-300 mb-2">Add New Camera</h3>
+          <form @submit.prevent="addCamera" class="flex flex-col gap-4 mt-4 pt-6 border-t border-slate-800/50">
+            <h3 class="text-sm font-semibold text-slate-300 mb-1">Add New Camera</h3>
+            
             <div class="flex flex-col md:flex-row gap-3">
               <select v-model="newCameraName" required class="flex-1 bg-slate-950/50 border border-slate-800/50 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all text-slate-200 cursor-pointer">
                 <option value="" disabled selected>Select Camera Proxy Name</option>
@@ -63,13 +64,36 @@
                 <option value="ezviz_cam">ezviz_cam</option>
               </select>
               <input v-model="newCameraDisplayName" type="text" placeholder="Display Name (e.g. Lobby)" class="flex-1 bg-slate-950/50 border border-slate-800/50 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all placeholder-slate-600">
-              <input v-model="newCameraUrl" type="text" placeholder="ONVIF/RTSP URL" required class="flex-1 bg-slate-950/50 border border-slate-800/50 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all placeholder-slate-600">
-              <button type="submit" :disabled="isAddingCamera" class="bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white px-6 py-2 rounded-lg text-sm font-medium transition-all shadow-lg shadow-indigo-500/20 border border-indigo-400/20 disabled:opacity-50 disabled:cursor-wait">
-                <span v-if="!isAddingCamera">Add</span>
+              <select v-model="newCameraProtocol" class="bg-slate-950/50 border border-slate-800/50 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all text-slate-200 cursor-pointer">
+                <option value="onvif">ONVIF (Recommended)</option>
+                <option value="rtsp">RTSP (Raw)</option>
+              </select>
+            </div>
+
+            <!-- ONVIF Fields -->
+            <div v-if="newCameraProtocol === 'onvif'" class="flex flex-col md:flex-row gap-3">
+              <input v-model="newCameraIp" type="text" placeholder="IP Address (e.g. 192.168.50.101)" required class="flex-1 bg-slate-950/50 border border-slate-800/50 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-indigo-500/50 transition-all placeholder-slate-600">
+              <input v-model="newCameraPort" type="number" placeholder="Port (80)" class="w-24 bg-slate-950/50 border border-slate-800/50 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-indigo-500/50 transition-all placeholder-slate-600">
+              <input v-model="newCameraUsername" type="text" placeholder="Username" required class="flex-1 bg-slate-950/50 border border-slate-800/50 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-indigo-500/50 transition-all placeholder-slate-600">
+              <input v-model="newCameraPassword" type="password" placeholder="Password" required class="flex-1 bg-slate-950/50 border border-slate-800/50 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-indigo-500/50 transition-all placeholder-slate-600">
+            </div>
+
+            <!-- RTSP Field -->
+            <div v-if="newCameraProtocol === 'rtsp'" class="flex flex-col md:flex-row gap-3">
+              <input v-model="newCameraUrl" type="text" placeholder="rtsp://user:pass@ip:port/path" required class="w-full bg-slate-950/50 border border-slate-800/50 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-indigo-500/50 transition-all placeholder-slate-600">
+            </div>
+
+            <div class="flex justify-end">
+              <button type="submit" :disabled="isAddingCamera" class="bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white px-8 py-2 rounded-lg text-sm font-medium transition-all shadow-lg shadow-indigo-500/20 border border-indigo-400/20 disabled:opacity-50 disabled:cursor-wait">
+                <span v-if="!isAddingCamera">Test Connection & Add</span>
                 <span v-else class="flex items-center gap-2"><svg class="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Validating...</span>
               </button>
             </div>
-            <p v-if="addCameraError" class="text-sm text-rose-400 mt-1">{{ addCameraError }}</p>
+            
+            <div v-if="addCameraError" class="p-3 mt-2 bg-rose-500/10 border border-rose-500/20 rounded-lg flex items-start gap-3">
+              <svg class="w-5 h-5 text-rose-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              <p class="text-sm text-rose-300 font-medium">{{ addCameraError }}</p>
+            </div>
           </form>
         </section>
 
@@ -401,7 +425,12 @@ const disablePtz = ref(false)
 
 const newCameraName = ref('')
 const newCameraDisplayName = ref('')
+const newCameraProtocol = ref('onvif')
 const newCameraUrl = ref('')
+const newCameraIp = ref('')
+const newCameraPort = ref('')
+const newCameraUsername = ref('')
+const newCameraPassword = ref('')
 const addCameraError = ref('')
 const isAddingCamera = ref(false)
 
@@ -554,14 +583,35 @@ const addCamera = async () => {
   addCameraError.value = ''
   isAddingCamera.value = true
   try {
+    const payload = {
+      name: newCameraName.value,
+      display_name: newCameraDisplayName.value,
+      protocol: newCameraProtocol.value
+    }
+    
+    if (newCameraProtocol.value === 'onvif') {
+      payload.ip = newCameraIp.value
+      payload.port = newCameraPort.value || 80
+      payload.username = newCameraUsername.value
+      payload.password = newCameraPassword.value
+    } else {
+      payload.rtsp_url = newCameraUrl.value
+    }
+    
     const res = await $fetch('/api/admin/cameras', {
       method: 'POST',
-      body: { name: newCameraName.value, display_name: newCameraDisplayName.value, rtsp_url: newCameraUrl.value }
+      body: payload
     })
+    
     if (res.success) {
       newCameraName.value = ''
       newCameraDisplayName.value = ''
+      newCameraProtocol.value = 'onvif'
       newCameraUrl.value = ''
+      newCameraIp.value = ''
+      newCameraPort.value = ''
+      newCameraUsername.value = ''
+      newCameraPassword.value = ''
       await fetchCameras()
     } else {
       addCameraError.value = res.error || 'Failed to add camera.'

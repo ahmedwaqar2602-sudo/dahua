@@ -104,36 +104,47 @@ app.get('/api/admin/cameras', requireAuth, async (c) => {
 });
 
 app.post('/api/admin/cameras', requireAuth, async (c) => {
-  const { name, display_name, rtsp_url } = await c.req.json();
-  if (!name || !rtsp_url) return c.json({ error: 'Missing name or rtsp_url' }, 400);
+  const { name, display_name, protocol, rtsp_url, ip, port, username, password } = await c.req.json();
+  if (!name) return c.json({ error: 'Missing name' }, 400);
   if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+
+  let final_rtsp_url = '';
+  
+  if (protocol === 'onvif') {
+    if (!ip || !username || !password) return c.json({ error: 'Missing ONVIF connection details' }, 400);
+    final_rtsp_url = `onvif://${username}:${password}@${ip}:${port || 80}`;
+  } else if (protocol === 'rtsp') {
+    if (!rtsp_url) return c.json({ error: 'Missing RTSP URL' }, 400);
+    final_rtsp_url = rtsp_url;
+  } else {
+    return c.json({ error: 'Invalid protocol specified' }, 400);
+  }
   
   let capabilities = null;
   let subStreamUrl = null;
-  if (rtsp_url.startsWith('onvif://')) {
-    const urlRegex = /:\/\/(.+):(.+)@([^:]+)/;
-    const match = rtsp_url.match(urlRegex);
-    if (!match) return c.json({ error: 'Invalid camera URL format' }, 400);
-    const [, username, password, hostname] = match;
+  if (protocol === 'onvif') {
     try {
       const device = new onvif.OnvifDevice({
-        xaddr: `http://${hostname}:80/onvif/device_service`,
+        xaddr: `http://${ip}:${port || 80}/onvif/device_service`,
         user: username,
         pass: password
       });
-      await device.init();
+
+      const initPromise = device.init();
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timed out after 8 seconds')), 8000));
+      
+      await Promise.race([initPromise, timeoutPromise]);
+
       capabilities = JSON.stringify(device.services || {});
       
       // Attempt to get sub stream
       if (device.profileList && device.profileList.length > 1) {
-        // Assume profile 1 is sub-stream if available
         try {
           const res = await device.services.media.getStreamUri({
             ProfileToken: device.profileList[1].token,
             Protocol: 'RTSP'
           });
           subStreamUrl = res.data.MediaUri.Uri;
-          // Sub stream URI returned by ONVIF often has local IP, maybe need to re-inject creds
           const u = new URL(subStreamUrl);
           subStreamUrl = `rtsp://${username}:${password}@${u.hostname}:${u.port || 554}${u.pathname}${u.search}`;
         } catch(e) {}
@@ -144,12 +155,19 @@ app.post('/api/admin/cameras', requireAuth, async (c) => {
         } catch(e) {}
       }
     } catch (err) {
-      return c.json({ error: 'Failed to verify ONVIF connection: ' + String(err) }, 400);
+      console.error('ONVIF validation failed:', err);
+      let errMsg = String(err);
+      if (errMsg.includes('timeout')) errMsg = 'Connection timed out. Please check the IP and port.';
+      else if (errMsg.includes('ECONNREFUSED')) errMsg = 'Connection refused. Ensure the ONVIF port is correct and the service is enabled.';
+      else if (errMsg.includes('401') || errMsg.toLowerCase().includes('auth')) errMsg = 'Authentication failed. Please check the username and password.';
+      else errMsg = `Couldn't reach an ONVIF service at that address (${errMsg})`;
+      
+      return c.json({ error: errMsg }, 400);
     }
   }
 
   try {
-    await c.env.DB.prepare('INSERT INTO cameras (name, display_name, rtsp_url, sub_stream_url, capabilities, last_seen) VALUES (?, ?, ?, ?, ?, ?)').bind(name, display_name || null, rtsp_url, subStreamUrl, capabilities, new Date().toISOString()).run();
+    await c.env.DB.prepare('INSERT INTO cameras (name, display_name, rtsp_url, sub_stream_url, capabilities, last_seen) VALUES (?, ?, ?, ?, ?, ?)').bind(name, display_name || null, final_rtsp_url, subStreamUrl, capabilities, new Date().toISOString()).run();
     return c.json({ success: true, message: 'Camera added' });
   } catch (err) {
     return c.json({ error: String(err) }, 500);
