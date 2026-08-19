@@ -514,7 +514,6 @@ const showShareModal = ref(false)
 const shareLabel = ref('')
 const shareDailyStart = ref('')
 const shareDailyEnd = ref('')
-const generatedLink = ref('')
 const isGeneratingLink = ref(false)
 
 const openShareModal = () => {
