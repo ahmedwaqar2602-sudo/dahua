@@ -390,7 +390,6 @@
         </transition>
       </div>
     </transition>
-  </div>
 
     <CameraSettingsModal :show="!!activeSettingsCamera" :camera="activeSettingsCamera" @close="activeSettingsCamera = null" />
     <CameraRecordingModal :show="!!activeRecordingCamera" :camera="activeRecordingCamera" @close="activeRecordingCamera = null" />
