@@ -58,7 +58,12 @@
                   {{ cam.display_name || cam.name }}
                 </span>
               </div>
-              <span class="w-1.5 h-1.5 rounded-full" :class="isOnline(cam) ? 'bg-cyan-400 shadow-[0_0_5px_#22d3ee]' : 'bg-rose-500'"></span>
+              <div class="flex items-center gap-2">
+                <span class="w-1.5 h-1.5 rounded-full" :class="isOnline(cam) ? 'bg-cyan-400 shadow-[0_0_5px_#22d3ee]' : 'bg-rose-500'"></span>
+                <button @click.stop="deleteCamera(cam.id)" class="text-slate-500 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity p-0.5" title="Delete Camera">
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                </button>
+              </div>
             </div>
             
             <div v-if="filteredSidebarCameras.length === 0" class="text-xs text-slate-500 italic py-2 px-2">
@@ -344,82 +349,125 @@
     </transition>
 
 
+
     <!-- Add Camera Modal -->
     <transition enter-active-class="transition ease-out duration-300" enter-from-class="opacity-0 backdrop-blur-none" enter-to-class="opacity-100 backdrop-blur-md" leave-active-class="transition ease-in duration-200" leave-from-class="opacity-100 backdrop-blur-md" leave-to-class="opacity-0 backdrop-blur-none">
       <div v-if="showAddCameraModal" class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
         <transition enter-active-class="transition ease-out duration-300 transform" enter-from-class="opacity-0 scale-95 translate-y-4" enter-to-class="opacity-100 scale-100 translate-y-0" leave-active-class="transition ease-in duration-200 transform" leave-from-class="opacity-100 scale-100 translate-y-0" leave-to-class="opacity-0 scale-95 translate-y-4">
           <div v-if="showAddCameraModal" class="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-xl relative overflow-hidden">
             
-            <form @submit.prevent="addCamera" class="flex flex-col gap-6 relative z-10 p-8">
+            <div class="flex flex-col gap-6 relative z-10 p-8">
               <div class="flex items-center justify-between mb-2 border-b border-slate-800 pb-4">
                 <h3 class="text-xl font-bold text-slate-100 flex items-center gap-3">
                   <div class="p-2 bg-cyan-500/10 rounded-lg border border-cyan-500/30">
                     <svg class="w-5 h-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                   </div>
-                  Add New Camera
+                  {{ showAddSuccessView ? 'Camera Connected' : 'Add New Camera' }}
                 </h3>
-                <button type="button" @click="showAddCameraModal = false" class="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-slate-800 transition-colors">
+                <button type="button" @click="resetAddCameraModal()" class="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-slate-800 transition-colors">
                   <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
               </div>
               
-              <div class="flex flex-col gap-5">
-                <div>
-                  <label class="block text-sm font-semibold text-slate-300 mb-2">Camera Protocol</label>
-                  <div class="flex gap-4">
-                    <label class="flex-1 relative cursor-pointer group">
-                      <input type="radio" v-model="newCameraProtocol" value="onvif" class="peer sr-only" name="protocol">
-                      <div class="p-4 rounded-xl border border-slate-700 bg-slate-900/60 backdrop-blur-md peer-checked:bg-cyan-500/10 peer-checked:border-cyan-500/50 transition-all text-center">
-                        <span class="block text-sm font-bold text-slate-400 peer-checked:text-cyan-400 group-hover:text-slate-200">ONVIF URL</span>
-                      </div>
-                    </label>
-                    <label class="flex-1 relative cursor-pointer group">
-                      <input type="radio" v-model="newCameraProtocol" value="rtsp" class="peer sr-only" name="protocol">
-                      <div class="p-4 rounded-xl border border-slate-700 bg-slate-900/60 backdrop-blur-md peer-checked:bg-cyan-500/10 peer-checked:border-cyan-500/50 transition-all text-center">
-                        <span class="block text-sm font-bold text-slate-400 peer-checked:text-cyan-400 group-hover:text-slate-200">RTSP URL</span>
-                      </div>
-                    </label>
-                  </div>
-                </div>
-
+              <form v-if="!showAddSuccessView" @submit.prevent="addCamera" class="flex flex-col gap-5">
                 <div>
                   <label class="block text-sm font-semibold text-slate-300 mb-2">Camera Name (No Spaces)</label>
                   <input v-model="newCameraName" type="text" placeholder="e.g. lobby_cam" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500 transition-all text-slate-200 placeholder-slate-500">
                 </div>
 
                 <div>
-                  <label class="block text-sm font-semibold text-slate-300 mb-2">Stream Link (ONVIF or RTSP)</label>
-                  <input v-model="newCameraUrl" type="text" :placeholder="newCameraProtocol === 'onvif' ? 'onvif://user:pass@ip:port' : 'rtsp://user:pass@ip:port/path'" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500 transition-all placeholder-slate-500 font-mono text-xs text-slate-200">
+                  <label class="block text-sm font-semibold text-slate-300 mb-2">Local RTSP URL</label>
+                  <input v-model="newCameraUrl" type="text" placeholder="rtsp://user:pass@ip:port/path" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500 transition-all placeholder-slate-500 font-mono text-xs text-slate-200">
                 </div>
-              </div>
 
-              <div class="flex justify-end mt-4">
-                <button type="submit" :disabled="isAddingCamera" class="w-full sm:w-auto bg-cyan-600 hover:bg-cyan-500 text-white px-10 py-3 rounded-xl text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                  <span v-if="!isAddingCamera" class="flex items-center justify-center gap-2">
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                    Connect & Add Camera
-                  </span>
-                  <span v-else class="flex items-center justify-center gap-2">
-                    <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> 
-                    Validating...
-                  </span>
-                </button>
-              </div>
-              
-              <transition enter-active-class="transition ease-out duration-300" enter-from-class="opacity-0 -translate-y-2" enter-to-class="opacity-100 translate-y-0" leave-active-class="transition ease-in duration-200" leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 -translate-y-2">
-                <div v-if="addCameraError" class="p-4 mt-2 bg-rose-500/10 border border-rose-500/30 rounded-xl flex items-center gap-3">
-                  <div class="p-2 bg-rose-500/20 rounded-full">
-                    <svg class="w-5 h-5 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                  </div>
-                  <p class="text-sm text-rose-200 font-medium">{{ addCameraError }}</p>
+                <div class="flex items-center gap-3 mt-2">
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" v-model="generatePublicLink" class="sr-only peer">
+                    <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500"></div>
+                  </label>
+                  <span class="text-sm font-medium text-slate-300">Generate Institute External Link</span>
                 </div>
-              </transition>
-            </form>
+
+                <div class="flex justify-end mt-4">
+                  <button type="submit" :disabled="isAddingCamera" class="w-full sm:w-auto bg-cyan-600 hover:bg-cyan-500 text-white px-10 py-3 rounded-xl text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                    <span v-if="!isAddingCamera" class="flex items-center justify-center gap-2">
+                      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                      Connect & Add Camera
+                    </span>
+                    <span v-else class="flex items-center justify-center gap-2">
+                      <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> 
+                      Validating...
+                    </span>
+                  </button>
+                </div>
+                
+                <transition enter-active-class="transition ease-out duration-300" enter-from-class="opacity-0 -translate-y-2" enter-to-class="opacity-100 translate-y-0" leave-active-class="transition ease-in duration-200" leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 -translate-y-2">
+                  <div v-if="addCameraError" class="p-4 mt-2 bg-rose-500/10 border border-rose-500/30 rounded-xl flex items-center gap-3">
+                    <div class="p-2 bg-rose-500/20 rounded-full">
+                      <svg class="w-5 h-5 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                    <p class="text-sm text-rose-200 font-medium">{{ addCameraError }}</p>
+                  </div>
+                </transition>
+              </form>
+
+              <div v-else class="flex flex-col gap-5">
+                <div class="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-start gap-3">
+                  <div class="p-1.5 bg-emerald-500/20 rounded-full mt-0.5">
+                    <svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                  </div>
+                  <div>
+                    <h4 class="text-emerald-400 font-semibold text-sm">Camera added and verified!</h4>
+                    <p class="text-emerald-200/70 text-xs mt-1">Configure your external routing below to generate the public RTSP link for the Institute.</p>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">Public IP Address</label>
+                    <input v-model="newCameraPublicIp" type="text" placeholder="e.g. 203.0.113.5" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cyan-500 transition-all text-slate-200 placeholder-slate-600">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">External Port</label>
+                    <input v-model="newCameraExternalPort" type="number" placeholder="8554" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cyan-500 transition-all text-slate-200 placeholder-slate-600">
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">Proxy Username</label>
+                    <input v-model="newCameraProxyUser" type="text" placeholder="admin" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cyan-500 transition-all text-slate-200 placeholder-slate-600">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">Proxy Password</label>
+                    <input v-model="newCameraProxyPass" type="password" placeholder="••••••••" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-cyan-500 transition-all text-slate-200 placeholder-slate-600">
+                  </div>
+                </div>
+
+                <div class="mt-2">
+                  <label class="block text-sm font-semibold text-slate-300 mb-2">Generated Institute Link</label>
+                  <div class="flex items-stretch rounded-xl overflow-hidden border border-slate-700 bg-slate-950">
+                    <div class="flex-1 px-4 py-3 font-mono text-xs text-slate-300 overflow-x-auto whitespace-nowrap scrollbar-thin scrollbar-thumb-slate-700">
+                      rtsp://{{ newCameraProxyUser ? newCameraProxyUser + ':' : '' }}{{ newCameraProxyPass ? newCameraProxyPass + '@' : '' }}{{ newCameraPublicIp || '[PUBLIC_IP]' }}:{{ newCameraExternalPort || 8554 }}/{{ newCameraName }}
+                    </div>
+                    <button @click="async () => { const url = `rtsp://${newCameraProxyUser ? newCameraProxyUser + ':' : ''}${newCameraProxyPass ? newCameraProxyPass + '@' : ''}${newCameraPublicIp || '[PUBLIC_IP]'}:${newCameraExternalPort || 8554}/${newCameraName}`; await navigator.clipboard.writeText(url); showToast('Link copied to clipboard!'); }" class="bg-cyan-600/20 hover:bg-cyan-600/40 text-cyan-400 px-4 transition-colors font-semibold text-xs border-l border-slate-700 flex items-center gap-2">
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                      Copy
+                    </button>
+                  </div>
+                </div>
+
+                <div class="flex justify-end mt-4">
+                  <button type="button" @click="resetAddCameraModal()" class="w-full sm:w-auto bg-slate-800 hover:bg-slate-700 text-white px-8 py-2.5 rounded-xl text-sm font-bold transition-all border border-slate-700">
+                    Done
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </transition>
       </div>
     </transition>
-
     <CameraSettingsModal :show="!!activeSettingsCamera" :camera="activeSettingsCamera" @close="activeSettingsCamera = null" />
     <CameraRecordingModal :show="!!activeRecordingCamera" :camera="activeRecordingCamera" @close="activeRecordingCamera = null" />
   </template>
@@ -1108,6 +1156,22 @@ const logout = async () => {
     router.push('/admin/login')
   } catch (e) {
     console.error(e)
+  }
+}
+
+const deleteCamera = async (id) => {
+  if (!confirm('Are you sure you want to completely remove this camera?')) return
+  try {
+    const res = await $fetch(`/api/admin/cameras/${id}`, { method: 'DELETE' })
+    if (res.success) {
+      showToast('Camera deleted successfully.')
+      await fetchCameras()
+    } else {
+      alert(res.error || 'Failed to delete camera')
+    }
+  } catch(e) {
+    console.error(e)
+    alert('Failed to delete camera')
   }
 }
 
