@@ -7,47 +7,11 @@
         <p class="text-sm text-slate-400 mt-1">Secure audit log of all camera stream views and system events.</p>
       </div>
       
-      <div class="flex flex-wrap items-center gap-3">
-        <!-- Search Input -->
-        <div class="relative">
-          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
-          <input 
-            v-model="searchQuery" 
-            type="text" 
-            placeholder="Search logs..." 
-            class="bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-9 pr-3 py-2 transition-colors"
-          >
-        </div>
-
-        <!-- Camera Filter Dropdown -->
-        <select 
-          v-model="cameraFilter" 
-          class="bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block py-2 px-3 transition-colors appearance-none pr-8 cursor-pointer relative"
-        >
-          <option value="">All Cameras</option>
-          <option v-for="cam in uniqueCameras" :key="cam" :value="cam">{{ cam }}</option>
-        </select>
-
-        <!-- Export CSV Button -->
-        <button 
-          @click="exportCSV" 
-          class="bg-transparent hover:bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 px-4 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2"
-          :disabled="filteredLogs.length === 0"
-        >
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-          </svg>
-          Export CSV
-        </button>
-
+      <div class="flex flex-wrap items-center justify-end gap-3 w-full lg:w-auto">
         <!-- Clear All Button -->
         <button 
           @click="clearLogs" 
-          class="bg-transparent hover:bg-rose-500/10 text-rose-500 border border-rose-500/30 px-4 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2 ml-auto"
+          class="bg-transparent hover:bg-rose-500/10 text-rose-500 border border-rose-500/30 px-4 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2"
           :disabled="isClearing || logs.length === 0"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -82,7 +46,7 @@
         </div>
 
         <!-- Empty State -->
-        <div v-else-if="filteredLogs.length === 0" class="flex flex-col items-center justify-center h-full py-16 text-slate-500">
+        <div v-else-if="logs.length === 0" class="flex flex-col items-center justify-center h-full py-16 text-slate-500">
           <svg class="w-16 h-16 mb-4 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
           </svg>
@@ -93,7 +57,7 @@
         <!-- Log Rows -->
         <div v-else class="flex flex-col divide-y divide-slate-800/50">
           <div 
-            v-for="log in filteredLogs" 
+            v-for="log in logs" 
             :key="log.id" 
             class="grid grid-cols-12 gap-4 px-6 py-4 items-center hover:bg-slate-800/50 transition-colors group"
           >
@@ -146,32 +110,7 @@ import { ref, computed, onMounted } from 'vue'
 const logs = ref([])
 const isLoading = ref(true)
 const isClearing = ref(false)
-const searchQuery = ref('')
-const cameraFilter = ref('')
 
-const uniqueCameras = computed(() => {
-  const cams = new Set(logs.value.map(l => l.camera_name).filter(Boolean))
-  return Array.from(cams).sort()
-})
-
-const filteredLogs = computed(() => {
-  let result = logs.value
-
-  if (cameraFilter.value) {
-    result = result.filter(log => log.camera_name === cameraFilter.value)
-  }
-
-  if (searchQuery.value) {
-    const q = searchQuery.value.toLowerCase()
-    result = result.filter(log => 
-      (log.user_label && log.user_label.toLowerCase().includes(q)) ||
-      (log.camera_name && log.camera_name.toLowerCase().includes(q)) ||
-      (log.action && log.action.toLowerCase().includes(q))
-    )
-  }
-
-  return result
-})
 
 const formatDateTime = (timestamp) => {
   if (!timestamp) return '-'
@@ -243,32 +182,6 @@ const clearLogs = async () => {
   }
 }
 
-const exportCSV = () => {
-  if (filteredLogs.value.length === 0) return
-
-  const headers = ['Timestamp', 'User', 'Camera', 'Action']
-  const rows = filteredLogs.value.map(log => [
-    formatDateTime(log.timestamp),
-    log.user_label || '',
-    log.camera_name || '',
-    log.action || ''
-  ])
-  
-  const csvContent = [
-    headers.join(','),
-    ...rows.map(e => e.map(field => `"${String(field).replace(/"/g, '""')}"`).join(','))
-  ].join('\n')
-
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.setAttribute('href', url)
-  link.setAttribute('download', `audit_logs_${new Date().toISOString().slice(0,10)}.csv`)
-  link.style.visibility = 'hidden'
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-}
 
 onMounted(() => {
   fetchLogs()
