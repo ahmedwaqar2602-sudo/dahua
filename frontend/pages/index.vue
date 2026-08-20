@@ -303,6 +303,10 @@
                 </div>
               </div>
 
+              <div class="mb-4">
+                <label class="block text-sm font-semibold text-slate-300 mb-1">Global Public IP <span class="text-xs font-normal text-slate-500">(for external RTSP)</span></label>
+                <input v-model="sharePublicIp" type="text" placeholder="e.g. 203.0.113.5 (Defaults to localhost)" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500 transition-all text-slate-200 placeholder-slate-600">
+              </div>
               <div class="grid grid-cols-2 gap-4">
                   <div>
                     <label class="block text-sm font-semibold text-slate-300 mb-1">Daily Start (Opt)</label>
@@ -536,6 +540,7 @@ const showCameraMenu = ref(null)
 
 const showShareModal = ref(false)
 const shareLabel = ref('')
+const sharePublicIp = ref('')
 const shareStartHour = ref('')
 const shareStartMin = ref('')
 const shareStartPeriod = ref('AM')
@@ -572,6 +577,7 @@ const isGeneratingLink = ref(false)
 
 const openShareModal = () => {
   shareLabel.value = ''
+  sharePublicIp.value = ''
   shareStartHour.value = ''
   shareStartMin.value = ''
   shareStartPeriod.value = 'AM'
@@ -610,7 +616,8 @@ const generateShareLink = async () => {
         cameraIds: selectedCamerasForLink.value,
         daily_start_time: shareDailyStart.value || null,
         daily_end_time: shareDailyEnd.value || null,
-        disable_ptz: true
+        disable_ptz: true,
+        public_ip: sharePublicIp.value || null
       }
     })
     
