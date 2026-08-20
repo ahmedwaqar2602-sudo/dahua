@@ -8,7 +8,11 @@ export default defineNuxtConfig({
   modules: ['@nuxtjs/tailwindcss'],
   css: ['~/assets/css/main.css'],
   routeRules: {
-    '/api/**': { proxy: 'http://localhost:8787/api/**' }
+    '/api/**': { proxy: 'http://localhost:8787/api/**' },
+    '/admin/dashboard': { redirect: '/' },
+    '/admin/login': { redirect: '/' },
+    '/admin/**': { redirect: '/' },
+    '/admin': { redirect: '/' }
   },
   nitro: {
     devProxy: {

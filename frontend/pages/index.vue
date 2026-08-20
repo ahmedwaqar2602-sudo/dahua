@@ -314,31 +314,9 @@
                   </div>
                 </div>
 
-              <div class="border-t border-slate-800 pt-4 mt-4">
-                <label class="block text-sm font-semibold text-slate-300 mb-2">Public Gateway Configuration</label>
-                <div class="grid grid-cols-2 gap-4">
-                  <div>
-                    <label class="block text-xs font-medium text-slate-400 mb-1">Public IP</label>
-                    <input v-model="sharePublicIp" type="text" placeholder="e.g. 203.0.113.1" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500 text-slate-200 placeholder-slate-500">
-                  </div>
-                  <div>
-                    <label class="block text-xs font-medium text-slate-400 mb-1">External Port</label>
-                    <input v-model="shareExternalPort" type="number" placeholder="8554" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500 text-slate-200 placeholder-slate-500">
-                  </div>
-                  <div>
-                    <label class="block text-xs font-medium text-slate-400 mb-1">Proxy Username</label>
-                    <input v-model="shareProxyUsername" type="text" placeholder="Optional" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500 text-slate-200 placeholder-slate-500">
-                  </div>
-                  <div>
-                    <label class="block text-xs font-medium text-slate-400 mb-1">Proxy Password</label>
-                    <input v-model="shareProxyPassword" type="password" placeholder="Optional" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500 text-slate-200 placeholder-slate-500">
-                  </div>
-                </div>
-              </div>
-
               <div v-if="generatedLinks && generatedLinks.length > 0" class="mt-4 p-4 bg-slate-950 border border-emerald-500/30 rounded-xl">
                 <p class="text-xs font-semibold text-emerald-400 mb-2">RTSP Links Generated:</p>
-                <p class="text-[10px] text-slate-400 mb-3">Test with VLC on a 4G mobile network before sharing.</p>
+                <p class="text-[10px] text-slate-400 mb-3">Note: RTSP requires a dedicated link for each camera stream.</p>
                 <div class="space-y-3 max-h-32 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 pr-2">
                   <div v-for="(link, i) in generatedLinks" :key="i" class="flex flex-col gap-1">
                     <div class="flex items-center gap-2">
@@ -506,11 +484,6 @@ const shareEndHour = ref('')
 const shareEndMin = ref('')
 const shareEndPeriod = ref('PM')
 
-const sharePublicIp = ref('')
-const shareExternalPort = ref('8554')
-const shareProxyUsername = ref('')
-const shareProxyPassword = ref('')
-
 const padTime = (type, field) => {
   if (type === 'start') {
     if (field === 'hour' && shareStartHour.value) shareStartHour.value = shareStartHour.value.padStart(2, '0');
@@ -546,10 +519,6 @@ const openShareModal = () => {
   shareEndHour.value = ''
   shareEndMin.value = ''
   shareEndPeriod.value = 'PM'
-  sharePublicIp.value = ''
-  shareExternalPort.value = '8554'
-  shareProxyUsername.value = ''
-  shareProxyPassword.value = ''
   generatedLinks.value = []
   selectedCamerasForLink.value = [...selectedCameraIds.value]
   showShareModal.value = true
@@ -582,13 +551,7 @@ const generateShareLink = async () => {
         cameraIds: selectedCamerasForLink.value,
         daily_start_time: shareDailyStart.value || null,
         daily_end_time: shareDailyEnd.value || null,
-        disable_ptz: true,
-        gateway: {
-          ip: sharePublicIp.value,
-          port: shareExternalPort.value,
-          username: shareProxyUsername.value,
-          password: shareProxyPassword.value
-        }
+        disable_ptz: true
       }
     })
     
