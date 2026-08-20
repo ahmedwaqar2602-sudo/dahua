@@ -118,9 +118,9 @@
       </div>
 
       <!-- Camera Grid Viewport -->
-      <div v-if="activeTab === 'grid'" class="flex-1 p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent pb-32">
+      <div v-if="activeTab === 'grid'" class="flex-1 p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-4">
-          <div v-for="cam in visibleGridCameras" :key="cam.id" class="bg-slate-900/60 backdrop-blur-md rounded-md overflow-hidden shadow-lg border border-slate-800 group relative aspect-video cursor-pointer" @click="openCameraDetail(cam)">
+          <div v-for="cam in visibleGridCameras" :key="cam.id" class="bg-slate-900/60 backdrop-blur-md rounded-md overflow-hidden shadow-lg border border-slate-800 group relative aspect-video cursor-pointer hover:border-indigo-500 transition-all" @click="openCameraDetail(cam)">
             <!-- Stream Iframe -->
             
             <iframe v-if="mediaMode === 'video'" :src="`http://localhost:1984/stream.html?src=${encodeURIComponent(cam.name + '_sub')}`" class="w-full h-full border-none pointer-events-none" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
@@ -177,69 +177,101 @@
         </div>
       </div>
       
-      <!-- 4. Playback Timeline (Fixed Bottom) -->
-      <div class="absolute bottom-4 left-4 right-4 bg-slate-900/60 backdrop-blur-md/95 backdrop-blur-xl border border-slate-700 rounded-xl shadow-2xl p-4 flex flex-col z-20">
-        <!-- Playback Controls Row -->
-        <div class="flex items-center justify-between mb-4">
-          <div class="flex items-center gap-3">
-            <button class="flex items-center gap-1 bg-slate-800 hover:bg-[#3b4255] px-3 py-1.5 rounded text-xs font-semibold text-slate-300 transition-colors">
-              x1 <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-            </button>
-          </div>
-          
-          <div class="flex items-center gap-4">
-            <button class="text-slate-400 hover:text-white transition-colors"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg></button>
-            <button class="text-slate-400 hover:text-white transition-colors"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z"></path></svg></button>
-          </div>
-        </div>
-        
-        <!-- Timeline Track Mockup -->
-        <div class="relative h-12 w-full flex items-center justify-between text-[10px] text-slate-500 font-medium px-2 border-t border-slate-800 pt-4">
-          <div class="flex flex-col items-center"><span class="mb-1">00:00</span><div class="h-1.5 w-0.5 bg-slate-700"></div></div>
-          <div class="flex flex-col items-center"><span class="mb-1">04:00</span><div class="h-1.5 w-0.5 bg-slate-700"></div></div>
-          <div class="flex flex-col items-center"><span class="mb-1">08:00</span><div class="h-1.5 w-0.5 bg-slate-700"></div></div>
-          <div class="flex flex-col items-center"><span class="mb-1">12:00</span><div class="h-1.5 w-0.5 bg-slate-700"></div></div>
-          <div class="flex flex-col items-center"><span class="mb-1">16:00</span><div class="h-1.5 w-0.5 bg-slate-700"></div></div>
-          <div class="flex flex-col items-center"><span class="mb-1">20:00</span><div class="h-1.5 w-0.5 bg-slate-700"></div></div>
-          <div class="flex flex-col items-center"><span class="mb-1">24:00</span><div class="h-1.5 w-0.5 bg-slate-700"></div></div>
-          
-          <!-- Event Bars -->
-          <div class="absolute top-8 left-[15%] w-[10%] h-1.5 bg-cyan-500 rounded-full"></div>
-          <div class="absolute top-8 left-[35%] w-[20%] h-1.5 bg-amber-500 rounded-full"></div>
-          <div class="absolute top-8 right-[10%] w-[15%] h-1.5 bg-amber-500 rounded-full"></div>
-          <div class="absolute top-8 right-[12%] w-[25%] h-1.5 bg-cyan-500 rounded-full"></div>
-          
-          <!-- Center Time Indicator / Scrubber Pill -->
-          <div class="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-[60%] bg-white text-slate-950 px-4 py-1.5 rounded shadow-[0_4px_15px_rgba(0,0,0,0.3)] font-bold text-xs whitespace-nowrap">
-            07:19:27 - 07:19:49
-            <div class="absolute bottom-[-6px] left-1/2 -translate-x-1/2 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-white"></div>
-            <!-- Scrubber Line -->
-            <div class="absolute top-full left-1/2 -translate-x-1/2 w-0.5 h-16 bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)] z-[-1]"></div>
-          </div>
-        </div>
 
-        <!-- Timeline Footer Tools -->
-        <div class="flex items-center justify-between mt-4">
-          <div class="flex items-center gap-4 text-[10px] font-semibold text-slate-300">
-            <span class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-amber-300"></div> Person</span>
-            <span class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-amber-500"></div> Vehicle</span>
-            <span class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-cyan-500"></div> All motion</span>
-          </div>
-          
-          <div class="flex items-center gap-2">
-            <div class="flex items-center bg-white rounded-full p-0.5 px-1 shadow-lg">
-              <button class="p-1 hover:bg-slate-200 rounded-full"><svg class="w-4 h-4 text-slate-800" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg></button>
-              <span class="px-3 text-xs font-bold text-slate-800 whitespace-nowrap">Thu, 11 Dec 2025 | 07:19:49</span>
-              <button class="p-1 hover:bg-slate-200 rounded-full"><svg class="w-4 h-4 text-slate-800" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></button>
-            </div>
-            <button class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-1.5 rounded-full text-xs font-bold transition-colors">Today</button>
-          </div>
-        </div>
-      </div>
       
     </main>
 
     
+    <!-- Focused Camera Overlay -->
+    <transition enter-active-class="transition-opacity duration-300" enter-from-class="opacity-0" enter-to-class="opacity-100" leave-active-class="transition-opacity duration-200" leave-from-class="opacity-100" leave-to-class="opacity-0">
+      <div v-if="selectedCamera" ref="focusOverlayRef" class="fixed inset-0 z-[60] bg-slate-950/95 backdrop-blur-md flex flex-col">
+        <!-- Header -->
+        <div class="h-14 border-b border-slate-800 bg-slate-900 flex items-center justify-between px-4 shrink-0">
+          <h2 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+            <svg class="w-5 h-5 text-cyan-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 22h20L12 2zm0 4.5l6.5 13h-13L12 6.5z"/></svg>
+            {{ selectedCamera.display_name || selectedCamera.name }}
+          </h2>
+          <div class="flex items-center gap-2">
+            <button @click="toggleOverlayFullscreen" class="p-2 text-slate-400 hover:text-white transition-colors rounded-lg hover:bg-slate-800" title="Toggle Fullscreen">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+            </button>
+            <button @click="closeCameraDetail" class="p-2 text-slate-400 hover:text-rose-400 transition-colors rounded-lg hover:bg-slate-800" title="Close Overlay">
+              <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Main Player Content -->
+        <div class="flex-1 relative bg-black flex items-center justify-center min-h-0">
+          <iframe v-if="mediaMode === 'video'" :src="`http://localhost:1984/stream.html?src=${encodeURIComponent(selectedCamera.name + '_sub')}`" class="w-full h-full border-none" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
+          <img v-else :src="`http://localhost:1984/api/frame.jpeg?src=${encodeURIComponent(selectedCamera.name)}`" class="w-full h-full object-contain" />
+          
+          <div class="absolute top-4 right-4 flex flex-col gap-1 z-20">
+            <button @click.stop="showCameraMenu === selectedCamera.id ? showCameraMenu = null : showCameraMenu = selectedCamera.id" class="p-2 bg-black/60 text-white rounded hover:bg-slate-800 transition-colors backdrop-blur">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Contextual Timeline -->
+        <div class="h-48 w-full bg-slate-900 border-t border-slate-800 flex flex-col p-4 relative shrink-0">
+          <!-- Playback Controls Row -->
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+              <button class="flex items-center gap-1 bg-slate-800 hover:bg-[#3b4255] px-3 py-1.5 rounded text-xs font-semibold text-slate-300 transition-colors">
+                x1 <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+              </button>
+            </div>
+            
+            <div class="flex items-center gap-4">
+              <button class="text-slate-400 hover:text-white transition-colors"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg></button>
+              <button class="text-slate-400 hover:text-white transition-colors"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z"></path></svg></button>
+            </div>
+          </div>
+          
+          <!-- Timeline Track -->
+          <div class="relative h-12 w-full flex items-center justify-between text-[10px] text-slate-500 font-medium px-2 border-t border-slate-800 pt-4">
+            <div class="flex flex-col items-center"><span class="mb-1">00:00</span><div class="h-1.5 w-0.5 bg-slate-700"></div></div>
+            <div class="flex flex-col items-center"><span class="mb-1">04:00</span><div class="h-1.5 w-0.5 bg-slate-700"></div></div>
+            <div class="flex flex-col items-center"><span class="mb-1">08:00</span><div class="h-1.5 w-0.5 bg-slate-700"></div></div>
+            <div class="flex flex-col items-center"><span class="mb-1">12:00</span><div class="h-1.5 w-0.5 bg-slate-700"></div></div>
+            <div class="flex flex-col items-center"><span class="mb-1">16:00</span><div class="h-1.5 w-0.5 bg-slate-700"></div></div>
+            <div class="flex flex-col items-center"><span class="mb-1">20:00</span><div class="h-1.5 w-0.5 bg-slate-700"></div></div>
+            <div class="flex flex-col items-center"><span class="mb-1">24:00</span><div class="h-1.5 w-0.5 bg-slate-700"></div></div>
+            
+            <!-- Dynamic Event Bars -->
+            <div v-for="(seg, i) in dvrSegments" :key="'dvr-'+i" class="absolute top-8 h-1.5 bg-cyan-500 rounded-full" :style="{ left: seg.left, width: seg.width }"></div>
+            
+            <!-- Center Time Indicator / Scrubber Pill -->
+            <div class="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-[60%] bg-white text-slate-950 px-4 py-1.5 rounded shadow-[0_4px_15px_rgba(0,0,0,0.3)] font-bold text-xs whitespace-nowrap z-10">
+              07:19:27 - 07:19:49
+              <div class="absolute bottom-[-6px] left-1/2 -translate-x-1/2 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-white"></div>
+              <!-- Scrubber Line -->
+              <div class="absolute top-full left-1/2 -translate-x-1/2 w-0.5 h-16 bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)] z-[-1]"></div>
+            </div>
+          </div>
+
+          <!-- Timeline Footer Tools -->
+          <div class="flex items-center justify-between mt-4">
+            <div class="flex items-center gap-4 text-[10px] font-semibold text-slate-300">
+              <span class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-amber-300"></div> Person</span>
+              <span class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-amber-500"></div> Vehicle</span>
+              <span class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-cyan-500"></div> All motion</span>
+            </div>
+            
+            <div class="flex items-center gap-2">
+              <div class="flex items-center bg-white rounded-full p-0.5 px-1 shadow-lg">
+                <button class="p-1 hover:bg-slate-200 rounded-full"><svg class="w-4 h-4 text-slate-800" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg></button>
+                <span class="px-3 text-xs font-bold text-slate-800 whitespace-nowrap">Thu, 11 Dec 2025 | 07:19:49</span>
+                <button class="p-1 hover:bg-slate-200 rounded-full"><svg class="w-4 h-4 text-slate-800" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></button>
+              </div>
+              <button class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-1.5 rounded-full text-xs font-bold transition-colors">Today</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </transition>
+
     <!-- Share Link Modal -->
     <transition enter-active-class="transition ease-out duration-300" enter-from-class="opacity-0 backdrop-blur-none" enter-to-class="opacity-100 backdrop-blur-md" leave-active-class="transition ease-in duration-200" leave-from-class="opacity-100 backdrop-blur-md" leave-to-class="opacity-0 backdrop-blur-none">
       <div v-if="showShareModal" class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
@@ -590,6 +622,18 @@ const resetToLive = () => {
 }
 
 const activeTab = ref('grid')
+const focusOverlayRef = ref(null)
+const toggleOverlayFullscreen = () => {
+  if (!document.fullscreenElement) {
+    if (focusOverlayRef.value?.requestFullscreen) {
+      focusOverlayRef.value.requestFullscreen()
+    }
+  } else {
+    if (document.exitFullscreen) {
+      document.exitFullscreen()
+    }
+  }
+}
 const mediaMode = ref('video')
 const showCameraNames = ref(true)
 const selectedCameraIds = ref([])
@@ -971,6 +1015,7 @@ const openCameraDetail = async (cam) => {
   scrubValue.value = 100
   scrubStartValue.value = 0
   await fetchArchives(cam.name)
+  await fetchDvrTimeline(cam.name)
   if (hasCapability('ptz')) {
     await fetchPresets(cam.id)
   }
@@ -1022,9 +1067,9 @@ const logout = async () => {
 
 const dvrSegments = ref([])
 
-const fetchDvrTimeline = async () => {
+const fetchDvrTimeline = async (camName = 'all') => {
   try {
-    const res = await $fetch('http://localhost:4000/api/dvr/continuous?cameraId=all&date=today')
+    const res = await $fetch(`http://localhost:4000/api/dvr/continuous?cameraId=${camName}&date=today`)
     if (res.success) {
       dvrSegments.value = res.segments.map(seg => {
         const [sH, sM] = seg.start.split(':').map(Number)
