@@ -108,14 +108,14 @@
             </div>
           </div>
           
-          <button class="text-slate-400 hover:text-white transition-colors">
+          <button @click="toggleFullscreen" class="text-slate-400 hover:text-white transition-colors" title="Toggle Fullscreen">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
           </button>
         </div>
       </div>
 
       <!-- Camera Grid Viewport -->
-      <div v-if="activeTab === 'grid'" class="flex-1 p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+      <div ref="gridContainer" v-if="activeTab === 'grid'" class="flex-1 p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent bg-slate-950">
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-4">
           <div v-for="cam in visibleGridCameras" :key="cam.id" class="bg-slate-900/60 backdrop-blur-md rounded-md overflow-hidden shadow-lg border border-slate-800 group relative aspect-video cursor-pointer hover:border-indigo-500 transition-all" @click="openCameraDetail(cam)">
             <!-- Stream Iframe -->
@@ -1101,6 +1101,7 @@ const fetchNotifications = async () => {
 
 
 onMounted(async () => {
+  document.addEventListener('fullscreenchange', handleFullscreenChange)
   updateClock()
   clockInterval = setInterval(updateClock, 1000)
   // Login page is bypassed, load data directly
@@ -1113,21 +1114,29 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  document.removeEventListener('fullscreenchange', handleFullscreenChange)
   if (clockInterval) clearInterval(clockInterval)
   
 })
 
 
-const mainContentRef = ref(null)
+const gridContainer = ref(null)
+const isFullscreen = ref(false)
+
+const handleFullscreenChange = () => {
+  isFullscreen.value = !!document.fullscreenElement
+}
 
 const toggleFullscreen = () => {
   if (!document.fullscreenElement) {
-    if (mainContentRef.value?.requestFullscreen) {
-      mainContentRef.value.requestFullscreen()
+    if (gridContainer.value?.requestFullscreen) {
+      gridContainer.value.requestFullscreen()
+      isFullscreen.value = true
     }
   } else {
     if (document.exitFullscreen) {
       document.exitFullscreen()
+      isFullscreen.value = false
     }
   }
 }
