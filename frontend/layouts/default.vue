@@ -19,10 +19,11 @@
           <span class="text-[10px] font-medium tracking-wide">Live</span>
         </NuxtLink>
         <!-- Notifications -->
-        <button class="relative flex flex-col items-center justify-center p-2 group transition-colors text-slate-400 hover:text-slate-200">
+        <NuxtLink to="/notifications" class="relative flex flex-col items-center justify-center p-2 group transition-colors text-slate-400 hover:text-slate-200" exact-active-class="!text-cyan-400">
+          <div class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-cyan-400 rounded-r-full shadow-[0_0_10px_#22d3ee] opacity-0 transition-opacity"></div>
           <svg class="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
           <span class="text-[10px] font-medium tracking-wide">Notifications</span>
-        </button>
+        </NuxtLink>
       </div>
     </nav>
     <slot />

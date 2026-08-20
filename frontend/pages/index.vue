@@ -1014,6 +1014,19 @@ const openCameraDetail = async (cam) => {
   continuousArchives.value = []
   scrubValue.value = 100
   scrubStartValue.value = 0
+  
+  // Log camera access
+  try {
+    await $fetch('/api/notifications/log', {
+      method: 'POST',
+      body: {
+        camera_name: cam.name,
+        user_label: 'Admin',
+        action: 'Stream Opened'
+      }
+    })
+  } catch(e) { console.error('Failed to log access', e) }
+
   await fetchArchives(cam.name)
   await fetchDvrTimeline(cam.name)
   if (hasCapability('ptz')) {
