@@ -863,6 +863,34 @@ const copyTestUrl = () => {
   alert('URL copied to clipboard! Test it in VLC.')
 }
 
+const copyGeneratedLink = async () => {
+  if (generatedPublicUrl.value) {
+    await navigator.clipboard.writeText(generatedPublicUrl.value)
+    alert('Link copied to clipboard!')
+  }
+}
+
+const resetAddCameraModal = () => {
+  showAddCameraModal.value = false
+  setTimeout(() => {
+    showAddSuccessView.value = false
+    generatePublicLink.value = false
+    newCameraName.value = ''
+    newCameraDisplayName.value = ''
+    newCameraProtocol.value = 'onvif'
+    newCameraUrl.value = ''
+    newCameraIp.value = ''
+    newCameraPort.value = ''
+    newCameraUsername.value = ''
+    newCameraPassword.value = ''
+    newCameraPublicIp.value = ''
+    newCameraExternalPort.value = ''
+    newCameraProxyUser.value = ''
+    newCameraProxyPass.value = ''
+    generatedPublicUrl.value = ''
+  }, 300)
+}
+
 const addCamera = async () => {
   addCameraError.value = ''
   isAddingCamera.value = true
@@ -870,23 +898,17 @@ const addCamera = async () => {
     const payload = {
       name: newCameraName.value,
       display_name: newCameraDisplayName.value,
-      protocol: newCameraProtocol.value
+      protocol: newCameraProtocol.value,
+      public_ip: newCameraPublicIp.value || null,
+      forwarded_port: newCameraExternalPort.value ? parseInt(newCameraExternalPort.value) : 8554,
+      proxy_username: newCameraProxyUser.value || null,
+      proxy_password: newCameraProxyPass.value || null
     }
     
     if (newCameraProtocol.value === 'onvif') {
-      payload.ip = newCameraIp.value
-      payload.port = newCameraPort.value || 80
-      payload.username = newCameraUsername.value
-      payload.password = newCameraPassword.value
+      payload.rtsp_url = newCameraUrl.value
     } else if (newCameraProtocol.value === 'rtsp') {
       payload.rtsp_url = newCameraUrl.value
-    } else if (newCameraProtocol.value === 'public_rtsp') {
-      payload.public_ip = newCameraPublicIp.value
-      payload.forwarded_port = newCameraForwardedPort.value
-      payload.camera_brand = newCameraBrand.value
-      payload.username = newCameraUsername.value
-      payload.password = newCameraPassword.value
-      payload.stream_type = newCameraStreamType.value
     }
     
     const abortController = new AbortController()
@@ -901,20 +923,19 @@ const addCamera = async () => {
       clearTimeout(timeoutId)
       
       if (res.success) {
-        newCameraName.value = ''
-        newCameraDisplayName.value = ''
-        newCameraProtocol.value = 'onvif'
-        newCameraUrl.value = ''
-        
-        
-        
-        
-        newCameraPublicIp.value = ''
-        newCameraForwardedPort.value = ''
-        testConnectionResult.value = ''
+        if (generatePublicLink.value && newCameraPublicIp.value) {
+          const u = newCameraProxyUser.value
+          const p = newCameraProxyPass.value
+          const creds = (u && p) ? `${u}:${p}@` : ''
+          const port = payload.forwarded_port
+          generatedPublicUrl.value = `rtsp://${creds}${newCameraPublicIp.value}:${port}/${encodeURIComponent(newCameraName.value)}`
+          showAddSuccessView.value = true
+        } else {
+          resetAddCameraModal()
+        }
         await fetchCameras()
       } else {
-        addCameraError.value = res.error || 'Failed to add camera.'
+        addCameraError.value = res.message || res.error || 'Failed to add camera.'
       }
     } catch (err) {
       clearTimeout(timeoutId)
@@ -927,13 +948,12 @@ const addCamera = async () => {
   } catch (error) {
     console.error('Failed to add camera:', error)
     if (!addCameraError.value) {
-      addCameraError.value = error.data?.error || 'Failed to connect/add camera.'
+      addCameraError.value = error.response?.data?.message || error.data?.message || error.message || 'Failed to connect/add camera.'
     }
   } finally {
     isAddingCamera.value = false
   }
 }
-
 
 const copyLinkString = async (str) => {
   if (str) {
