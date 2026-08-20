@@ -1,5 +1,10 @@
 <template>
-  
+  <transition enter-active-class="transition ease-out duration-300" enter-from-class="opacity-0 translate-y-[-20px]" enter-to-class="opacity-100 translate-y-0" leave-active-class="transition ease-in duration-200" leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 translate-y-[-20px]">
+    <div v-if="toastMessage" class="fixed top-6 left-1/2 -translate-x-1/2 z-[100] bg-emerald-500/90 text-white px-6 py-3 rounded-full shadow-lg shadow-emerald-500/20 flex items-center gap-3 backdrop-blur-md border border-emerald-400 font-medium text-sm">
+      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+      {{ toastMessage }}
+    </div>
+  </transition>
     
     
 
@@ -863,32 +868,36 @@ const copyTestUrl = () => {
   alert('URL copied to clipboard! Test it in VLC.')
 }
 
-const copyGeneratedLink = async () => {
-  if (generatedPublicUrl.value) {
-    await navigator.clipboard.writeText(generatedPublicUrl.value)
-    alert('Link copied to clipboard!')
-  }
+const toastMessage = ref('')
+const showToast = (msg) => {
+  toastMessage.value = msg
+  setTimeout(() => { toastMessage.value = '' }, 3000)
 }
 
 const resetAddCameraModal = () => {
   showAddCameraModal.value = false
-  setTimeout(() => {
-    showAddSuccessView.value = false
-    generatePublicLink.value = false
-    newCameraName.value = ''
-    newCameraDisplayName.value = ''
-    newCameraProtocol.value = 'onvif'
-    newCameraUrl.value = ''
-    newCameraIp.value = ''
-    newCameraPort.value = ''
-    newCameraUsername.value = ''
-    newCameraPassword.value = ''
-    newCameraPublicIp.value = ''
-    newCameraExternalPort.value = ''
-    newCameraProxyUser.value = ''
-    newCameraProxyPass.value = ''
-    generatedPublicUrl.value = ''
-  }, 300)
+  newCameraName.value = ''
+  newCameraDisplayName.value = ''
+  newCameraProtocol.value = 'onvif'
+  newCameraUrl.value = ''
+  newCameraIp.value = ''
+  newCameraPort.value = ''
+  newCameraUsername.value = ''
+  newCameraPassword.value = ''
+  if (typeof newCameraPublicIp !== 'undefined') newCameraPublicIp.value = ''
+  if (typeof newCameraExternalPort !== 'undefined') newCameraExternalPort.value = ''
+  if (typeof newCameraProxyUser !== 'undefined') newCameraProxyUser.value = ''
+  if (typeof newCameraProxyPass !== 'undefined') newCameraProxyPass.value = ''
+  if (typeof generatedPublicUrl !== 'undefined') generatedPublicUrl.value = ''
+  if (typeof generatePublicLink !== 'undefined') generatePublicLink.value = false
+  if (typeof showAddSuccessView !== 'undefined') showAddSuccessView.value = false
+}
+
+const copyGeneratedLink = async () => {
+  if (typeof generatedPublicUrl !== 'undefined' && generatedPublicUrl.value) {
+    await navigator.clipboard.writeText(generatedPublicUrl.value)
+    alert('Link copied to clipboard!')
+  }
 }
 
 const addCamera = async () => {
@@ -899,10 +908,10 @@ const addCamera = async () => {
       name: newCameraName.value,
       display_name: newCameraDisplayName.value,
       protocol: newCameraProtocol.value,
-      public_ip: newCameraPublicIp.value || null,
-      forwarded_port: newCameraExternalPort.value ? parseInt(newCameraExternalPort.value) : 8554,
-      proxy_username: newCameraProxyUser.value || null,
-      proxy_password: newCameraProxyPass.value || null
+      public_ip: typeof newCameraPublicIp !== 'undefined' ? newCameraPublicIp.value || null : null,
+      forwarded_port: typeof newCameraExternalPort !== 'undefined' && newCameraExternalPort.value ? parseInt(newCameraExternalPort.value) : 8554,
+      proxy_username: typeof newCameraProxyUser !== 'undefined' ? newCameraProxyUser.value || null : null,
+      proxy_password: typeof newCameraProxyPass !== 'undefined' ? newCameraProxyPass.value || null : null
     }
     
     if (newCameraProtocol.value === 'onvif') {
@@ -923,37 +932,49 @@ const addCamera = async () => {
       clearTimeout(timeoutId)
       
       if (res.success) {
-        if (generatePublicLink.value && newCameraPublicIp.value) {
-          const u = newCameraProxyUser.value
-          const p = newCameraProxyPass.value
+        // Automatically push to grid reactivity
+        await fetchCameras()
+        const newCam = cameras.value.find(c => c.name === res.camera?.name || c.name === payload.name)
+        if (newCam && !selectedCameraIds.value.includes(newCam.id)) {
+          selectedCameraIds.value.push(newCam.id)
+        }
+        
+        if (typeof generatePublicLink !== 'undefined' && generatePublicLink.value && payload.public_ip) {
+          const u = payload.proxy_username
+          const p = payload.proxy_password
           const creds = (u && p) ? `${u}:${p}@` : ''
           const port = payload.forwarded_port
-          generatedPublicUrl.value = `rtsp://${creds}${newCameraPublicIp.value}:${port}/${encodeURIComponent(newCameraName.value)}`
-          showAddSuccessView.value = true
+          if (typeof generatedPublicUrl !== 'undefined') {
+            generatedPublicUrl.value = `rtsp://${creds}${payload.public_ip}:${port}/${encodeURIComponent(payload.name)}`
+          }
+          if (typeof showAddSuccessView !== 'undefined') {
+            showAddSuccessView.value = true
+          }
         } else {
           resetAddCameraModal()
+          showToast('Camera added successfully.')
         }
-        await fetchCameras()
       } else {
-        addCameraError.value = res.message || res.error || 'Failed to add camera.'
+        addCameraError.value = res.error || 'Failed to add camera.'
       }
     } catch (err) {
       clearTimeout(timeoutId)
       if (err.name === 'AbortError' || err.message?.includes('aborted')) {
-        addCameraError.value = 'Request timed out — no response from the camera.'
+        addCameraError.value = 'Request timed out — no response from the proxy.'
       } else {
-        throw err
+        addCameraError.value = err.data?.error || err.message || 'Failed to add camera'
       }
     }
   } catch (error) {
     console.error('Failed to add camera:', error)
     if (!addCameraError.value) {
-      addCameraError.value = error.response?.data?.message || error.data?.message || error.message || 'Failed to connect/add camera.'
+      addCameraError.value = error.data?.error || 'Failed to connect/add camera.'
     }
   } finally {
     isAddingCamera.value = false
   }
 }
+
 
 const copyLinkString = async (str) => {
   if (str) {
