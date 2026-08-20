@@ -166,11 +166,22 @@
             <img v-else :src="`http://localhost:1984/api/frame.jpeg?src=${encodeURIComponent(cam.name)}`" class="w-full h-full object-cover" />
 
             
-            <!-- Controls Overlay (Hover) -->
-            <div class="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-              <button class="p-1 bg-black/50 text-white rounded hover:bg-cyan-500/80 transition-colors backdrop-blur"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg></button>
-              <button class="p-1 bg-black/50 text-white rounded hover:bg-cyan-500/80 transition-colors backdrop-blur"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg></button>
-            </div>
+            <!-- Menu Overlay -->
+              <div class="absolute top-2 right-2 flex flex-col gap-1 z-20">
+                <button @click.stop="showCameraMenu === cam.id ? showCameraMenu = null : showCameraMenu = cam.id" class="p-1.5 bg-black/60 text-white rounded hover:bg-slate-800 transition-colors backdrop-blur">
+                  <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg>
+                </button>
+                <div v-if="showCameraMenu === cam.id" class="absolute top-full mt-1 right-0 w-36 bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden py-1">
+                  <button @click.stop="activeSettingsCamera = cam; showCameraMenu = null" class="w-full text-left px-4 py-2 text-sm text-slate-200 hover:bg-indigo-500/20 hover:text-indigo-300 transition-colors flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg>
+                    Settings
+                  </button>
+                  <button @click.stop="activeRecordingCamera = cam; showCameraMenu = null" class="w-full text-left px-4 py-2 text-sm text-slate-200 hover:bg-emerald-500/20 hover:text-emerald-300 transition-colors flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    Recording
+                  </button>
+                </div>
+              </div>
             
             <!-- Camera Name Tag Overlay -->
             <div v-if="showCameraNames" class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-black/80 to-transparent p-3 pt-8 pointer-events-none">
@@ -419,9 +430,14 @@
       </div>
     </transition>
   </div>
-</template>
+
+    <CameraSettingsModal :show="!!activeSettingsCamera" :camera="activeSettingsCamera" @close="activeSettingsCamera = null" />
+    <CameraRecordingModal :show="!!activeRecordingCamera" :camera="activeRecordingCamera" @close="activeRecordingCamera = null" />
+  </template>
 
 <script setup>
+import CameraSettingsModal from '~/components/CameraSettingsModal.vue'
+import CameraRecordingModal from '~/components/CameraRecordingModal.vue'
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 
 const liveClock = ref('')
@@ -471,6 +487,9 @@ const addCameraError = ref('')
 
 const isAddingCamera = ref(false)
 const showAddCameraModal = ref(false)
+const activeSettingsCamera = ref(null)
+const activeRecordingCamera = ref(null)
+const showCameraMenu = ref(null)
 
 const showShareModal = ref(false)
 const shareLabel = ref('')
@@ -639,7 +658,7 @@ const filteredSidebarCameras = computed(() => {
 })
 
 const visibleGridCameras = computed(() => {
-  return cameras.value.filter(c => selectedCameraIds.value.includes(c.id))
+  return cameras.value.filter(c => selectedCameraIds.value.includes(c.id)).slice(0, 4)
 })
 
 // Watch for initial camera load to select all by default
