@@ -99,10 +99,7 @@
         </div>
 
         <div class="flex items-center gap-6">
-          <div class="flex bg-slate-900/60 backdrop-blur-md rounded-lg p-0.5 border border-slate-700">
-            <button @click="mediaMode = 'stills'" class="px-4 py-1.5 text-[10px] rounded-md transition-all" :class="mediaMode === 'stills' ? 'font-semibold bg-white text-slate-950 shadow' : 'font-medium text-slate-400 hover:text-slate-200'">Live Stills</button>
-            <button @click="mediaMode = 'video'" class="px-4 py-1.5 text-[10px] rounded-md transition-all" :class="mediaMode === 'video' ? 'font-semibold bg-white text-slate-950 shadow' : 'font-medium text-slate-400 hover:text-slate-200'">Live Video</button>
-          </div>
+
           
           <div class="flex items-center gap-2">
             <span class="text-[10px] text-slate-400 font-medium">Camera names</span>
@@ -122,10 +119,7 @@
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-4">
           <div v-for="cam in visibleGridCameras" :key="cam.id" class="bg-slate-900/60 backdrop-blur-md rounded-md overflow-hidden shadow-lg border border-slate-800 group relative aspect-video cursor-pointer hover:border-indigo-500 transition-all" @click="openCameraDetail(cam)">
             <!-- Stream Iframe -->
-            
-            <iframe v-if="mediaMode === 'video'" :src="`http://localhost:1984/stream.html?src=${encodeURIComponent(cam.name + '_sub')}`" class="w-full h-full border-none pointer-events-none" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
-            <img v-else :src="`http://localhost:1984/api/frame.jpeg?src=${encodeURIComponent(cam.name)}`" class="w-full h-full object-cover" />
-
+            <iframe :src="`http://localhost:1984/stream.html?src=${encodeURIComponent(cam.name + '_sub')}`" class="w-full h-full border-none pointer-events-none" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
             
             <!-- Menu Overlay -->
               <div class="absolute top-2 right-2 flex flex-col gap-1 z-20">
@@ -203,9 +197,7 @@
 
         <!-- Main Player Content -->
         <div class="flex-1 relative bg-black flex items-center justify-center min-h-0">
-          <iframe v-if="mediaMode === 'video'" :src="`http://localhost:1984/stream.html?src=${encodeURIComponent(selectedCamera.name + '_sub')}`" class="w-full h-full border-none" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
-          <img v-else :src="`http://localhost:1984/api/frame.jpeg?src=${encodeURIComponent(selectedCamera.name)}`" class="w-full h-full object-contain" />
-          
+          <iframe :src="`http://localhost:1984/stream.html?src=${encodeURIComponent(selectedCamera.name + '_sub')}`" class="w-full h-full border-none" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
           <div class="absolute top-4 right-4 flex flex-col gap-1 z-20">
             <button @click.stop="showCameraMenu === selectedCamera.id ? showCameraMenu = null : showCameraMenu = selectedCamera.id" class="p-2 bg-black/60 text-white rounded hover:bg-slate-800 transition-colors backdrop-blur">
               <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg>
@@ -634,7 +626,7 @@ const toggleOverlayFullscreen = () => {
     }
   }
 }
-const mediaMode = ref('video')
+
 const showCameraNames = ref(true)
 const selectedCameraIds = ref([])
 const cameraSearch = ref('')
