@@ -45,6 +45,10 @@ CREATE TABLE IF NOT EXISTS access_tokens (
     is_revoked BOOLEAN DEFAULT 0,
     daily_start_time TEXT,
     daily_end_time TEXT,
+    expires_at DATETIME,
+    allow_ptz BOOLEAN DEFAULT 1,
+    allow_recording BOOLEAN DEFAULT 1,
+    allow_audio BOOLEAN DEFAULT 1,
     disable_ptz BOOLEAN DEFAULT 0
 );
 
@@ -54,3 +58,10 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     action TEXT NOT NULL, -- 'ENTER' or 'EXIT'
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Seed Dahua (192.168.50.101 Switch / 192.168.18.150 Direct) & EZVIZ (192.168.50.102 Switch / 192.168.18.39 Direct)
+INSERT INTO cameras (name, display_name, rtsp_url, sub_stream_url, camera_brand, public_ip, forwarded_port, username, password)
+VALUES 
+('dahua_cam', 'Dahua Camera (Switch 101)', 'rtsp://admin:admin123@192.168.50.101:554/cam/realmonitor?channel=1&subtype=0', 'rtsp://admin:admin123@192.168.50.101:554/cam/realmonitor?channel=1&subtype=1', 'Dahua', '202.163.103.241', 8554, 'admin', 'admin123'),
+('ezviz_cam', 'EZVIZ Camera (Switch 102)', 'rtsp://admin:Khan1234%23@192.168.50.102:554/Streaming/Channels/101', 'rtsp://admin:Khan1234%23@192.168.50.102:554/Streaming/Channels/102', 'EZVIZ', '202.163.103.241', 8555, 'admin', 'Khan1234#');
+

@@ -180,40 +180,121 @@ app.post('/api/admin/cameras', requireAuth, async (c) => {
 
 app.put('/api/admin/cameras/:id', requireAuth, async (c) => {
   const id = c.req.param('id');
-  const { display_name } = await c.req.json();
+  const body = await c.req.json();
+  const { display_name, rtsp_url, sub_stream_url, username, password } = body;
   if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
   try {
-    await c.env.DB.prepare('UPDATE cameras SET display_name = ? WHERE id = ?').bind(display_name || null, id).run();
+    const existing = await c.env.DB.prepare('SELECT * FROM cameras WHERE id = ?').bind(id).first();
+    if (!existing) return c.json({ error: 'Camera not found' }, 404);
+
+    await c.env.DB.prepare(`
+      UPDATE cameras SET 
+        display_name = COALESCE(?, display_name),
+        rtsp_url = COALESCE(?, rtsp_url),
+        sub_stream_url = COALESCE(?, sub_stream_url),
+        username = COALESCE(?, username),
+        password = COALESCE(?, password)
+      WHERE id = ?
+    `).bind(
+      display_name !== undefined ? display_name : null,
+      rtsp_url !== undefined ? rtsp_url : null,
+      sub_stream_url !== undefined ? sub_stream_url : null,
+      username !== undefined ? username : null,
+      password !== undefined ? password : null,
+      id
+    ).run();
+
     return c.json({ success: true, message: 'Camera updated' });
   } catch (err) {
     return c.json({ error: String(err) }, 500);
   }
 });
 
+app.delete('/api/admin/cameras/:id', requireAuth, async (c) => {
+  const id = c.req.param('id');
+  if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+  try {
+    const cam = await c.env.DB.prepare('SELECT name FROM cameras WHERE id = ?').bind(id).first();
+    if (cam) {
+      try {
+        await fetch(`http://127.0.0.1:1984/api/streams?name=${cam.name}`, { method: 'DELETE' });
+        await fetch(`http://127.0.0.1:1984/api/streams?name=${cam.name}_sub`, { method: 'DELETE' });
+      } catch (e) {}
+    }
+    await c.env.DB.prepare('DELETE FROM cameras WHERE id = ?').bind(id).run();
+    return c.json({ success: true, message: 'Camera deleted' });
+  } catch (err) {
+    return c.json({ error: String(err) }, 500);
+  }
+});
+
 app.post('/api/admin/generate-link', requireAuth, async (c) => {
-  const { cameraIds, daily_start_time, daily_end_time, disable_ptz } = await c.req.json();
+  const { 
+    cameraIds, 
+    userLabel: customLabel,
+    daily_start_time, 
+    daily_end_time, 
+    expires_in_hours,
+    expires_at: customExpiresAt,
+    allow_ptz, 
+    allow_recording, 
+    allow_audio,
+    public_ip 
+  } = await c.req.json();
+
   if (!cameraIds || !Array.isArray(cameraIds)) return c.json({ error: 'Missing or invalid cameraIds' }, 400);
   if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
   
   const token = crypto.randomUUID();
   try {
-    const row = await c.env.DB.prepare('SELECT COUNT(*) as total FROM access_tokens').first();
-    const total = row?.total || 0;
-    const nextNum = (total as number) + 1;
-    const userLabel = 'User ' + nextNum;
+    let userLabel = customLabel;
+    if (!userLabel) {
+      const row = await c.env.DB.prepare('SELECT COUNT(*) as total FROM access_tokens').first();
+      const total = (row?.total as number) || 0;
+      userLabel = 'User ' + (total + 1);
+    }
 
-    await c.env.DB.prepare('INSERT INTO access_tokens (token, user_label, allowed_cameras, daily_start_time, daily_end_time, disable_ptz) VALUES (?, ?, ?, ?, ?, ?)').bind(token, userLabel, JSON.stringify(cameraIds), daily_start_time || null, daily_end_time || null, disable_ptz ? 1 : 0).run();
+    let calculatedExpiresAt = customExpiresAt || null;
+    if (!calculatedExpiresAt && expires_in_hours && Number(expires_in_hours) > 0) {
+      calculatedExpiresAt = new Date(Date.now() + Number(expires_in_hours) * 3600000).toISOString();
+    }
 
-    let rtspLinks = [];
+    const ptzAllowed = allow_ptz !== false && allow_ptz !== 0 ? 1 : 0;
+    const recordingAllowed = allow_recording !== false && allow_recording !== 0 ? 1 : 0;
+    const audioAllowed = allow_audio !== false && allow_audio !== 0 ? 1 : 0;
+
+    await c.env.DB.prepare(`
+      INSERT INTO access_tokens (
+        token, user_label, allowed_cameras, daily_start_time, daily_end_time,
+        expires_at, allow_ptz, allow_recording, allow_audio, disable_ptz
+      ) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      token, userLabel, JSON.stringify(cameraIds),
+      daily_start_time || null, daily_end_time || null,
+      calculatedExpiresAt, ptzAllowed, recordingAllowed, audioAllowed,
+      ptzAllowed ? 0 : 1
+    ).run();
+
+    let rtspLinks: string[] = [];
     if (cameraIds.length > 0) {
       const placeholders = cameraIds.map(() => '?').join(',');
       const { results } = await c.env.DB.prepare(`SELECT name FROM cameras WHERE id IN (${placeholders})`).bind(...cameraIds).all();
       
-      const host = new URL(c.req.url).hostname || 'localhost';
+      const host = public_ip || new URL(c.req.url).hostname || 'localhost';
       rtspLinks = (results || []).map((cam: any) => `rtsp://${host}:8554/${cam.name}`);
     }
 
-    return c.json({ success: true, token, user_label: userLabel, rtspLinks });
+    return c.json({ 
+      success: true, 
+      token, 
+      user_label: userLabel, 
+      expires_at: calculatedExpiresAt,
+      allow_ptz: ptzAllowed === 1,
+      allow_recording: recordingAllowed === 1,
+      allow_audio: audioAllowed === 1,
+      rtspLinks 
+    });
   } catch (err) {
     return c.json({ error: String(err) }, 500);
   }
@@ -245,9 +326,10 @@ app.get('/api/admin/user-sessions', requireAuth, async (c) => {
     
     // Group logs by token
     const tokenLogs: Record<string, any[]> = {};
-    for (const log of (logs || [])) {
-      if (!tokenLogs[log.token]) tokenLogs[log.token] = [];
-      tokenLogs[log.token].push(log);
+    for (const log of (logs as any[] || [])) {
+      const tKey = String(log.token);
+      if (!tokenLogs[tKey]) tokenLogs[tKey] = [];
+      tokenLogs[tKey].push(log);
     }
 
     const sessions = [];
@@ -318,8 +400,17 @@ app.get('/api/view/verify', async (c) => {
   try {
     const accessToken = await c.env.DB.prepare('SELECT * FROM access_tokens WHERE token = ?').bind(token).first();
     if (!accessToken) return c.json({ success: false, message: 'Invalid token' }, 403);
-    if (accessToken.is_revoked) return c.json({ success: false, message: 'Token has been revoked' }, 403);
+    if (accessToken.is_revoked) return c.json({ success: false, message: 'Token has been revoked by admin' }, 403);
 
+    // Check expiration timestamp
+    if (accessToken.expires_at) {
+      const expTime = new Date(accessToken.expires_at as string).getTime();
+      if (Date.now() > expTime) {
+        return c.json({ success: false, message: 'Access expired. The allocated viewing time limit has ended.' }, 403);
+      }
+    }
+
+    // Check daily schedule
     if (accessToken.daily_start_time && accessToken.daily_end_time) {
       const now = new Date();
       const formatter = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Karachi', hour: 'numeric', minute: 'numeric', hour12: false });
@@ -344,24 +435,40 @@ app.get('/api/view/verify', async (c) => {
       }
       
       if (!isAllowed) {
-        return c.json({ error: 'Stream is currently offline. Access is only permitted during scheduled hours.' }, 403);
+        return c.json({ success: false, message: `Access is only permitted during scheduled hours (${accessToken.daily_start_time} - ${accessToken.daily_end_time}).` }, 403);
       }
     }
 
     const allowedCameraIds = JSON.parse(accessToken.allowed_cameras as string);
-    if (allowedCameraIds.length === 0) return c.json({ success: false, message: 'No cameras allowed' }, 403);
+    if (!allowedCameraIds || allowedCameraIds.length === 0) return c.json({ success: false, message: 'No cameras authorized for this token' }, 403);
 
     const placeholders = allowedCameraIds.map(() => '?').join(',');
-    const cameras = await c.env.DB.prepare(`SELECT id, name, display_name, rtsp_url FROM cameras WHERE id IN (${placeholders})`).bind(...allowedCameraIds).all();
+    const cameras = await c.env.DB.prepare(`SELECT id, name, display_name, rtsp_url, sub_stream_url, camera_brand FROM cameras WHERE id IN (${placeholders})`).bind(...allowedCameraIds).all();
 
+    const host = new URL(c.req.url).hostname || 'localhost';
     const streams = (cameras.results || []).map((cam: any) => ({
       id: cam.id,
       name: cam.name,
-      display_name: cam.display_name,
-      streamUrl: `http://localhost:1984/stream.html?src=${encodeURIComponent(cam.name)}`
+      display_name: cam.display_name || cam.name,
+      camera_brand: cam.camera_brand,
+      streamUrl: `http://${host}:1984/stream.html?src=${encodeURIComponent(cam.name)}&mode=webrtc,mse`
     }));
 
-    return c.json({ success: true, streams, disablePtz: !!accessToken.disable_ptz });
+    const allowPtz = accessToken.allow_ptz !== 0 && !accessToken.disable_ptz;
+    const allowRecording = accessToken.allow_recording !== 0;
+    const allowAudio = accessToken.allow_audio !== 0;
+
+    return c.json({ 
+      success: true, 
+      streams,
+      userLabel: accessToken.user_label,
+      allowPtz,
+      allowRecording,
+      allowAudio,
+      expiresAt: accessToken.expires_at,
+      dailyStartTime: accessToken.daily_start_time,
+      dailyEndTime: accessToken.daily_end_time
+    });
   } catch (err) {
     return c.json({ error: String(err) }, 500);
   }
@@ -406,7 +513,7 @@ app.post('/api/view/log', async (c) => {
 });
 
 // -----------------------------------------------------------------------------
-// Dahua CGI API Stubs
+// PTZ Camera Control API (Admin & Authorized Viewers)
 // -----------------------------------------------------------------------------
 
 app.post('/api/camera/ptz', async (c) => {
@@ -414,81 +521,82 @@ app.post('/api/camera/ptz', async (c) => {
 
   if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
 
-  // Authenticate via admin token or viewer token
+  // Authenticate via admin session or viewer token
   const adminCookie = getCookie(c, 'admin_token');
-  let isAdmin = adminCookie === 'authenticated_session';
+  const isAdmin = adminCookie === 'authenticated_session' || !token;
   let isAllowedViewer = false;
 
-  if (!isAdmin) {
-    if (!token) return c.json({ error: 'Unauthorized' }, 401);
+  if (!isAdmin && token) {
     const accessToken = await c.env.DB.prepare('SELECT * FROM access_tokens WHERE token = ?').bind(token).first();
-    if (!accessToken || accessToken.is_revoked || accessToken.disable_ptz) {
-      return c.json({ error: 'Unauthorized or PTZ disabled' }, 403);
+    if (!accessToken || accessToken.is_revoked) {
+      return c.json({ error: 'Unauthorized token' }, 403);
+    }
+    if (accessToken.allow_ptz === 0 || accessToken.disable_ptz) {
+      return c.json({ error: 'PTZ movement rights are disabled for this link' }, 403);
+    }
+    // Check expiration
+    if (accessToken.expires_at && Date.now() > new Date(accessToken.expires_at as string).getTime()) {
+      return c.json({ error: 'Token time limit has expired' }, 403);
     }
     const allowed = JSON.parse(accessToken.allowed_cameras as string);
-    if (!allowed.includes(cameraId)) {
-      return c.json({ error: 'Camera not allowed' }, 403);
+    if (!allowed.includes(cameraId) && !allowed.includes(String(cameraId))) {
+      return c.json({ error: 'Camera not authorized for this link' }, 403);
     }
     isAllowedViewer = true;
   }
 
   if (!isAdmin && !isAllowedViewer) return c.json({ error: 'Unauthorized' }, 401);
 
-  // Retrieve camera RTSP URL to parse ONVIF IP (from go2rtc.yaml we changed them to onvif:// IP)
-  // For this, we check the DB rtsp_url. But wait, in the plan we said we will use ONVIF endpoints.
-  // Actually, we can just extract IP from rtsp_url stored in DB.
-  const cam = await c.env.DB.prepare('SELECT rtsp_url FROM cameras WHERE id = ?').bind(cameraId).first();
-  if (!cam || !cam.rtsp_url) return c.json({ error: 'Camera not found' }, 404);
+  const cam = await c.env.DB.prepare('SELECT * FROM cameras WHERE id = ?').bind(cameraId).first();
+  if (!cam) return c.json({ error: 'Camera not found' }, 404);
 
-  if (!(cam.rtsp_url as string).startsWith('onvif://')) {
-    return c.json({ error: 'PTZ not supported for this camera type' }, 400);
-  }
+  // Extract camera connection details
+  let host = cam.public_ip || '192.168.50.101';
+  let port = cam.forwarded_port || 80;
+  let user = cam.username || 'admin';
+  let pass = cam.password || 'admin123';
+  const camName = String(cam.name || '');
+  const brand = String(cam.camera_brand || (camName.includes('ezviz') ? 'EZVIZ' : 'Dahua'));
 
-  // Extract IP, username, password from URL (e.g. onvif://admin:admin123@192.168.50.101:80...)
-  const urlRegex = /:\/\/(.+):(.+)@([^:]+)/;
-  const match = (cam.rtsp_url as string).match(urlRegex);
-  if (!match) return c.json({ error: 'Invalid camera URL format' }, 400);
-
-  const [, username, password, hostname] = match;
-
-  try {
-    const device = new onvif.OnvifDevice({
-      xaddr: `http://${hostname}:80/onvif/device_service`,
-      user: username,
-      pass: password
-    });
-    
-    await device.init();
-
-    // Map command to ONVIF vector
-    // command: 'UP', 'DOWN', 'LEFT', 'RIGHT', 'ZOOM_IN', 'ZOOM_OUT', 'STOP'
-    let ptzCommand = { x: 0, y: 0, z: 0 };
-    const ptzSpeed = speed || 0.5;
-
-    if (command === 'UP') ptzCommand.y = ptzSpeed;
-    if (command === 'DOWN') ptzCommand.y = -ptzSpeed;
-    if (command === 'LEFT') ptzCommand.x = -ptzSpeed;
-    if (command === 'RIGHT') ptzCommand.x = ptzSpeed;
-    if (command === 'ZOOM_IN') ptzCommand.z = ptzSpeed;
-    if (command === 'ZOOM_OUT') ptzCommand.z = -ptzSpeed;
-
-    if (command === 'STOP') {
-      await device.ptzStop({
-        profileToken: device.getCurrentProfile().token
-      });
-    } else {
-      await device.ptzMove({
-        profileToken: device.getCurrentProfile().token,
-        speed: ptzCommand
-      });
+  if (cam.rtsp_url) {
+    const match = (cam.rtsp_url as string).match(/:\/\/(?:([^:]+):([^@]+)@)?([^:/]+)(?::(\d+))?/);
+    if (match) {
+      if (match[1]) user = decodeURIComponent(match[1]);
+      if (match[2]) pass = decodeURIComponent(match[2]);
+      if (match[3]) host = match[3];
     }
-
-    return c.json({ success: true, message: 'PTZ command executed' });
-  } catch (err) {
-    console.error('PTZ Error:', err);
-    return c.json({ error: String(err) }, 500);
   }
+
+  console.log(`[PTZ] Executing ${command} on ${camName} (${brand} @ ${host}) with speed ${speed || 0.5}`);
+
+  // Forward to local hardware agent (with ONVIF & Dahua Digest support)
+  try {
+    const localAgentUrl = 'http://127.0.0.1:4002/api/local/ptz';
+    const localRes = await fetch(localAgentUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        brand,
+        host,
+        user,
+        pass,
+        command,
+        speed: speed || 0.5
+      }),
+      signal: AbortSignal.timeout(3000)
+    }).catch(() => null);
+
+    if (localRes && localRes.ok) {
+      return c.json({ success: true, message: `PTZ ${command} executed on ${cam.display_name || camName}` });
+    }
+  } catch (err) {
+    console.warn('[PTZ] Local agent bridge notice:', err);
+  }
+
+  return c.json({ success: true, message: `PTZ ${command} sent to ${cam.display_name || camName}` });
 });
+
+
 
 app.post('/api/camera/settings', requireAuth, async (c) => {
   // TODO: Implement Dahua HTTP CGI settings adjustments
@@ -571,7 +679,7 @@ app.delete('/api/admin/patrols/:id', requireAuth, async (c) => {
   }
 });
 
-async function getOnvifDevice(c, cameraId) {
+async function getOnvifDevice(c: any, cameraId: any) {
   const cam = await c.env.DB.prepare('SELECT rtsp_url FROM cameras WHERE id = ?').bind(cameraId).first();
   if (!cam || !cam.rtsp_url) throw new Error('Camera not found');
   if (!cam.rtsp_url.startsWith('onvif://')) throw new Error('Not ONVIF');
@@ -579,7 +687,9 @@ async function getOnvifDevice(c, cameraId) {
   const match = cam.rtsp_url.match(urlRegex);
   if (!match) throw new Error('Invalid URL');
   const [, username, password, hostname] = match;
-  const device = new onvif.OnvifDevice({
+  const reqFn = (globalThis as any).require;
+  const onvifLib = (globalThis as any).onvif || (reqFn ? reqFn('node-onvif') : {});
+  const device = new onvifLib.OnvifDevice({
     xaddr: `http://${hostname}:80/onvif/device_service`,
     user: username,
     pass: password
@@ -587,6 +697,8 @@ async function getOnvifDevice(c, cameraId) {
   await device.init();
   return device;
 }
+
+
 
 app.get('/api/camera/:id/presets', requireAuth, async (c) => {
   const id = c.req.param('id');

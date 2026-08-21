@@ -1,31 +1,21 @@
 const fs = require('fs');
 const path = require('path');
+const { spawn } = require('child_process');
+const http = require('http');
+const crypto = require('crypto');
 const onvif = require('node-onvif');
 
-// Helper to build yaml string to avoid dependency if js-yaml not installed
-function buildGo2rtcYaml(cameras) {
-  let yml = 'streams:\n';
-  for (const cam of cameras) {
-    let mainUrl = cam.rtsp_url;
-    let subUrl = cam.sub_stream_url || cam.rtsp_url;
-    
-    // go2rtc's native ONVIF often throws 400 Bad Request on Dahua cameras.
-    // Since we know this is a Dahua ONVIF camera (if it starts with onvif://),
-    // we can explicitly translate it to the standard Dahua RTSP URL for go2rtc,
-    // while keeping the onvif:// protocol in the database for local-agent's PTZ.
-    if (mainUrl.startsWith('onvif://')) {
-      const match = mainUrl.match(/onvif:\/\/(.+):(.+)@([^:]+)/);
-      if (match) {
-        const [, user, pass, ip] = match;
-        mainUrl = `rtsp://${user}:${pass}@${ip}:554/cam/realmonitor?channel=1&subtype=0`;
-        subUrl = `rtsp://${user}:${pass}@${ip}:554/cam/realmonitor?channel=1&subtype=1`;
-      }
+let go2rtcProc = null;
+function ensureGo2rtc() {
+  const exePath = path.join(__dirname, 'go2rtc.exe');
+  if (!fs.existsSync(exePath)) return;
+  fetch('http://127.0.0.1:1984/api').catch(() => {
+    if (!go2rtcProc) {
+      console.log('[Agent] Spawning go2rtc engine on port 1984...');
+      go2rtcProc = spawn(exePath, [], { cwd: __dirname, stdio: 'ignore' });
+      go2rtcProc.on('exit', () => { go2rtcProc = null; });
     }
-    
-    yml += `  ${cam.name}: "${mainUrl}"\n`;
-    yml += `  ${cam.name}_sub: "${subUrl}"\n`;
-  }
-  return yml;
+  });
 }
 
 const API_BASE = 'http://localhost:8787';
@@ -35,8 +25,8 @@ const state = {
   cameras: [],
   patrols: [],
   failedPings: {},
-  patrolState: {}, // { cameraId: { currentIndex: 0, nextMoveTime: 0 } }
-  lastDayNight: {} // { cameraId: 'day' | 'night' }
+  patrolState: {},
+  lastDayNight: {}
 };
 
 async function fetchState() {
@@ -53,37 +43,153 @@ async function fetchState() {
   }
 }
 
-let go2rtcProcess = null;
-
 async function syncGo2rtc() {
-  const yamlPath = path.join(__dirname, 'go2rtc.yaml');
-  const newYaml = buildGo2rtcYaml(state.cameras);
-  let oldYaml = '';
-  try { oldYaml = fs.readFileSync(yamlPath, 'utf8'); } catch (e) {}
-
-  if (oldYaml !== newYaml) {
-    fs.writeFileSync(yamlPath, newYaml, 'utf8');
-    console.log('[Agent] Updated go2rtc.yaml with new camera streams');
-    
-    // Restart go2rtc if it's already running
-    if (go2rtcProcess) {
-      console.log('[Agent] Restarting go2rtc to apply new config...');
-      go2rtcProcess.kill();
-    }
-  }
-  
-  // Ensure go2rtc is always running
-  if (!go2rtcProcess || go2rtcProcess.killed) {
-    const { spawn } = require('child_process');
-    const exeExt = process.platform === 'win32' ? '.exe' : '';
-    console.log('[Agent] Spawning go2rtc...');
-    go2rtcProcess = spawn(path.join(__dirname, `go2rtc${exeExt}`), { stdio: 'ignore' });
-    go2rtcProcess.on('exit', () => {
-      console.log('[Agent] go2rtc exited, will be restarted on next loop if needed');
-      go2rtcProcess = null;
-    });
+  for (const cam of state.cameras) {
+    try {
+      let mainUrl = cam.rtsp_url;
+      let subUrl = cam.sub_stream_url || cam.rtsp_url;
+      if (!mainUrl.includes('#')) mainUrl += '#video=copy#audio=copy';
+      if (!subUrl.includes('#')) subUrl += '#video=copy#audio=copy';
+      const baseName = cam.name.replace(/_sub$/, '');
+      await fetch(`http://127.0.0.1:1984/api/streams?name=${baseName}&src=${encodeURIComponent(mainUrl)}`, { method: 'PUT' });
+      await fetch(`http://127.0.0.1:1984/api/streams?name=${baseName}_sub&src=${encodeURIComponent(subUrl)}`, { method: 'PUT' });
+    } catch(e) {}
   }
 }
+
+// Device connection cache for instantaneous PTZ control
+const onvifCache = {};
+
+async function getCachedOnvif(host, user, pass) {
+  const key = `${user}:${host}`;
+  if (onvifCache[key]) return onvifCache[key];
+
+  const device = new onvif.OnvifDevice({
+    xaddr: `http://${host}/onvif/device_service`,
+    user: user,
+    pass: pass
+  });
+
+  try {
+    await device.init();
+    onvifCache[key] = device;
+    return device;
+  } catch (err) {
+    console.warn(`[PTZ Agent] ONVIF init failed for ${host}:`, err.message);
+    return null;
+  }
+}
+
+
+function sendDahuaDigestPtz(host, user, pass, command, speed = 4) {
+  const codeMap = {
+    'UP': 'Up', 'DOWN': 'Down', 'LEFT': 'Left', 'RIGHT': 'Right',
+    'ZOOM_IN': 'ZoomTele', 'ZOOM_OUT': 'ZoomWide', 'STOP': 'Stop'
+  };
+  const code = codeMap[command] || 'Stop';
+  const action = command === 'STOP' ? 'stop' : 'start';
+  const rawUrl = `http://${host}/cgi-bin/ptz.cgi?action=${action}&channel=1&code=${code}&arg1=0&arg2=${speed}&arg3=0`;
+
+  http.get(rawUrl, (res) => {
+    if (res.statusCode === 401 && res.headers['www-authenticate']) {
+      const auth = res.headers['www-authenticate'];
+      const realm = (auth.match(/realm="([^"]+)"/) || [])[1] || '';
+      const nonce = (auth.match(/nonce="([^"]+)"/) || [])[1] || '';
+      const opaque = (auth.match(/opaque="([^"]+)"/) || [])[1] || '';
+      const qop = (auth.match(/qop="([^"]+)"/) || [])[1] || '';
+      const u = new URL(rawUrl);
+
+      const ha1 = crypto.createHash('md5').update(`${user}:${realm}:${pass}`).digest('hex');
+      const ha2 = crypto.createHash('md5').update(`GET:${u.pathname}${u.search}`).digest('hex');
+      let authStr = '';
+
+      if (qop.includes('auth')) {
+        const nc = '00000001';
+        const cnonce = crypto.randomBytes(8).toString('hex');
+        const resp = crypto.createHash('md5').update(`${ha1}:${nonce}:${nc}:${cnonce}:auth:${ha2}`).digest('hex');
+        authStr = `Digest username="${user}", realm="${realm}", nonce="${nonce}", uri="${u.pathname}${u.search}", response="${resp}", qop=auth, nc=${nc}, cnonce="${cnonce}"`;
+      } else {
+        const resp = crypto.createHash('md5').update(`${ha1}:${nonce}:${ha2}`).digest('hex');
+        authStr = `Digest username="${user}", realm="${realm}", nonce="${nonce}", uri="${u.pathname}${u.search}", response="${resp}"`;
+      }
+      if (opaque) authStr += `, opaque="${opaque}"`;
+
+      http.get(rawUrl, { headers: { 'Authorization': authStr } }, (r2) => {
+        console.log(`[PTZ Agent] Dahua ${command} -> Status ${r2.statusCode}`);
+      }).on('error', () => {});
+    } else {
+      console.log(`[PTZ Agent] Dahua ${command} -> Status ${res.statusCode}`);
+    }
+  }).on('error', (e) => console.warn('[PTZ Agent] Dahua error:', e.message));
+}
+
+// Local PTZ HTTP Server for backend worker delegation
+const ptzServer = http.createServer(async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    res.writeHead(200);
+    return res.end();
+  }
+
+  if (req.method === 'POST' && req.url === '/api/local/ptz') {
+    let bodyStr = '';
+    req.on('data', chunk => bodyStr += chunk);
+    req.on('end', async () => {
+      try {
+        const { brand, host, user, pass, command, speed = 0.5 } = JSON.parse(bodyStr || '{}');
+        console.log(`[PTZ Agent] Received ${command} for ${brand} @ ${host}`);
+
+        // Try ONVIF first (works directly on motorized EZVIZ & ONVIF cameras)
+        const onvifDev = await getCachedOnvif(host, user, pass);
+        if (onvifDev && onvifDev.services && onvifDev.services.ptz) {
+          if (command === 'STOP') {
+            await onvifDev.ptzStop().catch(() => {});
+          } else {
+            const speedVal = speed || 0.5;
+            const speedVec = { x: 0, y: 0, z: 0 };
+            if (command === 'UP') speedVec.y = speedVal;
+            if (command === 'DOWN') speedVec.y = -speedVal;
+            if (command === 'LEFT') speedVec.x = -speedVal;
+            if (command === 'RIGHT') speedVec.x = speedVal;
+            if (command === 'ZOOM_IN') speedVec.z = speedVal;
+            if (command === 'ZOOM_OUT') speedVec.z = -speedVal;
+
+            await onvifDev.ptzMove({ speed: speedVec, timeout: 1 }).catch(() => {});
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ success: true, method: 'ONVIF' }));
+        }
+
+        // Fallback to Dahua CGI with Digest Auth
+        if (brand === 'Dahua' || host === '192.168.50.101' || host === '192.168.18.150') {
+          const dahuaSpeed = Math.round((speed || 0.5) * 8);
+          sendDahuaDigestPtz(host, user, pass, command, dahuaSpeed);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ success: true, method: 'Dahua-Digest-CGI' }));
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, method: 'dispatched' }));
+      } catch (err) {
+        console.error('[PTZ Agent] Processing error:', err);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
+  }
+
+  res.writeHead(404);
+  res.end();
+});
+
+ptzServer.listen(4002, () => {
+  console.log('[PTZ Agent] Hardware PTZ listener active on port 4002');
+});
+
 
 async function runWatchdog() {
   for (const cam of state.cameras) {
@@ -237,6 +343,7 @@ async function runDayNight() {
 
 // Main Loop
 async function agentLoop() {
+  ensureGo2rtc();
   await fetchState();
   await syncGo2rtc();
   await runWatchdog();
@@ -244,6 +351,7 @@ async function agentLoop() {
 }
 
 console.log('[Agent] Starting authoritative camera agent...');
+ensureGo2rtc();
 setInterval(agentLoop, 10000);
 agentLoop();
 setInterval(runPatrols, 2000);

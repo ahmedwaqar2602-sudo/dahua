@@ -11,12 +11,33 @@
           </svg>
         </div>
         <div>
-          <h1 class="text-lg font-bold text-slate-100">Restricted Viewer Portal</h1>
-          <p class="text-[10px] text-slate-400">Viewing {{ streams.length }} authorized cameras</p>
+          <h1 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+            Viewer Portal
+            <span v-if="userLabel" class="text-xs font-normal text-cyan-300 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/30">{{ userLabel }}</span>
+          </h1>
+          <p class="text-[10px] text-slate-400">Viewing {{ streams.length }} authorized camera stream(s)</p>
         </div>
       </div>
       
-      <div v-if="errorMsg" class="bg-rose-500/10 border border-rose-500/30 text-rose-300 px-4 py-1.5 rounded text-xs font-bold">
+      <!-- Center: Time Limit / Schedule Remaining Badge -->
+      <div v-if="!errorMsg && !isLoading" class="flex items-center gap-3">
+        <div v-if="expiresAt" class="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 text-amber-300 px-3 py-1 rounded-full text-xs font-semibold">
+          <svg class="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span>Time Remaining: <strong class="font-mono text-amber-200">{{ remainingTimeText }}</strong></span>
+        </div>
+        <div v-else-if="dailyStartTime && dailyEndTime" class="flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 px-3 py-1 rounded-full text-xs font-semibold">
+          <span>Daily Window: <strong class="font-mono text-indigo-200">{{ dailyStartTime }} - {{ dailyEndTime }}</strong></span>
+        </div>
+
+        <!-- Permissions Badges -->
+        <div class="hidden sm:flex items-center gap-2 text-[10px]">
+          <span v-if="allowPtz" class="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold">PTZ Rights</span>
+          <span v-if="allowRecording" class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">Recording Rights</span>
+        </div>
+      </div>
+
+      <div v-if="errorMsg" class="bg-rose-500/10 border border-rose-500/30 text-rose-300 px-4 py-1.5 rounded text-xs font-bold flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-rose-500"></span>
         {{ errorMsg }}
       </div>
       <div v-else-if="isLoading" class="flex items-center gap-2 text-cyan-400 text-sm font-bold">
@@ -25,11 +46,21 @@
       </div>
       <div v-else class="text-emerald-400 text-xs font-bold px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center gap-2">
         <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-        Secure Connection
+        Secure Active Session
       </div>
     </header>
 
-    <div class="flex-1 flex overflow-hidden">
+    <!-- Error State Overlay -->
+    <div v-if="errorMsg" class="flex-1 flex flex-col items-center justify-center p-6 text-center">
+      <div class="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 mb-4 shadow-lg shadow-rose-500/10">
+        <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+      </div>
+      <h2 class="text-xl font-bold text-slate-100 mb-2">Access Denied or Expired</h2>
+      <p class="text-sm text-slate-400 max-w-md">{{ errorMsg }}</p>
+      <p class="text-xs text-slate-500 mt-4">Please contact your administrator to generate a renewed access link.</p>
+    </div>
+
+    <div v-else class="flex-1 flex overflow-hidden">
       <!-- Main Content Area -->
       <main class="flex-1 flex flex-col relative z-10 bg-slate-950">
         
@@ -38,13 +69,17 @@
           <div class="flex items-center gap-3">
             <div class="flex items-center gap-1.5 font-semibold text-sm">
               <svg class="w-4 h-4 text-cyan-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 22h20L12 2zm0 4.5l6.5 13h-13L12 6.5z"/></svg>
-              Authorized Cameras
+              Authorized Live Feeds
             </div>
           </div>
 
-          <div class="flex items-center gap-6">
+          <div class="flex items-center gap-4">
+            <button v-if="activeCamera && allowAudio" @click="openAudioStream(activeCamera)" class="px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 rounded-lg text-xs font-bold border border-emerald-500/40 flex items-center gap-1.5 transition-all">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M6 10H4a1 1 0 00-1 1v2a1 1 0 001 1h2l4 4V6l-4 4z"/></svg>
+              Listen Audio
+            </button>
             <div class="flex items-center gap-2">
-              <span class="text-[10px] text-slate-400 font-medium">Camera names</span>
+              <span class="text-[10px] text-slate-400 font-medium">Names</span>
               <div @click="showCameraNames = !showCameraNames" class="w-3.5 h-3.5 rounded-sm border border-cyan-500 flex items-center justify-center cursor-pointer transition-colors" :class="showCameraNames ? 'bg-cyan-500' : 'bg-transparent'">
                 <svg v-if="showCameraNames" class="w-2.5 h-2.5 text-slate-950" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
               </div>
@@ -52,98 +87,181 @@
           </div>
         </div>
 
-        <!-- Camera Grid -->
-        <div class="flex-1 p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent pb-32">
-          
-          <div v-if="!isLoading && streams.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-4">
-            <div v-for="cam in streams" :key="cam.id" class="bg-slate-900/60 backdrop-blur-md rounded-md overflow-hidden shadow-lg border border-slate-800 relative aspect-video">
-              
-              <!-- DVR Scrubber Overlay View -->
-              <div v-if="isScrubbing" class="absolute inset-0 z-20 bg-black">
-                <img :src="`http://localhost:1984/api/frame.jpeg?src=${encodeURIComponent(cam.name)}`" class="w-full h-full object-cover opacity-60" />
-                <!-- Glitch/Overlay effect for DVR -->
-                <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSJub25lIj48L3JlY3Q+CjxyZWN0IHdpZHRoPSIzIiBoZWlnaHQ9IjMiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wMykiPjwvcmVjdD4KPC9zdmc+')] pointer-events-none"></div>
-                <div class="absolute top-4 right-4 bg-rose-600/90 text-white text-xs font-bold px-2 py-1 rounded backdrop-blur-sm flex items-center gap-2">
-                  <span class="w-2 h-2 rounded-full bg-rose-300 animate-pulse"></span> REC 
-                </div>
-                <!-- DVR Timestamp -->
-                <div class="absolute top-4 left-4 bg-black/70 text-cyan-400 font-mono text-sm px-3 py-1 rounded backdrop-blur">
-                  {{ simulatedPlaybackDate }}
-                </div>
-                <!-- Playback Overlay icon -->
-                <div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20">
-                  <svg class="w-24 h-24 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                </div>
-              </div>
+        <!-- Camera Grid + PTZ Overlay Row -->
+        <div class="flex-1 flex overflow-hidden">
+          <div class="flex-1 p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent flex flex-col">
+            
+            <div v-if="!isLoading && streams.length > 0" class="flex-1 grid gap-4 items-center justify-center" :class="streams.length === 1 ? 'grid-cols-1 max-w-5xl mx-auto w-full' : 'grid-cols-1 md:grid-cols-2 w-full'">
+              <div v-for="cam in streams" :key="cam.id" @click="activeCamera = cam" class="bg-slate-900/90 backdrop-blur-md rounded-2xl overflow-hidden shadow-2xl border relative aspect-video transition-all cursor-pointer group flex items-center justify-center" :class="activeCamera?.id === cam.id ? 'border-cyan-500 shadow-cyan-500/20 ring-1 ring-cyan-500/50' : 'border-slate-800 hover:border-slate-700'">
 
-              <!-- Live Stream (when not scrubbing) -->
-              <iframe v-else :src="cam.streamUrl" class="w-full h-full border-none pointer-events-none" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
-              
-              <div v-if="showCameraNames" class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-black/80 to-transparent p-3 pt-8 pointer-events-none z-30">
-                <span class="text-white text-xs font-semibold drop-shadow-md flex items-center gap-2">
+                <!-- Live Stream Player (WebRTC Low-Latency) with Digital Zoom & ePTZ -->
+                <div class="w-full h-full overflow-hidden relative flex items-center justify-center bg-black">
+                  <iframe 
+                    :src="getStreamUrl(cam)" 
+                    class="w-full h-full border-none pointer-events-none transform origin-center transition-transform duration-200"
+                    :style="{ transform: `scale(${getCamZoom(cam.id)}) translate(${getCamPanX(cam.id)}px, ${getCamPanY(cam.id)}px)` }"
+                    allow="autoplay; fullscreen; picture-in-picture" 
+                    allowfullscreen>
+                  </iframe>
+                </div>
+                
+                <!-- Camera Header / Brand -->
+                <div class="absolute top-3.5 left-3.5 bg-black/75 backdrop-blur-md px-3 py-1 rounded-lg text-xs font-bold text-white flex items-center gap-2 border border-white/10 pointer-events-none z-10 shadow-lg">
+                  <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                   {{ cam.display_name || cam.name }}
+                </div>
+
+                <!-- Digital Zoom Badge Overlay -->
+                <div v-if="getCamZoom(cam.id) > 1" class="absolute top-3.5 left-48 bg-cyan-600/90 text-white text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-lg backdrop-blur flex items-center gap-1.5 z-20">
+                  <span>{{ getCamZoom(cam.id) }}x Zoom</span>
+                  <button @click.stop="resetZoomCam(cam.id)" class="hover:text-rose-300 font-bold ml-1" title="Reset Zoom">✕</button>
+                </div>
+
+                <!-- Top Right Controls: Voice Toggle & PTZ Active Indicator -->
+                <div class="absolute top-3.5 right-3.5 flex items-center gap-2 z-20">
+                  <!-- Voice ON / OFF Button -->
+                  <button v-if="allowAudio" @click.stop="toggleAudio(cam)" class="px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-lg transition-all" :class="isAudioOn(cam) ? 'bg-emerald-600 text-white shadow-emerald-600/40' : 'bg-black/75 hover:bg-slate-800 text-slate-300 border border-white/10'">
+                    <svg v-if="isAudioOn(cam)" class="w-3.5 h-3.5 text-white animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M6 10H4a1 1 0 00-1 1v2a1 1 0 001 1h2l4 4V6l-4 4z"/></svg>
+                    <svg v-else class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/></svg>
+                    <span>{{ isAudioOn(cam) ? 'Voice ON' : 'Voice Muted' }}</span>
+                  </button>
+
+                  <!-- Active PTZ Selection Marker -->
+                  <div v-if="allowPtz && activeCamera?.id === cam.id" class="bg-cyan-600 text-white px-2.5 py-1 rounded-lg text-[11px] font-bold shadow-md flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+                    PTZ Active
+                  </div>
+                </div>
+
+              </div>
+            </div>
+            
+            <div v-if="!isLoading && streams.length === 0" class="flex-1 flex flex-col items-center justify-center border border-dashed border-slate-700 rounded-xl text-slate-500">
+              <span class="text-sm font-medium">No cameras authorized for this token.</span>
+            </div>
+
+          </div>
+
+          <!-- PTZ Camera Movement Controls Sidebar (If Allowed in Given Time) -->
+          <div v-if="allowPtz && streams.length > 0" class="w-80 bg-slate-900/95 border-l border-slate-800 p-5 flex flex-col justify-between shrink-0 z-20 shadow-2xl">
+            <div>
+              <div class="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
+                <span class="text-xs font-bold text-slate-200 flex items-center gap-2">
+                  <svg class="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                  Camera Movement & Zoom
                 </span>
+                <span class="text-[10px] text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded font-mono font-bold">ALLOWED</span>
+              </div>
+              <p class="text-[11px] text-slate-400 mb-3">Control: <strong class="text-cyan-300">{{ activeCamera?.display_name || 'Selected Camera' }}</strong></p>
+
+              <!-- PTZ Pad -->
+              <div class="flex flex-col items-center justify-center p-4 bg-slate-950 rounded-2xl border border-slate-800 shadow-inner my-2">
+                <!-- UP -->
+                <button @click="sendPtz('UP')" class="w-11 h-11 bg-slate-800 hover:bg-cyan-600 active:scale-95 text-white rounded-xl flex items-center justify-center shadow-lg transition-all mb-2" title="Tilt Up">
+                  <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 15l7-7 7 7"/></svg>
+                </button>
+                
+                <div class="flex items-center justify-center gap-2.5 w-full">
+                  <!-- LEFT -->
+                  <button @click="sendPtz('LEFT')" class="w-11 h-11 bg-slate-800 hover:bg-cyan-600 active:scale-95 text-white rounded-xl flex items-center justify-center shadow-lg transition-all" title="Pan Left">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M15 19l-7-7 7-7"/></svg>
+                  </button>
+
+                  <!-- STOP -->
+                  <button @click="sendPtz('STOP')" class="w-11 h-11 bg-slate-900 border border-slate-700 hover:bg-rose-600 active:scale-95 text-slate-300 hover:text-white rounded-xl flex items-center justify-center shadow-lg transition-all font-bold text-[11px]" title="Stop">
+                    STOP
+                  </button>
+
+                  <!-- RIGHT -->
+                  <button @click="sendPtz('RIGHT')" class="w-11 h-11 bg-slate-800 hover:bg-cyan-600 active:scale-95 text-white rounded-xl flex items-center justify-center shadow-lg transition-all" title="Pan Right">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M9 5l7 7-7 7"/></svg>
+                  </button>
+                </div>
+
+                <!-- DOWN -->
+                <button @click="sendPtz('DOWN')" class="w-11 h-11 bg-slate-800 hover:bg-cyan-600 active:scale-95 text-white rounded-xl flex items-center justify-center shadow-lg transition-all mt-2" title="Tilt Down">
+                  <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+              </div>
+
+              <!-- Zoom Controls -->
+              <div class="grid grid-cols-2 gap-2.5 mt-3">
+                <button @click="sendPtz('ZOOM_IN')" class="py-2.5 bg-slate-950 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                  Zoom In (+)
+                </button>
+                <button @click="sendPtz('ZOOM_OUT')" class="py-2.5 bg-slate-950 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/></svg>
+                  Zoom Out (-)
+                </button>
+              </div>
+            </div>
+
+            <!-- Optional DVR Playback Launcher if Allowed -->
+            <div v-if="allowRecording" class="pt-3 border-t border-slate-800">
+              <button @click="showDvrModal = true" class="w-full py-2.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                View DVR Recordings
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- DVR Playback Clean Modal (Opens only when clicked) -->
+        <transition enter-active-class="transition ease-out duration-300" enter-from-class="opacity-0 backdrop-blur-none" enter-to-class="opacity-100 backdrop-blur-md" leave-active-class="transition ease-in duration-200" leave-from-class="opacity-100 backdrop-blur-md" leave-to-class="opacity-0 backdrop-blur-none">
+          <div v-if="showDvrModal && allowRecording" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
+            <div class="bg-slate-900 border border-slate-700 w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+              <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                  <h3 class="text-sm font-bold text-slate-100">24/7 DVR Playback Timeline - {{ activeCamera?.display_name || 'Selected Camera' }}</h3>
+                </div>
+                <button @click="showDvrModal = false" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800">✕</button>
+              </div>
+
+              <div class="p-6 space-y-4">
+                <!-- Interactive Timeline Scrubber -->
+                <div class="relative h-20 w-full flex items-center justify-between text-[11px] text-slate-500 font-medium px-2 border-t border-slate-800 pt-8 cursor-pointer group bg-slate-950 rounded-xl p-4" @mousedown="startScrub" @mousemove="onScrub" @mouseup="endScrub" @mouseleave="endScrub">
+                  <div class="flex flex-col items-center pointer-events-none"><span class="mb-1">00:00</span><div class="h-2 w-0.5 bg-slate-700"></div></div>
+                  <div class="flex flex-col items-center pointer-events-none"><span class="mb-1">04:00</span><div class="h-2 w-0.5 bg-slate-700"></div></div>
+                  <div class="flex flex-col items-center pointer-events-none"><span class="mb-1">08:00</span><div class="h-2 w-0.5 bg-slate-700"></div></div>
+                  <div class="flex flex-col items-center pointer-events-none"><span class="mb-1">12:00</span><div class="h-2 w-0.5 bg-slate-700"></div></div>
+                  <div class="flex flex-col items-center pointer-events-none"><span class="mb-1">16:00</span><div class="h-2 w-0.5 bg-slate-700"></div></div>
+                  <div class="flex flex-col items-center pointer-events-none"><span class="mb-1">20:00</span><div class="h-2 w-0.5 bg-slate-700"></div></div>
+                  <div class="flex flex-col items-center pointer-events-none"><span class="mb-1">24:00</span><div class="h-2 w-0.5 bg-slate-700"></div></div>
+                  
+                  <div class="absolute top-11 left-[15%] w-[10%] h-2 bg-cyan-500 rounded-full pointer-events-none"></div>
+                  <div class="absolute top-11 left-[35%] w-[20%] h-2 bg-amber-500 rounded-full pointer-events-none"></div>
+                  <div class="absolute top-11 right-[10%] w-[15%] h-2 bg-amber-500 rounded-full pointer-events-none"></div>
+                  
+                  <!-- Scrubber Pill -->
+                  <div class="absolute top-3 -translate-x-1/2 -translate-y-full bg-white text-slate-950 px-4 py-1.5 rounded-lg shadow-xl font-bold text-xs whitespace-nowrap pointer-events-none" :style="{ left: scrubPercentage + '%' }">
+                    {{ simulatedPlaybackTime }}
+                    <div class="absolute bottom-[-6px] left-1/2 -translate-x-1/2 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-white"></div>
+                    <div class="absolute top-full left-1/2 -translate-x-1/2 w-0.5 h-20 bg-white/80 shadow-[0_0_8px_rgba(255,255,255,0.8)] z-[-1]"></div>
+                  </div>
+                </div>
+
+                <div class="flex items-center justify-between pt-2">
+                  <div class="flex items-center gap-4 text-xs font-semibold text-slate-400">
+                    <span class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-amber-300"></div> Person</span>
+                    <span class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-cyan-500"></div> Motion</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <button @click="resetToLive" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-xl text-xs font-bold transition-colors">Return to Live</button>
+                    <button @click="showDvrModal = false" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-5 py-2 rounded-xl text-xs font-bold transition-colors">Close</button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-          
-          <div v-if="!isLoading && streams.length === 0 && !errorMsg" class="flex flex-col items-center justify-center h-64 border border-dashed border-slate-700 rounded-xl text-slate-500">
-            <svg class="w-12 h-12 mb-3 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-            <span class="text-sm font-medium">No cameras authorized or available.</span>
-          </div>
-
-        </div>
-        
-        <!-- DVR Playback Timeline -->
-        <div v-if="!errorMsg && !isLoading" class="absolute bottom-4 left-4 right-4 bg-slate-900/60 backdrop-blur-md/95 backdrop-blur-xl border border-slate-700 rounded-xl shadow-2xl p-4 flex flex-col z-40">
-          <div class="flex items-center justify-between mb-2">
-            <div class="flex items-center gap-3">
-              <span class="text-sm font-bold text-slate-200">24/7 NVR Playback</span>
-              <button class="bg-slate-800 px-2 py-1 rounded text-[10px] text-cyan-400 border border-cyan-500/30">Mocked Interface</button>
-            </div>
-            <div class="text-xs text-rose-400 flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span> Recording Active</div>
-          </div>
-          
-          <!-- Interactive Timeline Scrubber -->
-          <div class="relative h-16 w-full flex items-center justify-between text-[10px] text-slate-500 font-medium px-2 border-t border-slate-800 pt-6 mt-2 cursor-pointer group" @mousedown="startScrub" @mousemove="onScrub" @mouseup="endScrub" @mouseleave="endScrub">
-            <!-- Time Markers -->
-            <div class="flex flex-col items-center pointer-events-none"><span class="mb-1">00:00</span><div class="h-1.5 w-0.5 bg-slate-700"></div></div>
-            <div class="flex flex-col items-center pointer-events-none"><span class="mb-1">04:00</span><div class="h-1.5 w-0.5 bg-slate-700"></div></div>
-            <div class="flex flex-col items-center pointer-events-none"><span class="mb-1">08:00</span><div class="h-1.5 w-0.5 bg-slate-700"></div></div>
-            <div class="flex flex-col items-center pointer-events-none"><span class="mb-1">12:00</span><div class="h-1.5 w-0.5 bg-slate-700"></div></div>
-            <div class="flex flex-col items-center pointer-events-none"><span class="mb-1">16:00</span><div class="h-1.5 w-0.5 bg-slate-700"></div></div>
-            <div class="flex flex-col items-center pointer-events-none"><span class="mb-1">20:00</span><div class="h-1.5 w-0.5 bg-slate-700"></div></div>
-            <div class="flex flex-col items-center pointer-events-none"><span class="mb-1">24:00</span><div class="h-1.5 w-0.5 bg-slate-700"></div></div>
-            
-            <!-- Event Bars -->
-            <div class="absolute top-10 left-[15%] w-[10%] h-1.5 bg-cyan-500 rounded-full pointer-events-none"></div>
-            <div class="absolute top-10 left-[35%] w-[20%] h-1.5 bg-amber-500 rounded-full pointer-events-none"></div>
-            <div class="absolute top-10 right-[10%] w-[15%] h-1.5 bg-amber-500 rounded-full pointer-events-none"></div>
-            <div class="absolute top-10 right-[12%] w-[25%] h-1.5 bg-cyan-500 rounded-full pointer-events-none"></div>
-            
-            <!-- Current Time Scrubber Pill -->
-            <div class="absolute top-2 -translate-x-1/2 -translate-y-full bg-white text-slate-950 px-4 py-1.5 rounded shadow-[0_4px_15px_rgba(0,0,0,0.3)] font-bold text-xs whitespace-nowrap transition-transform duration-75 pointer-events-none" :style="{ left: scrubPercentage + '%' }">
-              {{ simulatedPlaybackTime }}
-              <div class="absolute bottom-[-6px] left-1/2 -translate-x-1/2 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-white"></div>
-              <!-- Vertical Scrubber Line -->
-              <div class="absolute top-full left-1/2 -translate-x-1/2 w-0.5 h-20 bg-white/80 shadow-[0_0_8px_rgba(255,255,255,0.8)] z-[-1]"></div>
-            </div>
-          </div>
-          
-          <div class="flex items-center justify-between mt-6">
-            <div class="flex items-center gap-4 text-[10px] font-semibold text-slate-400">
-              <span class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-amber-300"></div> Person</span>
-              <span class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-amber-500"></div> Vehicle</span>
-              <span class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-cyan-500"></div> All motion</span>
-            </div>
-            <button @click="resetToLive" class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-1.5 rounded-full text-xs font-bold transition-colors shadow-lg">Return to Live</button>
-          </div>
-        </div>
+        </transition>
         
       </main>
     </div>
   </div>
 </template>
+
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
@@ -155,15 +273,28 @@ const token = route.params.token
 const isLoading = ref(true)
 const errorMsg = ref('')
 const streams = ref([])
+const activeCamera = ref(null)
+const userLabel = ref('')
+const allowPtz = ref(true)
+const allowRecording = ref(true)
+const allowAudio = ref(true)
+const expiresAt = ref(null)
+const dailyStartTime = ref(null)
+const dailyEndTime = ref(null)
 const showCameraNames = ref(true)
+const showDvrModal = ref(false)
+const remainingTimeText = ref('')
+let timerInterval = null
+
+
+const streamHost = typeof window !== 'undefined' ? (window.location.hostname || '127.0.0.1') : '127.0.0.1'
 
 // Playback & Scrubber State
 const isScrubbing = ref(false)
 const isDragging = ref(false)
-const scrubPercentage = ref(100) // 100% = Live (right edge)
+const scrubPercentage = ref(100)
 
 const simulatedPlaybackTime = computed(() => {
-  // Convert 0-100% to a HH:MM format
   if (scrubPercentage.value >= 99) return 'LIVE'
   const totalMinutes = Math.floor((scrubPercentage.value / 100) * 1440)
   const hours = Math.floor(totalMinutes / 60)
@@ -201,6 +332,137 @@ const resetToLive = () => {
   isScrubbing.value = false
 }
 
+// Viewer Audio / Voice State Management
+const viewerAudio = ref({})
+
+const isAudioOn = (cam) => {
+  if (!cam) return false
+  return !!viewerAudio.value[cam.id]
+}
+
+const toggleAudio = (cam) => {
+  if (!cam) return
+  viewerAudio.value = { ...viewerAudio.value, [cam.id]: !viewerAudio.value[cam.id] }
+}
+
+const getStreamUrl = (cam) => {
+  if (!cam) return ''
+  let baseName = cam.name || 'dahua_cam'
+  if (baseName.endsWith('_sub')) baseName = baseName.replace(/_sub$/, '')
+  const media = isAudioOn(cam) ? 'video,audio' : 'video'
+  return `http://${streamHost}:1984/stream.html?src=${encodeURIComponent(baseName)}_sub&mode=webrtc,mse&media=${media}`
+}
+
+const openAudioStream = (cam) => {
+  if (!cam) return
+  let baseName = cam.name || 'dahua_cam'
+  if (baseName.endsWith('_sub')) baseName = baseName.replace(/_sub$/, '')
+  const url = `http://${streamHost}:1984/stream.html?src=${encodeURIComponent(baseName)}&media=video,audio`
+  window.open(url, '_blank', 'width=800,height=500')
+}
+
+
+// Digital Zoom & ePTZ State
+const cameraZoom = ref({})
+const cameraPan = ref({})
+
+const getCamZoom = (id) => cameraZoom.value[id] || 1.0
+const getCamPanX = (id) => cameraPan.value[id]?.x || 0
+const getCamPanY = (id) => cameraPan.value[id]?.y || 0
+
+const zoomInCam = (id) => {
+  const cur = getCamZoom(id)
+  const next = Math.min(4.0, Math.round((cur + 0.35) * 100) / 100)
+  cameraZoom.value = { ...cameraZoom.value, [id]: next }
+}
+
+const zoomOutCam = (id) => {
+  const cur = getCamZoom(id)
+  const next = Math.max(1.0, Math.round((cur - 0.35) * 100) / 100)
+  cameraZoom.value = { ...cameraZoom.value, [id]: next }
+  if (next === 1.0) {
+    cameraPan.value = { ...cameraPan.value, [id]: { x: 0, y: 0 } }
+  }
+}
+
+const resetZoomCam = (id) => {
+  cameraZoom.value = { ...cameraZoom.value, [id]: 1.0 }
+  cameraPan.value = { ...cameraPan.value, [id]: { x: 0, y: 0 } }
+}
+
+const panCam = (id, dir) => {
+  const curPan = cameraPan.value[id] || { x: 0, y: 0 }
+  const step = 40
+  const nextPan = { ...curPan }
+  if (dir === 'LEFT') nextPan.x += step
+  if (dir === 'RIGHT') nextPan.x -= step
+  if (dir === 'UP') nextPan.y += step
+  if (dir === 'DOWN') nextPan.y -= step
+  cameraPan.value = { ...cameraPan.value, [id]: nextPan }
+}
+
+const sendPtz = async (command, speed = 0.5) => {
+  if (!activeCamera.value) return
+  const id = activeCamera.value.id
+  const isDahua = activeCamera.value.camera_brand === 'Dahua' || activeCamera.value.name?.includes('dahua') || activeCamera.value.name?.includes('101')
+
+  // 1. Digital Zoom In / Out
+  if (command === 'ZOOM_IN') {
+    zoomInCam(id)
+  } else if (command === 'ZOOM_OUT') {
+    zoomOutCam(id)
+  }
+
+  // 2. Digital Pan / Tilt for Dahua / Fixed cameras
+  if (isDahua && ['UP', 'DOWN', 'LEFT', 'RIGHT'].includes(command)) {
+    panCam(id, command)
+  }
+
+  // 3. Dispatch hardware command to backend / agent
+  try {
+    await $fetch('/api/camera/ptz', {
+      method: 'POST',
+      body: {
+        token: token,
+        cameraId: id,
+        command: command,
+        speed: speed
+      }
+    })
+    if (command !== 'STOP' && command !== 'ZOOM_IN' && command !== 'ZOOM_OUT') {
+      setTimeout(async () => {
+        await $fetch('/api/camera/ptz', {
+          method: 'POST',
+          body: { token: token, cameraId: id, command: 'STOP', speed: 0 }
+        }).catch(() => {})
+      }, 600)
+    }
+  } catch (err) {
+    console.error('PTZ Viewer Error:', err)
+  }
+}
+
+
+const updateRemainingTime = () => {
+  if (!expiresAt.value) return
+  const diff = new Date(expiresAt.value).getTime() - Date.now()
+  if (diff <= 0) {
+    remainingTimeText.value = 'Expired'
+    errorMsg.value = 'Your granted viewing time has expired.'
+    streams.value = []
+    if (timerInterval) clearInterval(timerInterval)
+    return
+  }
+  const hours = Math.floor(diff / 3600000)
+  const minutes = Math.floor((diff % 3600000) / 60000)
+  const seconds = Math.floor((diff % 60000) / 1000)
+  if (hours > 0) {
+    remainingTimeText.value = `${hours}h ${minutes}m ${seconds}s`
+  } else {
+    remainingTimeText.value = `${minutes}m ${seconds}s`
+  }
+}
+
 // Data Fetching
 onMounted(async () => {
   if (!token) {
@@ -213,28 +475,41 @@ onMounted(async () => {
     const res = await $fetch(`/api/view/verify?token=${token}`)
     if (res.success) {
       streams.value = res.streams
+      if (streams.value.length > 0) activeCamera.value = streams.value[0]
+      userLabel.value = res.userLabel || 'Authorized Viewer'
+      allowPtz.value = !!res.allowPtz
+      allowRecording.value = !!res.allowRecording
+      allowAudio.value = !!res.allowAudio
+      expiresAt.value = res.expiresAt || null
+      dailyStartTime.value = res.dailyStartTime || null
+      dailyEndTime.value = res.dailyEndTime || null
       
+      if (expiresAt.value) {
+        updateRemainingTime()
+        timerInterval = setInterval(updateRemainingTime, 1000)
+      }
+
       // Log the entrance
       await $fetch('/api/view/log', {
         method: 'POST',
         body: { token, action: 'ENTER' }
-      }).catch(e => console.error('Failed to log access'))
+      }).catch(() => {})
       
     } else {
       errorMsg.value = res.message || 'Access Denied'
     }
   } catch(e) {
-    errorMsg.value = 'Network error or token expired'
+    errorMsg.value = e.data?.message || 'Access Denied: Token expired or outside scheduled hours.'
   } finally {
     isLoading.value = false
   }
 })
 
-onUnmounted(async () => {
+onUnmounted(() => {
+  if (timerInterval) clearInterval(timerInterval)
   if (!errorMsg.value && token) {
-    // Attempt to log exit
     try {
-      await navigator.sendBeacon('/api/view/log', JSON.stringify({ token, action: 'EXIT' }))
+      navigator.sendBeacon('/api/view/log', JSON.stringify({ token, action: 'EXIT' }))
     } catch(e) {}
   }
 })

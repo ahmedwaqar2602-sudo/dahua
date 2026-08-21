@@ -1,5 +1,43 @@
+api:
+  listen: ":1984"
+  origin: "*"
+
+rtsp:
+  listen: ":8554"
+
+webrtc:
+  listen: ":8555"
+
 streams:
-  cam1: "rtsp://admin:admin123@192.168.50.101:554/cam/realmonitor?channel=1&subtype=0"
-  cam1_sub: "rtsp://admin:admin123@192.168.50.101:554/cam/realmonitor?channel=1&subtype=1"
-  Cam2: "rtsp://admin:Khan1234%23@192.168.50.102:554/Streaming/Channels/101#backchannel=0"
-  Cam2_sub: "rtsp://admin:Khan1234%23@192.168.50.102:554/Streaming/Channels/101#backchannel=0"
+  # Dahua Camera (Switch 192.168.50.101 Primary, 192.168.18.150 Direct)
+  dahua_cam:
+    - rtsp://admin:admin123@192.168.50.101:554/cam/realmonitor?channel=1&subtype=0#video=copy#audio=copy
+
+  dahua_cam_sub:
+    - rtsp://admin:admin123@192.168.50.101:554/cam/realmonitor?channel=1&subtype=1#video=copy#audio=copy
+
+  dahua:
+    - "rtsp://admin:admin123@192.168.50.101:554/cam/realmonitor?channel=1&subtype=0#video=copy#audio=copy"
+    - "rtsp://admin:admin123@192.168.18.150:554/cam/realmonitor?channel=1&subtype=0#video=copy#audio=copy"
+
+  dahua_sub:
+    - "rtsp://admin:admin123@192.168.50.101:554/cam/realmonitor?channel=1&subtype=1#video=copy#audio=copy"
+    - "rtsp://admin:admin123@192.168.18.150:554/cam/realmonitor?channel=1&subtype=1#video=copy#audio=copy"
+
+  # EZVIZ Camera (Switch 192.168.50.102 Primary, 192.168.18.39 Direct)
+  ezviz_cam:
+    - rtsp://admin:Khan1234%23@192.168.50.102:554/Streaming/Channels/101#video=copy#audio=copy
+
+  ezviz_cam_sub:
+    - rtsp://admin:Khan1234%23@192.168.50.102:554/Streaming/Channels/102#video=copy#audio=copy
+
+  ezviz:
+    - "rtsp://admin:Khan1234%23@192.168.50.102:554/Streaming/Channels/101#video=copy#audio=copy"
+    - "rtsp://admin:Khan1234%23@192.168.18.39:554/Streaming/Channels/101#video=copy#audio=copy"
+
+  ezviz_sub:
+    - "rtsp://admin:Khan1234%23@192.168.50.102:554/Streaming/Channels/102#video=copy#audio=copy"
+    - "rtsp://admin:Khan1234%23@192.168.18.39:554/Streaming/Channels/102#video=copy#audio=copy"
+  rtsp://admin:Khan1234%23@192.168.50.102:554/Streaming/Channels/102:
+    - rtsp://admin:Khan1234%23@192.168.50.102:554/Streaming/Channels/102
+
