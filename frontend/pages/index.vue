@@ -88,12 +88,13 @@
         
         <!-- View 1: Mosaic Surveillance Grid (Screenshot 2 exact 2x2 with drag-and-drop slots) -->
         <div v-if="viewMode === 'mosaic'" class="flex-1 p-3.5 overflow-hidden flex flex-col bg-[#14171f]">
-          <div class="flex-1 grid grid-cols-2 grid-rows-2 gap-3">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start content-start">
             
             <!-- Slot 0 -->
-            <div class="relative bg-black rounded-lg overflow-hidden border border-[#252936] shadow-xl group">
+            <div class="relative bg-black rounded-lg overflow-hidden border border-[#252936] shadow-xl group aspect-video">
               <template v-if="mosaicSlots[0]">
-                <iframe :src="getStreamPlayerUrl(mosaicSlots[0])" class="w-full h-full border-none" allow="autoplay; fullscreen" allowfullscreen></iframe>
+                <div class="absolute inset-0 z-0 cursor-pointer" @click="openCameraDetail(mosaicSlots[0])" title="Click to open PTZ & Audio settings"></div>
+                <iframe :id="'iframe-' + mosaicSlots[0].id" :src="'/player.html?src=' + getWsUrlPath(mosaicSlots[0]) + '&muted=' + (!isAudioOn(mosaicSlots[0]))" class="w-full h-full object-contain pointer-events-none border-none relative z-[-1]"></iframe>
                 <!-- Top-Left Timestamp & Label -->
                 <div class="absolute top-2.5 left-2.5 flex items-center gap-2 bg-black/60 backdrop-blur px-2.5 py-1 rounded text-xs text-white font-mono font-bold border border-white/10 z-10 pointer-events-none">
                   <span class="text-cyan-300">{{ liveClock }}</span>
@@ -109,7 +110,7 @@
                     <span>{{ isAudioOn(mosaicSlots[0]) ? 'Voice ON' : 'Muted' }}</span>
                   </button>
                   <!-- Remove Camera From Slot -->
-                  <button @click="mosaicSlots[0] = null" class="p-1 bg-black/80 hover:bg-rose-600 text-slate-400 hover:text-white rounded opacity-0 group-hover:opacity-100 transition-opacity" title="Remove from slot">
+                  <button @click.stop="confirmRemoveSlot(0)" class="p-1 bg-black/80 hover:bg-rose-600 text-slate-400 hover:text-white rounded opacity-0 group-hover:opacity-100 transition-opacity" title="Remove from slot">
                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                   </button>
                 </div>
@@ -121,9 +122,10 @@
             </div>
 
             <!-- Slot 1 (Highlighted with Blue Border in Screenshot 2) -->
-            <div class="relative bg-black rounded-lg overflow-hidden border border-[#252936] shadow-xl group" :class="!mosaicSlots[1] ? 'border-2 border-cyan-500/80 bg-[#121c2e]' : ''">
+            <div class="relative bg-black rounded-lg overflow-hidden border border-[#252936] shadow-xl group aspect-video" :class="!mosaicSlots[1] ? 'border-2 border-cyan-500/80 bg-[#121c2e]' : ''">
               <template v-if="mosaicSlots[1]">
-                <iframe :src="getStreamPlayerUrl(mosaicSlots[1])" class="w-full h-full border-none" allow="autoplay; fullscreen" allowfullscreen></iframe>
+                <div class="absolute inset-0 z-0 cursor-pointer" @click="openCameraDetail(mosaicSlots[1])" title="Click to open PTZ & Audio settings"></div>
+                <iframe :id="'iframe-' + mosaicSlots[1].id" :src="'/player.html?src=' + getWsUrlPath(mosaicSlots[1]) + '&muted=' + (!isAudioOn(mosaicSlots[1]))" class="w-full h-full object-contain pointer-events-none border-none relative z-[-1]"></iframe>
                 <div class="absolute top-2.5 left-2.5 flex items-center gap-2 bg-black/60 backdrop-blur px-2.5 py-1 rounded text-xs text-white font-mono font-bold border border-white/10 z-10 pointer-events-none">
                   <span class="text-cyan-300">{{ liveClock }}</span>
                   <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
@@ -135,7 +137,7 @@
                     <svg v-else class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/></svg>
                     <span>{{ isAudioOn(mosaicSlots[1]) ? 'Voice ON' : 'Muted' }}</span>
                   </button>
-                  <button @click="mosaicSlots[1] = null" class="p-1 bg-black/80 hover:bg-rose-600 text-slate-400 hover:text-white rounded opacity-0 group-hover:opacity-100 transition-opacity" title="Remove from slot">
+                  <button @click.stop="confirmRemoveSlot(1)" class="p-1 bg-black/80 hover:bg-rose-600 text-slate-400 hover:text-white rounded opacity-0 group-hover:opacity-100 transition-opacity" title="Remove from slot">
                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                   </button>
                 </div>
@@ -143,56 +145,6 @@
               <div v-else @click="assignFirstAvailable(1)" class="w-full h-full flex flex-col items-center justify-center bg-[#121c2e] hover:bg-[#16243b] rounded-lg cursor-pointer transition-all">
                 <span class="text-cyan-300 font-bold text-sm tracking-wide">Drag camera here</span>
                 <span class="text-[11px] text-cyan-400/60 mt-1">Ready for drop</span>
-              </div>
-            </div>
-
-            <!-- Slot 2 -->
-            <div class="relative bg-black rounded-lg overflow-hidden border border-[#252936] shadow-xl group">
-              <template v-if="mosaicSlots[2]">
-                <iframe :src="getStreamPlayerUrl(mosaicSlots[2])" class="w-full h-full border-none" allow="autoplay; fullscreen" allowfullscreen></iframe>
-                <div class="absolute top-2.5 left-2.5 flex items-center gap-2 bg-black/60 backdrop-blur px-2.5 py-1 rounded text-xs text-white font-mono font-bold border border-white/10 z-10 pointer-events-none">
-                  <span class="text-cyan-300">{{ liveClock }}</span>
-                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                  <span>{{ mosaicSlots[2].display_name || mosaicSlots[2].name }}</span>
-                </div>
-                <div class="absolute top-2.5 right-2.5 flex items-center gap-1.5 z-10">
-                  <button @click.stop="toggleCameraAudio(mosaicSlots[2])" class="px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 transition-all shadow-md" :class="isAudioOn(mosaicSlots[2]) ? 'bg-emerald-600 text-white shadow-emerald-600/40' : 'bg-black/75 hover:bg-slate-800 text-slate-300 border border-white/10'" :title="isAudioOn(mosaicSlots[2]) ? 'Voice is ON (Click to Mute)' : 'Voice is OFF (Click to Listen)'">
-                    <svg v-if="isAudioOn(mosaicSlots[2])" class="w-3.5 h-3.5 text-white animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M6 10H4a1 1 0 00-1 1v2a1 1 0 001 1h2l4 4V6l-4 4z"/></svg>
-                    <svg v-else class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/></svg>
-                    <span>{{ isAudioOn(mosaicSlots[2]) ? 'Voice ON' : 'Muted' }}</span>
-                  </button>
-                  <button @click="mosaicSlots[2] = null" class="p-1 bg-black/80 hover:bg-rose-600 text-slate-400 hover:text-white rounded opacity-0 group-hover:opacity-100 transition-opacity" title="Remove from slot">
-                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                  </button>
-                </div>
-              </template>
-              <div v-else @click="assignFirstAvailable(2)" class="w-full h-full flex flex-col items-center justify-center bg-[#181d28] border-2 border-dashed border-[#2b3345] hover:border-cyan-500/60 rounded-lg cursor-pointer transition-all group">
-                <span class="text-slate-400 group-hover:text-cyan-300 font-semibold text-sm">Drag camera here</span>
-              </div>
-            </div>
-
-            <!-- Slot 3 -->
-            <div class="relative bg-black rounded-lg overflow-hidden border border-[#252936] shadow-xl group">
-              <template v-if="mosaicSlots[3]">
-                <iframe :src="getStreamPlayerUrl(mosaicSlots[3])" class="w-full h-full border-none" allow="autoplay; fullscreen" allowfullscreen></iframe>
-                <div class="absolute top-2.5 left-2.5 flex items-center gap-2 bg-black/60 backdrop-blur px-2.5 py-1 rounded text-xs text-white font-mono font-bold border border-white/10 z-10 pointer-events-none">
-                  <span class="text-cyan-300">{{ liveClock }}</span>
-                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                  <span>{{ mosaicSlots[3].display_name || mosaicSlots[3].name }}</span>
-                </div>
-                <div class="absolute top-2.5 right-2.5 flex items-center gap-1.5 z-10">
-                  <button @click.stop="toggleCameraAudio(mosaicSlots[3])" class="px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 transition-all shadow-md" :class="isAudioOn(mosaicSlots[3]) ? 'bg-emerald-600 text-white shadow-emerald-600/40' : 'bg-black/75 hover:bg-slate-800 text-slate-300 border border-white/10'" :title="isAudioOn(mosaicSlots[3]) ? 'Voice is ON (Click to Mute)' : 'Voice is OFF (Click to Listen)'">
-                    <svg v-if="isAudioOn(mosaicSlots[3])" class="w-3.5 h-3.5 text-white animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M6 10H4a1 1 0 00-1 1v2a1 1 0 001 1h2l4 4V6l-4 4z"/></svg>
-                    <svg v-else class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/></svg>
-                    <span>{{ isAudioOn(mosaicSlots[3]) ? 'Voice ON' : 'Muted' }}</span>
-                  </button>
-                  <button @click="mosaicSlots[3] = null" class="p-1 bg-black/80 hover:bg-rose-600 text-slate-400 hover:text-white rounded opacity-0 group-hover:opacity-100 transition-opacity" title="Remove from slot">
-                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                  </button>
-                </div>
-              </template>
-              <div v-else @click="assignFirstAvailable(3)" class="w-full h-full flex flex-col items-center justify-center bg-[#181d28] border-2 border-dashed border-[#2b3345] hover:border-cyan-500/60 rounded-lg cursor-pointer transition-all group">
-                <span class="text-slate-400 group-hover:text-cyan-300 font-semibold text-sm">Drag camera here</span>
               </div>
             </div>
 
@@ -222,7 +174,7 @@
 
               <!-- Stream Video Container -->
               <div class="relative aspect-video w-full bg-black overflow-hidden">
-                <iframe :src="getStreamPlayerUrl(cam)" class="w-full h-full border-none" allow="autoplay; fullscreen" allowfullscreen></iframe>
+                <iframe :id="'iframe-' + cam.id" :src="'/player.html?src=' + getWsUrlPath(cam) + '&muted=' + (!isAudioOn(cam))" class="w-full h-full object-contain border-none"></iframe>
                 
                 <!-- Telemetry Badges Overlay on Hover -->
                 <div class="absolute top-2.5 left-2.5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 text-[10px] font-mono text-slate-200 bg-black/80 px-2 py-1 rounded-md border border-white/10 pointer-events-none">
@@ -272,7 +224,7 @@
           <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             <div v-for="cam in filteredCameras" :key="cam.id" @click="openCameraDetail(cam)" class="bg-[#1e2330] rounded-lg overflow-hidden border border-[#282f40] hover:border-cyan-500 cursor-pointer shadow-lg group">
               <div class="relative aspect-video w-full bg-black">
-                <iframe :src="getStreamPlayerUrl(cam)" class="w-full h-full border-none pointer-events-none" allow="autoplay; fullscreen" allowfullscreen></iframe>
+                <iframe :id="'iframe-' + cam.id" :src="'/player.html?src=' + getWsUrlPath(cam) + '&muted=' + (!isAudioOn(cam))" class="w-full h-full object-contain pointer-events-none border-none"></iframe>
                 <div class="absolute top-1.5 left-1.5 bg-black/70 px-1.5 py-0.5 rounded text-[9px] font-bold text-emerald-400 flex items-center gap-1">
                   <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
                   LIVE
@@ -328,121 +280,6 @@
             </table>
           </div>
         </div>
-
-        <!-- 3. Bottom Integrated Flussonic Watcher DVR Timeline Deck (Screenshot 2 bottom bar) -->
-        <div class="bg-[#1b1f2b] border-t border-[#252936] p-3 flex flex-col gap-2 shrink-0 select-none z-20">
-          
-          <!-- Flussonic Slider & Range Bar (03:00 to 15:00 scale) -->
-          <div class="relative px-2">
-            <!-- Hour scale indicators -->
-            <div class="flex justify-between text-[10px] font-mono text-slate-400 mb-1">
-              <span>03:00</span>
-              <span>04:00</span>
-              <span>05:00</span>
-              <span>06:00</span>
-              <span>07:00</span>
-              <span>08:00</span>
-              <span>09:00</span>
-              <span>10:00</span>
-              <span>11:00</span>
-              <span>12:00</span>
-              <span>13:00</span>
-              <span>14:00</span>
-              <span>15:00</span>
-            </div>
-
-            <!-- Flussonic Multi-Segment Bar (Red, Green Archive, Blue Live) -->
-            <div class="h-3 w-full bg-[#12151e] rounded flex overflow-hidden border border-[#2b3345] relative cursor-pointer" @click="activeRecordingCamera = (filteredCameras[0] || cameras[0])">
-              <!-- Red (No archive) -->
-              <div class="h-full bg-rose-600/80 w-[20%]"></div>
-              <!-- Green (Archive recorded 24/7) -->
-              <div class="h-full bg-emerald-500 w-[55%] relative">
-                <!-- Yellow Motion Events -->
-                <div class="absolute inset-y-0 left-[20%] w-1 bg-amber-300"></div>
-                <div class="absolute inset-y-0 left-[60%] w-1.5 bg-amber-300"></div>
-              </div>
-              <!-- Blue (Live / Cache) -->
-              <div class="h-full bg-cyan-500 w-[15%]"></div>
-              <!-- Gray Empty -->
-              <div class="h-full bg-slate-800 w-[10%]"></div>
-
-              <!-- Draggable Selection Range Handles -->
-              <div class="absolute top-0 bottom-0 left-[15%] w-2 bg-white rounded-l shadow cursor-ew-resize"></div>
-              <div class="absolute top-0 bottom-0 right-[25%] w-2 bg-white rounded-r shadow cursor-ew-resize"></div>
-            </div>
-          </div>
-
-          <!-- Flussonic Playback Controls Deck (Screenshot 2 bottom row) -->
-          <div class="flex items-center justify-between px-2 pt-1">
-            
-            <!-- Left Controls: Pause/Play, Return to Live, Speed -/+, Frame Step < / >, Audio -->
-            <div class="flex items-center gap-1.5">
-              <!-- Pause / Play -->
-              <button @click="dvrIsPlaying = !dvrIsPlaying" class="p-1.5 bg-[#252936] hover:bg-[#31374a] text-slate-200 rounded transition-colors" title="Pause / Play">
-                <svg v-if="dvrIsPlaying" class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-                <svg v-else class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-              </button>
-
-              <!-- Sync to Live -->
-              <button @click="showToast('Synced to live camera stream')" class="p-1.5 bg-[#252936] hover:bg-[#31374a] text-slate-200 rounded transition-colors" title="Return to Live">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-              </button>
-
-              <!-- Speed Slow (-) -->
-              <button @click="showToast('Playback Speed: 0.5x Slow')" class="p-1.5 px-2 bg-[#252936] hover:bg-[#31374a] text-slate-200 rounded text-xs font-bold transition-colors" title="Slow Down (-)">
-                -
-              </button>
-
-              <!-- Speed Fast (+) -->
-              <button @click="showToast('Playback Speed: 2.0x Fast')" class="p-1.5 px-2 bg-[#252936] hover:bg-[#31374a] text-slate-200 rounded text-xs font-bold transition-colors" title="Speed Up (+)">
-                +
-              </button>
-
-              <!-- Step Frame Left (<) -->
-              <button @click="showToast('Step 1 Frame Back')" class="p-1.5 px-2 bg-[#252936] hover:bg-[#31374a] text-slate-200 rounded text-xs font-bold transition-colors" title="Step 1 Frame Back">
-                &lt;
-              </button>
-
-              <!-- Step Frame Right (>) -->
-              <button @click="showToast('Step 1 Frame Forward')" class="p-1.5 px-2 bg-[#252936] hover:bg-[#31374a] text-slate-200 rounded text-xs font-bold transition-colors" title="Step 1 Frame Forward">
-                &gt;
-              </button>
-
-              <!-- Audio / Speaker -->
-              <button @click="toggleCameraAudio(mosaicSlots[0] || cameras[0])" class="p-1.5 rounded transition-colors" :class="isAudioOn(mosaicSlots[0] || cameras[0]) ? 'bg-emerald-600 text-white shadow-sm' : 'bg-[#252936] hover:bg-[#31374a] text-slate-200'" :title="isAudioOn(mosaicSlots[0] || cameras[0]) ? 'Voice ON (Click to Mute)' : 'Voice Muted (Click to Listen)'">
-                <svg v-if="isAudioOn(mosaicSlots[0] || cameras[0])" class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M6 10H4a1 1 0 00-1 1v2a1 1 0 001 1h2l4 4V6l-4 4z"/></svg>
-                <svg v-else class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/></svg>
-              </button>
-            </div>
-
-
-            <!-- Right Controls: Locked Time Range, Download MP4, Calendar Date Picker -->
-            <div class="flex items-center gap-2 text-xs font-mono">
-              <!-- Locked Time Range Selector (🔒 02:34:31 - 🔒 02:34:31) -->
-              <div class="flex items-center gap-1 bg-[#12151e] px-2.5 py-1 rounded border border-[#2b3345] text-slate-300">
-                <svg class="w-3 h-3 text-slate-400" fill="currentColor" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
-                <span>02 : 34 : 31</span>
-                <span class="text-slate-500">-</span>
-                <svg class="w-3 h-3 text-slate-400" fill="currentColor" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
-                <span>02 : 34 : 31</span>
-              </div>
-
-              <!-- Download MP4 Button (Green Download Icon in Screenshot 2) -->
-              <button @click="showToast('Downloading DVR MP4 export clip...')" class="p-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded transition-colors shadow-sm" title="Export & Download MP4 Recording">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-              </button>
-
-              <!-- Calendar Date Picker (11.06.2021 in Screenshot 2) -->
-              <div class="flex items-center gap-1.5 bg-[#252936] px-2.5 py-1 rounded border border-[#2f3546] text-slate-200 cursor-pointer">
-                <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                <input type="date" v-model="dvrSelectedDate" class="bg-transparent text-slate-200 text-xs font-mono focus:outline-none" />
-              </div>
-            </div>
-
-          </div>
-
-        </div>
-
       </main>
 
       <!-- 4. Right Side Panel: Cameras Tree & Drag-and-Drop (Screenshot 2 exact design) -->
@@ -468,58 +305,34 @@
             </div>
           </div>
 
-          <!-- Collapsible Category Trees (CAFE, DEFAULT, HOME from Screenshot 2) -->
+          <!-- Collapsible Category Trees (ONLINE, OFFLINE) -->
           <div class="flex-1 overflow-y-auto p-2 space-y-3 scrollbar-thin scrollbar-thumb-slate-700">
             
-            <!-- Category 1: CAFE -->
+            <!-- Category: ONLINE -->
             <div>
-              <div @click="groupCafeOpen = !groupCafeOpen" class="flex items-center justify-between px-2 py-1 text-xs font-bold text-slate-400 hover:text-slate-200 cursor-pointer rounded hover:bg-[#252936]">
+              <div @click="groupOnlineOpen = !groupOnlineOpen" class="flex items-center justify-between px-2 py-1 text-xs font-bold text-slate-300 hover:text-white cursor-pointer rounded hover:bg-[#252936]">
                 <div class="flex items-center gap-1.5">
-                  <svg class="w-3 h-3 text-slate-500 transition-transform" :class="groupCafeOpen ? 'rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                  <span>CAFE</span>
-                </div>
-                <div class="flex items-center gap-1 bg-[#252936] px-1.5 py-0.5 rounded text-[10px] text-slate-400">
-                  <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
-                  <span>1</span>
-                </div>
-              </div>
-              <div v-if="groupCafeOpen" class="pl-4 pt-1 space-y-1">
-                <div @click="assignToSlot(cameras[0])" class="flex items-center justify-between p-1.5 rounded bg-[#252936]/60 hover:bg-[#31374a] cursor-pointer text-xs group transition-colors">
-                  <div class="flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-                    <span class="text-slate-200 group-hover:text-white font-medium truncate max-w-[120px]">SampleCam</span>
-                  </div>
-                  <svg class="w-3.5 h-3.5 text-slate-500 opacity-0 group-hover:opacity-100" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
-                </div>
-              </div>
-            </div>
-
-            <!-- Category 2: DEFAULT (Active category from Screenshot 2 with Dahua & EZVIZ) -->
-            <div>
-              <div @click="groupDefaultOpen = !groupDefaultOpen" class="flex items-center justify-between px-2 py-1 text-xs font-bold text-slate-300 hover:text-white cursor-pointer rounded hover:bg-[#252936]">
-                <div class="flex items-center gap-1.5">
-                  <svg class="w-3 h-3 text-slate-400 transition-transform" :class="groupDefaultOpen ? 'rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                  <span>DEFAULT</span>
+                  <svg class="w-3 h-3 text-slate-400 transition-transform" :class="groupOnlineOpen ? 'rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                  <span>ONLINE</span>
                 </div>
                 <div class="flex items-center gap-1 bg-[#252936] px-1.5 py-0.5 rounded text-[10px] text-slate-300">
-                  <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
-                  <span>{{ cameras.length }}</span>
+                  <svg class="w-3 h-3 text-emerald-400" fill="currentColor" viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+                  <span>{{ onlineCameras.length }}</span>
                 </div>
               </div>
 
-              <!-- Camera Items with Drag Handle ⋮⋮ and Action Menu ⋮ (Screenshot 2 Item Style) -->
-              <div v-if="groupDefaultOpen" class="pt-1 space-y-1">
+              <!-- Camera Items -->
+              <div v-if="groupOnlineOpen" class="pt-1 space-y-1">
                 <div 
-                  v-for="cam in filteredCameras" 
+                  v-for="cam in onlineCameras" 
                   :key="cam.id" 
                   @click="assignToSlot(cam)"
                   class="flex items-center justify-between p-2 rounded-md bg-[#252a3a] hover:bg-[#32394e] border border-[#2e3547] cursor-pointer text-xs group transition-all shadow-sm"
                   title="Click to place in Mosaic slot"
                 >
                   <div class="flex items-center gap-2">
-                    <!-- Drag handle icon ⋮⋮ -->
                     <span class="text-slate-500 group-hover:text-slate-300 cursor-grab">⋮⋮</span>
-                    <span class="w-2 h-2 rounded-full" :class="isOnline(cam) ? 'bg-emerald-400' : 'bg-rose-500'"></span>
+                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
                     <span class="text-slate-200 group-hover:text-cyan-300 font-semibold truncate max-w-[120px]">{{ cam.display_name || cam.name }}</span>
                   </div>
                   <div class="flex items-center gap-1">
@@ -531,25 +344,38 @@
               </div>
             </div>
 
-            <!-- Category 3: HOME -->
+            <!-- Category: OFFLINE -->
             <div>
-              <div @click="groupHomeOpen = !groupHomeOpen" class="flex items-center justify-between px-2 py-1 text-xs font-bold text-slate-400 hover:text-slate-200 cursor-pointer rounded hover:bg-[#252936]">
+              <div @click="groupOfflineOpen = !groupOfflineOpen" class="flex items-center justify-between px-2 py-1 text-xs font-bold text-slate-300 hover:text-white cursor-pointer rounded hover:bg-[#252936]">
                 <div class="flex items-center gap-1.5">
-                  <svg class="w-3 h-3 text-slate-500 transition-transform" :class="groupHomeOpen ? 'rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                  <span>HOME</span>
+                  <svg class="w-3 h-3 text-slate-400 transition-transform" :class="groupOfflineOpen ? 'rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                  <span>OFFLINE</span>
                 </div>
-                <div class="flex items-center gap-1 bg-[#252936] px-1.5 py-0.5 rounded text-[10px] text-slate-400">
-                  <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
-                  <span>1</span>
+                <div class="flex items-center gap-1 bg-[#252936] px-1.5 py-0.5 rounded text-[10px] text-slate-300">
+                  <svg class="w-3 h-3 text-rose-500" fill="currentColor" viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+                  <span>{{ offlineCameras.length }}</span>
                 </div>
               </div>
-              <div v-if="groupHomeOpen" class="pl-4 pt-1 space-y-1">
-                <div @click="assignToSlot(cameras[1] || cameras[0])" class="flex items-center justify-between p-1.5 rounded bg-[#252936]/60 hover:bg-[#31374a] cursor-pointer text-xs group transition-colors">
+
+              <!-- Camera Items -->
+              <div v-if="groupOfflineOpen" class="pt-1 space-y-1">
+                <div 
+                  v-for="cam in offlineCameras" 
+                  :key="cam.id" 
+                  @click="assignToSlot(cam)"
+                  class="flex items-center justify-between p-2 rounded-md bg-[#252a3a] hover:bg-[#32394e] border border-[#2e3547] cursor-pointer text-xs group transition-all shadow-sm"
+                  title="Click to place in Mosaic slot"
+                >
                   <div class="flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-                    <span class="text-slate-200 group-hover:text-white font-medium truncate max-w-[120px]">SampleCamera3</span>
+                    <span class="text-slate-500 group-hover:text-slate-300 cursor-grab">⋮⋮</span>
+                    <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+                    <span class="text-slate-200 group-hover:text-cyan-300 font-semibold truncate max-w-[120px]">{{ cam.display_name || cam.name }}</span>
                   </div>
-                  <svg class="w-3.5 h-3.5 text-slate-500 opacity-0 group-hover:opacity-100" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                  <div class="flex items-center gap-1">
+                    <button @click.stop="openCameraDetail(cam)" class="text-slate-500 hover:text-white p-0.5" title="PTZ & Audio">
+                      <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -594,7 +420,10 @@
 
               <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
             </button>
-            <button @click="closeCameraDetail" class="p-2 text-slate-400 hover:text-rose-400 transition-colors rounded-lg hover:bg-slate-800" title="Close Overlay">
+            <button @click="confirmDeleteCamera(selectedCamera)" class="p-2 text-slate-400 hover:text-rose-400 transition-colors rounded-lg hover:bg-rose-900/30" title="Delete Camera">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+              </button>
+              <button @click="closeCameraDetail" class="p-2 text-slate-400 hover:text-rose-400 transition-colors rounded-lg hover:bg-slate-800" title="Close Overlay">
               <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
           </div>
@@ -604,13 +433,7 @@
         <div class="flex-1 relative bg-black flex overflow-hidden min-h-0">
           <div class="flex-1 relative flex items-center justify-center overflow-hidden">
             <!-- Stream Iframe with ePTZ and Digital Zoom Transform -->
-            <iframe 
-              :src="getStreamPlayerUrl(selectedCamera, 'main')" 
-              class="w-full h-full border-none transform origin-center transition-transform duration-200"
-              :style="{ transform: `scale(${getCamZoom(selectedCamera.id)}) translate(${getCamPanX(selectedCamera.id)}px, ${getCamPanY(selectedCamera.id)}px)` }"
-              allow="autoplay; fullscreen; picture-in-picture" 
-              allowfullscreen>
-            </iframe>
+            <iframe :id="'iframe-' + selectedCamera.id" :src="'/player.html?src=' + getWsUrlPath(selectedCamera, 'main') + '&muted=' + (!isAudioOn(selectedCamera))" class="w-full h-full object-contain transform origin-center transition-transform duration-200 border-none" :style="{ transform: `scale(${getCamZoom(selectedCamera.id)}) translate(${getCamPanX(selectedCamera.id)}px, ${getCamPanY(selectedCamera.id)}px)` }"></iframe>
 
             <!-- Digital Zoom Badge Overlay -->
             <div v-if="getCamZoom(selectedCamera.id) > 1" class="absolute top-4 left-4 bg-cyan-600/90 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-xl backdrop-blur-md flex items-center gap-2 z-20 border border-cyan-400/30">
@@ -635,13 +458,13 @@
               <!-- PTZ Direction Joystick Pad -->
               <div class="flex flex-col items-center justify-center p-4 bg-slate-950/80 rounded-2xl border border-slate-800 shadow-inner my-3">
                 <!-- UP -->
-                <button @click="triggerPtz(selectedCamera.id, 'UP', 0.6)" class="w-12 h-12 bg-slate-800 hover:bg-cyan-600 active:scale-95 text-white rounded-xl flex items-center justify-center shadow-lg transition-all mb-2" title="Tilt Up">
+                <button @pointerdown="triggerPtz(selectedCamera.id, 'UP', 0.6)" @pointerup="triggerPtz(selectedCamera.id, 'STOP', 0)" @pointerleave="triggerPtz(selectedCamera.id, 'STOP', 0)" class="w-12 h-12 bg-slate-800 hover:bg-cyan-600 active:scale-95 text-white rounded-xl flex items-center justify-center shadow-lg transition-all mb-2 select-none" title="Tilt Up">
                   <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 15l7-7 7 7"/></svg>
                 </button>
                 
                 <div class="flex items-center justify-center gap-3 w-full">
                   <!-- LEFT -->
-                  <button @click="triggerPtz(selectedCamera.id, 'LEFT', 0.6)" class="w-12 h-12 bg-slate-800 hover:bg-cyan-600 active:scale-95 text-white rounded-xl flex items-center justify-center shadow-lg transition-all" title="Pan Left">
+                  <button @pointerdown="triggerPtz(selectedCamera.id, 'LEFT', 0.6)" @pointerup="triggerPtz(selectedCamera.id, 'STOP', 0)" @pointerleave="triggerPtz(selectedCamera.id, 'STOP', 0)" class="w-12 h-12 bg-slate-800 hover:bg-cyan-600 active:scale-95 text-white rounded-xl flex items-center justify-center shadow-lg transition-all select-none" title="Pan Left">
                     <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M15 19l-7-7 7-7"/></svg>
                   </button>
 
@@ -651,24 +474,24 @@
                   </button>
 
                   <!-- RIGHT -->
-                  <button @click="triggerPtz(selectedCamera.id, 'RIGHT', 0.6)" class="w-12 h-12 bg-slate-800 hover:bg-cyan-600 active:scale-95 text-white rounded-xl flex items-center justify-center shadow-lg transition-all" title="Pan Right">
+                  <button @pointerdown="triggerPtz(selectedCamera.id, 'RIGHT', 0.6)" @pointerup="triggerPtz(selectedCamera.id, 'STOP', 0)" @pointerleave="triggerPtz(selectedCamera.id, 'STOP', 0)" class="w-12 h-12 bg-slate-800 hover:bg-cyan-600 active:scale-95 text-white rounded-xl flex items-center justify-center shadow-lg transition-all select-none" title="Pan Right">
                     <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M9 5l7 7-7 7"/></svg>
                   </button>
                 </div>
 
                 <!-- DOWN -->
-                <button @click="triggerPtz(selectedCamera.id, 'DOWN', 0.6)" class="w-12 h-12 bg-slate-800 hover:bg-cyan-600 active:scale-95 text-white rounded-xl flex items-center justify-center shadow-lg transition-all mt-2" title="Tilt Down">
+                <button @pointerdown="triggerPtz(selectedCamera.id, 'DOWN', 0.6)" @pointerup="triggerPtz(selectedCamera.id, 'STOP', 0)" @pointerleave="triggerPtz(selectedCamera.id, 'STOP', 0)" class="w-12 h-12 bg-slate-800 hover:bg-cyan-600 active:scale-95 text-white rounded-xl flex items-center justify-center shadow-lg transition-all mt-2 select-none" title="Tilt Down">
                   <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"/></svg>
                 </button>
               </div>
 
               <!-- Zoom Controls -->
               <div class="grid grid-cols-2 gap-3 mt-4">
-                <button @click="triggerPtz(selectedCamera.id, 'ZOOM_IN', 0.6)" class="py-2.5 bg-slate-950 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all">
+                <button @pointerdown="triggerPtz(selectedCamera.id, 'ZOOM_IN', 0.6)" @pointerup="triggerPtz(selectedCamera.id, 'STOP', 0)" @pointerleave="triggerPtz(selectedCamera.id, 'STOP', 0)" class="py-2.5 bg-slate-950 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all select-none">
                   <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                   Zoom In (+)
                 </button>
-                <button @click="triggerPtz(selectedCamera.id, 'ZOOM_OUT', 0.6)" class="py-2.5 bg-slate-950 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all">
+                <button @pointerdown="triggerPtz(selectedCamera.id, 'ZOOM_OUT', 0.6)" @pointerup="triggerPtz(selectedCamera.id, 'STOP', 0)" @pointerleave="triggerPtz(selectedCamera.id, 'STOP', 0)" class="py-2.5 bg-slate-950 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all select-none">
                   <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/></svg>
                   Zoom Out (-)
                 </button>
@@ -835,6 +658,54 @@
             </button>
           </div>
         </div>
+      </div>
+    </transition>
+
+    <!-- Remove Slot Confirmation Modal -->
+    <transition enter-active-class="transition ease-out duration-300" enter-from-class="opacity-0 backdrop-blur-none" enter-to-class="opacity-100 backdrop-blur-md" leave-active-class="transition ease-in duration-200" leave-from-class="opacity-100 backdrop-blur-md" leave-to-class="opacity-0 backdrop-blur-none">
+      <div v-if="showRemoveSlotModal" class="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+        <transition enter-active-class="transition ease-out duration-300 transform" enter-from-class="opacity-0 scale-95 translate-y-4" enter-to-class="opacity-100 scale-100 translate-y-0" leave-active-class="transition ease-in duration-200 transform" leave-from-class="opacity-100 scale-100 translate-y-0" leave-to-class="opacity-0 scale-95 translate-y-4">
+          <div v-if="showRemoveSlotModal" class="bg-[#1e2330] rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl border border-rose-500/30">
+            <div class="px-6 py-5 border-b border-[#2e364a] bg-rose-500/10">
+              <h3 class="text-lg font-bold text-rose-400 flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                Remove Camera
+              </h3>
+            </div>
+            <div class="p-6 space-y-4">
+              <p class="text-sm text-slate-300">Are you sure you want to remove this camera from the view?</p>
+              <p class="text-xs text-slate-500">The camera will remain in your sidebar and can be dragged back at any time.</p>
+            </div>
+            <div class="px-6 py-4 bg-[#1a1e2a] border-t border-[#2e364a] flex items-center justify-end gap-3">
+              <button @click="showRemoveSlotModal = false" class="px-4 py-2 text-sm font-bold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700">Cancel</button>
+              <button @click="executeRemoveSlot" class="px-4 py-2 text-sm font-bold text-white bg-rose-600 hover:bg-rose-500 rounded-lg transition-colors shadow-lg shadow-rose-600/20">Remove</button>
+            </div>
+          </div>
+        </transition>
+      </div>
+    </transition>
+
+    <!-- Delete Confirmation Modal -->
+    <transition enter-active-class="transition ease-out duration-300" enter-from-class="opacity-0 backdrop-blur-none" enter-to-class="opacity-100 backdrop-blur-md" leave-active-class="transition ease-in duration-200" leave-from-class="opacity-100 backdrop-blur-md" leave-to-class="opacity-0 backdrop-blur-none">
+      <div v-if="showDeleteModal" class="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+        <transition enter-active-class="transition ease-out duration-300 transform" enter-from-class="opacity-0 scale-95 translate-y-4" enter-to-class="opacity-100 scale-100 translate-y-0" leave-active-class="transition ease-in duration-200 transform" leave-from-class="opacity-100 scale-100 translate-y-0" leave-to-class="opacity-0 scale-95 translate-y-4">
+          <div v-if="showDeleteModal" class="bg-[#1e2330] rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl border border-rose-500/30">
+            <div class="px-6 py-5 border-b border-[#2e364a] bg-rose-500/10">
+              <h3 class="text-lg font-bold text-rose-400 flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                Delete Camera
+              </h3>
+            </div>
+            <div class="p-6 space-y-4">
+              <p class="text-sm text-slate-300">Are you sure you want to completely remove <strong class="text-white">{{ cameraToDelete?.display_name || cameraToDelete?.name }}</strong>?</p>
+              <p class="text-xs text-slate-500">This action cannot be undone. All configuration and routing for this camera will be permanently lost.</p>
+            </div>
+            <div class="px-6 py-4 bg-[#1a1e2a] border-t border-[#2e364a] flex items-center justify-end gap-3">
+              <button @click="showDeleteModal = false" class="px-4 py-2 text-sm font-bold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700">Cancel</button>
+              <button @click="executeDeleteCamera" class="px-4 py-2 text-sm font-bold text-white bg-rose-600 hover:bg-rose-500 rounded-lg transition-colors shadow-lg shadow-rose-600/20">Yes, Delete Camera</button>
+            </div>
+          </div>
+        </transition>
       </div>
     </transition>
 
@@ -1096,6 +967,7 @@ const route = useRoute()
 
 // Camera List & Selections (Declared first to avoid TDZ error)
 const cameras = ref([])
+  const isGo2RtcReady = ref(false)
 const activeShares = ref([])
 const userSessions = ref([])
 const continuousArchives = ref([])
@@ -1115,12 +987,11 @@ const favorites = ref([])
 const showDvrBottomDeck = ref(true)
 const dvrIsPlaying = ref(true)
 const dvrSelectedDate = ref(new Date().toISOString().split('T')[0])
-const groupCafeOpen = ref(true)
-const groupDefaultOpen = ref(true)
-const groupHomeOpen = ref(true)
+const groupOnlineOpen = ref(true)
+const groupOfflineOpen = ref(true)
 
 // 4 Mosaic Slots (Screenshot 2: Slot 0 = live, Slot 1 = empty drop target, Slot 2 = live, Slot 3 = empty)
-const mosaicSlots = ref([null, null, null, null])
+const mosaicSlots = ref([null, null])
 
 const assignToSlot = (cam) => {
   if (!cam) return
@@ -1153,7 +1024,7 @@ onMounted(() => {
 watch(cameras, (newCams) => {
   if (newCams && newCams.length > 0 && !mosaicSlots.value[0]) {
     mosaicSlots.value[0] = newCams[0] || null
-    mosaicSlots.value[2] = newCams[1] || newCams[0] || null
+    mosaicSlots.value[1] = newCams[1] || newCams[0] || null
   }
 }, { immediate: true })
 
@@ -1190,7 +1061,10 @@ const presets = ref([])
 const newPresetName = ref('')
 
 
-const filteredCameras = computed(() => {
+const onlineCameras = computed(() => filteredCameras.value.filter(c => isOnline(c)))
+  const offlineCameras = computed(() => filteredCameras.value.filter(c => !isOnline(c)))
+
+  const filteredCameras = computed(() => {
   return cameras.value.filter(cam => {
     // Search query filter
     const nameMatch = (cam.display_name || cam.name || '').toLowerCase().includes(cameraSearch.value.toLowerCase()) ||
@@ -1216,6 +1090,10 @@ const scrubPercentage = ref(100)
 const showSessionVideoModal = ref(false)
 const sessionVideoSrc = ref('')
 const showArchiveModal = ref(false)
+const showRemoveSlotModal = ref(false)
+const slotToRemove = ref(null)
+const showDeleteModal = ref(false)
+const cameraToDelete = ref(null)
 const archiveVideoSrc = ref('')
 const showEditNameModal = ref(false)
 const editCameraId = ref(null)
@@ -1364,17 +1242,57 @@ const isAudioOn = (cam) => {
 }
 
 const toggleCameraAudio = (cam) => {
-  if (!cam) return
-  const current = !!cameraAudio.value[cam.id]
-  cameraAudio.value = { ...cameraAudio.value, [cam.id]: !current }
-  if (!current) {
-    showToast(`🔊 Voice ON for ${cam.display_name || cam.name}`)
-  } else {
-    showToast(`🔇 Voice Muted for ${cam.display_name || cam.name}`)
-  }
-}
+    if (!cam) return
+    const current = !!cameraAudio.value[cam.id]
+    const nextState = !current
+    cameraAudio.value = { ...cameraAudio.value, [cam.id]: nextState }
+    
+    // Post message to the iframe to mute/unmute
+    const iframe = document.getElementById('iframe-' + cam.id)
+    if (iframe && iframe.contentWindow) {
+      iframe.contentWindow.postMessage(nextState ? 'unmute' : 'mute', '*')
+    }
 
-const getStreamPlayerUrl = (cam, quality = 'sub') => {
+    if (nextState) {
+      showToast(`🎙️ Voice ON for ${cam.display_name || cam.name}`)
+    } else {
+      showToast(`🔇 Voice Muted for ${cam.display_name || cam.name}`)
+    }
+  }
+
+
+  
+  const setStreamSrc = (el, url) => {
+    if (!el || !url) return;
+    // Vue might call this multiple times, avoid setting if unchanged
+    if (el._currentSrc === url) return;
+    el._currentSrc = url;
+    
+    // Fix property shadowing in Web Components
+    if (Object.prototype.hasOwnProperty.call(el, 'src')) {
+      delete el.src;
+    }
+    el.src = url;
+  }
+
+  
+  const getWsUrlPath = (cam, quality = 'sub') => {
+    if (!cam) return '';
+    let baseName = cam.name || 'dahua_cam';
+    if (baseName.endsWith('_sub')) baseName = baseName.replace(/_sub$/, '');
+    return quality === 'sub' ? `${baseName}_sub` : baseName;
+  }
+
+  const getWsUrl = (cam, quality = 'sub') => {
+    if (!cam) return '';
+    const host = typeof window !== 'undefined' ? (window.location.hostname || '127.0.0.1') : '127.0.0.1';
+    let baseName = cam.name || 'dahua_cam';
+    if (baseName.endsWith('_sub')) baseName = baseName.replace(/_sub$/, '');
+    const src = quality === 'sub' ? `${baseName}_sub` : baseName;
+    return `ws://${host}:1984/api/ws?src=${encodeURIComponent(src)}`;
+  }
+
+  const getStreamPlayerUrl = (cam, quality = 'sub') => {
   if (!cam) return '';
   const host = typeof window !== 'undefined' ? (window.location.hostname || '127.0.0.1') : '127.0.0.1';
   let baseName = cam.name || 'dahua_cam';
@@ -2009,12 +1927,35 @@ const logout = async () => {
   }
 }
 
-const deleteCamera = async (id) => {
-  if (!confirm('Are you sure you want to completely remove this camera?')) return
+const confirmRemoveSlot = (slotIdx) => {
+  slotToRemove.value = slotIdx
+  showRemoveSlotModal.value = true
+}
+
+const executeRemoveSlot = () => {
+  if (slotToRemove.value !== null) {
+    mosaicSlots.value[slotToRemove.value] = null
+    showRemoveSlotModal.value = false
+    slotToRemove.value = null
+  }
+}
+
+const confirmDeleteCamera = (cam) => {
+  cameraToDelete.value = cam
+  showDeleteModal.value = true
+}
+
+const executeDeleteCamera = async () => {
+  if (!cameraToDelete.value) return
   try {
-    const res = await $fetch(`/api/admin/cameras/${id}`, { method: 'DELETE' })
+    const res = await $fetch(`/api/admin/cameras/${cameraToDelete.value.id}`, { method: 'DELETE' })
     if (res.success) {
       showToast('Camera deleted successfully.')
+      showDeleteModal.value = false
+      if (selectedCamera.value?.id === cameraToDelete.value.id) {
+        closeCameraDetail()
+      }
+      cameraToDelete.value = null
       await fetchCameras()
     } else {
       alert(res.error || 'Failed to delete camera')

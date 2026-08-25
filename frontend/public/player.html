@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Stream Player</title>
+    <style>
+        body {
+            background: black;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            font-family: Arial, Helvetica, sans-serif;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+        }
+        video-stream {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+<script type="module" src="/video-stream.js"></script>
+<script type="module">
+    const params = new URLSearchParams(location.search);
+    const src = params.get('src');
+
+    if (src) {
+        const video = document.createElement('video-stream');
+        video.mode = 'webrtc,mse,hls,mjpeg';
+        video.src = new URL(`http://127.0.0.1:1984/api/ws?src=${encodeURIComponent(src)}`);
+        document.body.appendChild(video);
+
+        // Listen for postMessage from parent Vue app to control audio
+        window.addEventListener('message', (event) => {
+            if (event.data === 'mute') {
+                const v = video.querySelector('video');
+                if (v) v.muted = true;
+            } else if (event.data === 'unmute') {
+                const v = video.querySelector('video');
+                if (v) v.muted = false;
+            }
+        });
+        
+        // Mute initially if requested
+        if (params.get('muted') === 'true') {
+            const enforceMute = () => {
+                const v = video.querySelector('video');
+                if (v) v.muted = true;
+            };
+            // Try immediately and on play
+            enforceMute();
+            window.addEventListener('play', enforceMute, true);
+        }
+    }
+</script>
+</body>
+</html>

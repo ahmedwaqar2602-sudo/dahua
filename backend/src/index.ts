@@ -276,13 +276,15 @@ app.post('/api/admin/generate-link', requireAuth, async (c) => {
       ptzAllowed ? 0 : 1
     ).run();
 
-    let rtspLinks: string[] = [];
+    let rtspLink: string | null = null;
     if (cameraIds.length > 0) {
-      const placeholders = cameraIds.map(() => '?').join(',');
-      const { results } = await c.env.DB.prepare(`SELECT name FROM cameras WHERE id IN (${placeholders})`).bind(...cameraIds).all();
-      
-      const host = public_ip || new URL(c.req.url).hostname || 'localhost';
-      rtspLinks = (results || []).map((cam: any) => `rtsp://${host}:8554/${cam.name}`);
+      // Just use the primary/first selected camera for a single clean link
+      const primaryCamId = cameraIds[0];
+      const cam = await c.env.DB.prepare(`SELECT name, public_ip FROM cameras WHERE id = ?`).bind(primaryCamId).first();
+      if (cam) {
+        const host = public_ip || cam.public_ip || '202.163.103.241';
+        rtspLink = `rtsp://${host}:8554/${cam.name}?token=${token}`;
+      }
     }
 
     return c.json({ 
@@ -293,7 +295,7 @@ app.post('/api/admin/generate-link', requireAuth, async (c) => {
       allow_ptz: ptzAllowed === 1,
       allow_recording: recordingAllowed === 1,
       allow_audio: audioAllowed === 1,
-      rtspLinks 
+      rtspLink 
     });
   } catch (err) {
     return c.json({ error: String(err) }, 500);
@@ -682,7 +684,6 @@ app.delete('/api/admin/patrols/:id', requireAuth, async (c) => {
 async function getOnvifDevice(c: any, cameraId: any) {
   const cam = await c.env.DB.prepare('SELECT rtsp_url FROM cameras WHERE id = ?').bind(cameraId).first();
   if (!cam || !cam.rtsp_url) throw new Error('Camera not found');
-  if (!cam.rtsp_url.startsWith('onvif://')) throw new Error('Not ONVIF');
   const urlRegex = /:\/\/(.+):(.+)@([^:]+)/;
   const match = cam.rtsp_url.match(urlRegex);
   if (!match) throw new Error('Invalid URL');
@@ -707,7 +708,18 @@ app.get('/api/camera/:id/presets', requireAuth, async (c) => {
     const device = await getOnvifDevice(c, id);
     if (!device.services.ptz) return c.json({ error: 'No PTZ service' }, 400);
     const res = await device.services.ptz.getPresets({ ProfileToken: device.getCurrentProfile().token });
-    const presets = Array.isArray(res.data.Preset) ? res.data.Preset : (res.data.Preset ? [res.data.Preset] : []);
+    
+    let rawPresets = res.data.Preset;
+    if (!rawPresets && res.data.GetPresetsResponse && res.data.GetPresetsResponse.Preset) {
+      rawPresets = res.data.GetPresetsResponse.Preset;
+    }
+    
+    const presetList = Array.isArray(rawPresets) ? rawPresets : (rawPresets ? [rawPresets] : []);
+    const presets = presetList.map((p: any) => ({
+      name: p.Name,
+      token: (p.$ && p.$.token) ? p.$.token : p.token
+    }));
+    
     return c.json({ success: true, presets });
   } catch(err) {
     return c.json({ error: String(err) }, 500);

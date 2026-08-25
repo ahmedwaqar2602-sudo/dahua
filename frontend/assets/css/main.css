@@ -3,7 +3,28 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --color-bg-app: #0f1219;
+    --color-bg-surface: #181b24;
+    --color-bg-elevated: #222633;
+    
+    --color-text-primary: #f1f5f9;
+    --color-text-secondary: #cbd5e1;
+    --color-text-muted: #64748b;
+    
+    --color-border-default: #2d3345;
+    --color-border-subtle: #1e2230;
+
+    --color-accent: #06b6d4;
+    --color-accent-hover: #0891b2;
+    --color-accent-muted: #164e63;
+    
+    --color-success: #10b981;
+    --color-danger: #ef4444;
+    --color-warning: #f59e0b;
+  }
+
   body {
-    @apply bg-slate-900 text-slate-100 font-sans antialiased;
+    @apply bg-app text-primary font-sans antialiased;
   }
 }
