@@ -12,23 +12,9 @@
     <header class="h-12 bg-[#1b1f2b] border-b border-[#252936] flex items-center justify-between px-4 shrink-0 z-20 select-none">
       <!-- Left: Breadcrumbs & DVR Button -->
       <div class="flex items-center gap-3">
-        <!-- Breadcrumbs -->
-        <div class="flex items-center gap-1.5 text-xs text-slate-400 font-medium">
-          <span class="hover:text-slate-200 cursor-pointer uppercase tracking-wider text-[11px] font-bold">MOSAICS</span>
-          <svg class="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-          <div class="flex items-center gap-1 text-slate-200 font-bold bg-[#252936] px-2 py-0.5 rounded border border-[#2f3546] cursor-pointer">
-            <span class="text-xs tracking-wider">MOSAIC 1</span>
-            <svg class="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-          </div>
-        </div>
 
-        <!-- Blue DVR Pill Button (Flussonic Standard) -->
-        <button @click="showDvrBottomDeck = !showDvrBottomDeck" class="px-3 py-1 rounded-md text-[11px] font-bold transition-all shadow-sm flex items-center gap-1" :class="showDvrBottomDeck ? 'bg-cyan-600 text-white shadow-cyan-600/30' : 'bg-[#293b58] text-cyan-300 hover:bg-cyan-600 hover:text-white'">
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-          DVR
-        </button>
 
-        <div class="h-4 w-px bg-[#2f3546] mx-1"></div>
+
 
         <!-- Share & Add Quick Actions -->
         <button @click="openShareModal" class="px-2.5 py-1 rounded bg-[#252936] hover:bg-[#31374a] text-indigo-300 text-[11px] font-semibold border border-[#2f3546] transition-colors flex items-center gap-1">
@@ -94,10 +80,10 @@
             <div class="relative bg-black rounded-lg overflow-hidden border border-[#252936] shadow-xl group aspect-video">
               <template v-if="mosaicSlots[0]">
                 <div class="absolute inset-0 z-0 cursor-pointer" @click="openCameraDetail(mosaicSlots[0])" title="Click to open PTZ & Audio settings"></div>
-                <iframe :id="'iframe-' + mosaicSlots[0].id" :src="'/player.html?src=' + getWsUrlPath(mosaicSlots[0]) + '&muted=' + (!isAudioOn(mosaicSlots[0]))" class="w-full h-full object-contain pointer-events-none border-none relative z-[-1]"></iframe>
+                <iframe :key="'iframe-' + mosaicSlots[0].id + '-' + (reloadKeys[mosaicSlots[0].id] || 0)" :id="'iframe-' + mosaicSlots[0].id" :src="'/player.html?src=' + getWsUrlPath(mosaicSlots[0]) + '&muted=' + (!isAudioOn(mosaicSlots[0]))" class="w-full h-full object-contain pointer-events-none border-none relative z-[-1] transition-transform duration-300" :class="[needsCssFlip(mosaicSlots[0]) ? 'scale-y-[-1]' : '', needsCssMirror(mosaicSlots[0]) ? 'scale-x-[-1]' : '']"></iframe>
                 <!-- Top-Left Timestamp & Label -->
                 <div class="absolute top-2.5 left-2.5 flex items-center gap-2 bg-black/60 backdrop-blur px-2.5 py-1 rounded text-xs text-white font-mono font-bold border border-white/10 z-10 pointer-events-none">
-                  <span class="text-cyan-300">{{ liveClock }}</span>
+                  <span class="text-cyan-300">{{ mosaicSlots[0].displayTime || liveClock }}</span>
                   <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                   <span>{{ mosaicSlots[0].display_name || mosaicSlots[0].name }}</span>
                 </div>
@@ -125,9 +111,9 @@
             <div class="relative bg-black rounded-lg overflow-hidden border border-[#252936] shadow-xl group aspect-video" :class="!mosaicSlots[1] ? 'border-2 border-cyan-500/80 bg-[#121c2e]' : ''">
               <template v-if="mosaicSlots[1]">
                 <div class="absolute inset-0 z-0 cursor-pointer" @click="openCameraDetail(mosaicSlots[1])" title="Click to open PTZ & Audio settings"></div>
-                <iframe :id="'iframe-' + mosaicSlots[1].id" :src="'/player.html?src=' + getWsUrlPath(mosaicSlots[1]) + '&muted=' + (!isAudioOn(mosaicSlots[1]))" class="w-full h-full object-contain pointer-events-none border-none relative z-[-1]"></iframe>
+                <iframe :key="'iframe-' + mosaicSlots[1].id + '-' + (reloadKeys[mosaicSlots[1].id] || 0)" :id="'iframe-' + mosaicSlots[1].id" :src="'/player.html?src=' + getWsUrlPath(mosaicSlots[1]) + '&muted=' + (!isAudioOn(mosaicSlots[1]))" class="w-full h-full object-contain pointer-events-none border-none relative z-[-1] transition-transform duration-300" :class="[needsCssFlip(mosaicSlots[1]) ? 'scale-y-[-1]' : '', needsCssMirror(mosaicSlots[1]) ? 'scale-x-[-1]' : '']"></iframe>
                 <div class="absolute top-2.5 left-2.5 flex items-center gap-2 bg-black/60 backdrop-blur px-2.5 py-1 rounded text-xs text-white font-mono font-bold border border-white/10 z-10 pointer-events-none">
-                  <span class="text-cyan-300">{{ liveClock }}</span>
+                  <span class="text-cyan-300">{{ mosaicSlots[1].displayTime || liveClock }}</span>
                   <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                   <span>{{ mosaicSlots[1].display_name || mosaicSlots[1].name }}</span>
                 </div>
@@ -174,7 +160,7 @@
 
               <!-- Stream Video Container -->
               <div class="relative aspect-video w-full bg-black overflow-hidden">
-                <iframe :id="'iframe-' + cam.id" :src="'/player.html?src=' + getWsUrlPath(cam) + '&muted=' + (!isAudioOn(cam))" class="w-full h-full object-contain border-none"></iframe>
+                <iframe :key="'iframe-' + cam.id + '-' + (reloadKeys[cam.id] || 0)" :id="'iframe-' + cam.id" :src="'/player.html?src=' + getWsUrlPath(cam) + '&muted=' + (!isAudioOn(cam))" class="w-full h-full object-contain border-none transition-transform duration-300" :class="[needsCssFlip(cam) ? 'scale-y-[-1]' : '', needsCssMirror(cam) ? 'scale-x-[-1]' : '']"></iframe>
                 
                 <!-- Telemetry Badges Overlay on Hover -->
                 <div class="absolute top-2.5 left-2.5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 text-[10px] font-mono text-slate-200 bg-black/80 px-2 py-1 rounded-md border border-white/10 pointer-events-none">
@@ -197,6 +183,14 @@
                   <button @click.stop="activeRecordingCamera = cam" class="px-2.5 py-1 bg-cyan-600/90 hover:bg-cyan-500 text-white rounded text-[11px] font-bold shadow-lg transition-colors flex items-center gap-1">
                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                     DVR
+                  </button>
+                  <button @click.stop="toggleInvert(cam.id)" class="px-2.5 py-1 rounded text-[11px] font-bold shadow-lg transition-colors flex items-center gap-1" :class="isInverted(cam.id) ? 'bg-indigo-600 text-white' : 'bg-black/80 hover:bg-slate-800 text-slate-200 border border-white/10'" title="Flip Upside">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" /></svg>
+                    Flip Upside
+                  </button>
+                  <button @click.stop="toggleMirror(cam.id)" class="px-2.5 py-1 rounded text-[11px] font-bold shadow-lg transition-colors flex items-center gap-1" :class="isMirrored(cam.id) ? 'bg-teal-600 text-white' : 'bg-black/80 hover:bg-slate-800 text-slate-200 border border-white/10'" title="Mirror Flip">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h8M8 17h8M4 12h16m-4-4l4 4-4 4M8 8l-4 4 4 4" /></svg>
+                    Mirror Flip
                   </button>
                   <button @click.stop="openCameraDetail(cam)" class="p-1 bg-black/80 hover:bg-cyan-600 text-white rounded border border-white/10 shadow-lg transition-colors" title="PTZ & Controls">
                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
@@ -224,7 +218,7 @@
           <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             <div v-for="cam in filteredCameras" :key="cam.id" @click="openCameraDetail(cam)" class="bg-[#1e2330] rounded-lg overflow-hidden border border-[#282f40] hover:border-cyan-500 cursor-pointer shadow-lg group">
               <div class="relative aspect-video w-full bg-black">
-                <iframe :id="'iframe-' + cam.id" :src="'/player.html?src=' + getWsUrlPath(cam) + '&muted=' + (!isAudioOn(cam))" class="w-full h-full object-contain pointer-events-none border-none"></iframe>
+                <iframe :key="'iframe-' + cam.id + '-' + (reloadKeys[cam.id] || 0)" :id="'iframe-' + cam.id" :src="'/player.html?src=' + getWsUrlPath(cam) + '&muted=' + (!isAudioOn(cam))" class="w-full h-full object-contain pointer-events-none border-none transition-transform duration-300" :class="[needsCssFlip(cam) ? 'scale-y-[-1]' : '', needsCssMirror(cam) ? 'scale-x-[-1]' : '']"></iframe>
                 <div class="absolute top-1.5 left-1.5 bg-black/70 px-1.5 py-0.5 rounded text-[9px] font-bold text-emerald-400 flex items-center gap-1">
                   <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
                   LIVE
@@ -433,7 +427,7 @@
         <div class="flex-1 relative bg-black flex overflow-hidden min-h-0">
           <div class="flex-1 relative flex items-center justify-center overflow-hidden">
             <!-- Stream Iframe with ePTZ and Digital Zoom Transform -->
-            <iframe :id="'iframe-' + selectedCamera.id" :src="'/player.html?src=' + getWsUrlPath(selectedCamera, 'main') + '&muted=' + (!isAudioOn(selectedCamera))" class="w-full h-full object-contain transform origin-center transition-transform duration-200 border-none" :style="{ transform: `scale(${getCamZoom(selectedCamera.id)}) translate(${getCamPanX(selectedCamera.id)}px, ${getCamPanY(selectedCamera.id)}px)` }"></iframe>
+            <iframe :key="'iframe-' + selectedCamera.id + '-' + (reloadKeys[selectedCamera.id] || 0)" :id="'iframe-' + selectedCamera.id" :src="'/player.html?src=' + getWsUrlPath(selectedCamera, 'main') + '&muted=' + (!isAudioOn(selectedCamera))" class="w-full h-full object-contain origin-center transition-transform duration-300 border-none" :style="{ transform: (needsCssFlip(selectedCamera) ? 'scaleY(-1) ' : '') + (needsCssMirror(selectedCamera) ? 'scaleX(-1) ' : '') + `scale(${getCamZoom(selectedCamera.id)}) translate(${getCamPanX(selectedCamera.id)}px, ${getCamPanY(selectedCamera.id)}px)` }"></iframe>
 
             <!-- Digital Zoom Badge Overlay -->
             <div v-if="getCamZoom(selectedCamera.id) > 1" class="absolute top-4 left-4 bg-cyan-600/90 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-xl backdrop-blur-md flex items-center gap-2 z-20 border border-cyan-400/30">
@@ -458,13 +452,13 @@
               <!-- PTZ Direction Joystick Pad -->
               <div class="flex flex-col items-center justify-center p-4 bg-slate-950/80 rounded-2xl border border-slate-800 shadow-inner my-3">
                 <!-- UP -->
-                <button @pointerdown="triggerPtz(selectedCamera.id, 'UP', 0.6)" @pointerup="triggerPtz(selectedCamera.id, 'STOP', 0)" @pointerleave="triggerPtz(selectedCamera.id, 'STOP', 0)" class="w-12 h-12 bg-slate-800 hover:bg-cyan-600 active:scale-95 text-white rounded-xl flex items-center justify-center shadow-lg transition-all mb-2 select-none" title="Tilt Up">
+                <button @pointerdown="triggerPtz(selectedCamera.id, 'UP', 1.0)" @pointerup="triggerPtz(selectedCamera.id, 'STOP', 0)" @pointerleave="triggerPtz(selectedCamera.id, 'STOP', 0)" class="w-12 h-12 bg-slate-800 hover:bg-cyan-600 active:scale-95 text-white rounded-xl flex items-center justify-center shadow-lg transition-all mb-2 select-none" title="Tilt Up">
                   <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 15l7-7 7 7"/></svg>
                 </button>
                 
                 <div class="flex items-center justify-center gap-3 w-full">
                   <!-- LEFT -->
-                  <button @pointerdown="triggerPtz(selectedCamera.id, 'LEFT', 0.6)" @pointerup="triggerPtz(selectedCamera.id, 'STOP', 0)" @pointerleave="triggerPtz(selectedCamera.id, 'STOP', 0)" class="w-12 h-12 bg-slate-800 hover:bg-cyan-600 active:scale-95 text-white rounded-xl flex items-center justify-center shadow-lg transition-all select-none" title="Pan Left">
+                  <button @pointerdown="triggerPtz(selectedCamera.id, 'LEFT', 1.0)" @pointerup="triggerPtz(selectedCamera.id, 'STOP', 0)" @pointerleave="triggerPtz(selectedCamera.id, 'STOP', 0)" class="w-12 h-12 bg-slate-800 hover:bg-cyan-600 active:scale-95 text-white rounded-xl flex items-center justify-center shadow-lg transition-all select-none" title="Pan Left">
                     <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M15 19l-7-7 7-7"/></svg>
                   </button>
 
@@ -474,13 +468,13 @@
                   </button>
 
                   <!-- RIGHT -->
-                  <button @pointerdown="triggerPtz(selectedCamera.id, 'RIGHT', 0.6)" @pointerup="triggerPtz(selectedCamera.id, 'STOP', 0)" @pointerleave="triggerPtz(selectedCamera.id, 'STOP', 0)" class="w-12 h-12 bg-slate-800 hover:bg-cyan-600 active:scale-95 text-white rounded-xl flex items-center justify-center shadow-lg transition-all select-none" title="Pan Right">
+                  <button @pointerdown="triggerPtz(selectedCamera.id, 'RIGHT', 1.0)" @pointerup="triggerPtz(selectedCamera.id, 'STOP', 0)" @pointerleave="triggerPtz(selectedCamera.id, 'STOP', 0)" class="w-12 h-12 bg-slate-800 hover:bg-cyan-600 active:scale-95 text-white rounded-xl flex items-center justify-center shadow-lg transition-all select-none" title="Pan Right">
                     <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M9 5l7 7-7 7"/></svg>
                   </button>
                 </div>
 
                 <!-- DOWN -->
-                <button @pointerdown="triggerPtz(selectedCamera.id, 'DOWN', 0.6)" @pointerup="triggerPtz(selectedCamera.id, 'STOP', 0)" @pointerleave="triggerPtz(selectedCamera.id, 'STOP', 0)" class="w-12 h-12 bg-slate-800 hover:bg-cyan-600 active:scale-95 text-white rounded-xl flex items-center justify-center shadow-lg transition-all mt-2 select-none" title="Tilt Down">
+                <button @pointerdown="triggerPtz(selectedCamera.id, 'DOWN', 1.0)" @pointerup="triggerPtz(selectedCamera.id, 'STOP', 0)" @pointerleave="triggerPtz(selectedCamera.id, 'STOP', 0)" class="w-12 h-12 bg-slate-800 hover:bg-cyan-600 active:scale-95 text-white rounded-xl flex items-center justify-center shadow-lg transition-all mt-2 select-none" title="Tilt Down">
                   <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"/></svg>
                 </button>
               </div>
@@ -494,6 +488,18 @@
                 <button @pointerdown="triggerPtz(selectedCamera.id, 'ZOOM_OUT', 0.6)" @pointerup="triggerPtz(selectedCamera.id, 'STOP', 0)" @pointerleave="triggerPtz(selectedCamera.id, 'STOP', 0)" class="py-2.5 bg-slate-950 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all select-none">
                   <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/></svg>
                   Zoom Out (-)
+                </button>
+              </div>
+
+              <!-- Invert Control -->
+              <div class="mt-4">
+                <button @click="toggleInvert(selectedCamera.id)" class="w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all select-none border" :class="isInverted(selectedCamera.id) ? 'bg-indigo-600/50 hover:bg-indigo-600/70 text-indigo-300 border-indigo-500/50' : 'bg-slate-950 hover:bg-indigo-600/30 text-indigo-300 border-indigo-500/30'">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" /></svg>
+                  Flip Upside
+                </button>
+                <button @click="toggleMirror(selectedCamera.id)" class="w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all select-none border mt-2" :class="isMirrored(selectedCamera.id) ? 'bg-teal-600/50 hover:bg-teal-600/70 text-teal-300 border-teal-500/50' : 'bg-slate-950 hover:bg-teal-600/30 text-teal-300 border-teal-500/30'">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h8M8 17h8M4 12h16m-4-4l4 4-4 4M8 8l-4 4 4 4" /></svg>
+                  Mirror Flip
                 </button>
               </div>
 
@@ -1053,6 +1059,7 @@ const showCameraMenu = ref(null)
 const toastMessage = ref('')
 const liveClock = ref('')
 let clockInterval
+let fetchCamerasInterval
 const focusOverlayRef = ref(null)
 
 const scrubValue = ref(100)
@@ -1225,7 +1232,18 @@ const updateClock = () => {
     second: '2-digit', 
     hour12: true 
   });
-  liveClock.value = formatter.format(new Date());
+  const currentTime = formatter.format(new Date());
+  liveClock.value = currentTime;
+  
+  if (cameras.value) {
+    cameras.value.forEach(cam => {
+      if (isOnline(cam)) {
+        cam.displayTime = currentTime;
+      } else if (!cam.displayTime) {
+        cam.displayTime = currentTime;
+      }
+    });
+  }
 }
 
 const showToast = (msg) => {
@@ -1520,9 +1538,76 @@ const generateShareLink = async () => {
   }
 }
 
+const invertedCameras = ref({})
+const mirroredCameras = ref({})
 
+const isInverted = (camId) => {
+  return invertedCameras.value[camId] || false
+}
+const isMirrored = (camId) => {
+  return mirroredCameras.value[camId] || false
+}
 
+const needsCssFlip = (cam) => {
+  if (!cam) return false
+  return !!invertedCameras.value[cam.id] && cam.camera_brand !== 'Dahua'
+}
 
+const needsCssMirror = (cam) => {
+  if (!cam) return false
+  return !!mirroredCameras.value[cam.id] && cam.camera_brand !== 'Dahua'
+}
+
+const toggleInvert = async (camId) => {
+  if (!camId) return
+  const isNowInverted = !invertedCameras.value[camId]
+  invertedCameras.value[camId] = isNowInverted
+  localStorage.setItem('invertedCameras', JSON.stringify(invertedCameras.value))
+  
+  try {
+    await $fetch('/api/camera/ptz', {
+      method: 'POST',
+      body: { 
+        cameraId: camId, 
+        command: 'SET_FLIP_MIRROR', 
+        speed: 0.5, 
+        flip: isNowInverted, 
+        mirror: !!mirroredCameras.value[camId] 
+      }
+    })
+    // Force iframe reload to drop buffered frames and fetch flipped stream faster
+    setTimeout(() => {
+      reloadKeys.value[camId] = (reloadKeys.value[camId] || 0) + 1
+    }, 800)
+  } catch (e) {
+    console.error('Failed to flip hardware view', e)
+  }
+}
+
+const toggleMirror = async (camId) => {
+  if (!camId) return
+  const isNowMirrored = !mirroredCameras.value[camId]
+  mirroredCameras.value[camId] = isNowMirrored
+  localStorage.setItem('mirroredCameras', JSON.stringify(mirroredCameras.value))
+  
+  try {
+    await $fetch('/api/camera/ptz', {
+      method: 'POST',
+      body: { 
+        cameraId: camId, 
+        command: 'SET_FLIP_MIRROR', 
+        speed: 0.5, 
+        flip: !!invertedCameras.value[camId], 
+        mirror: isNowMirrored 
+      }
+    })
+    setTimeout(() => {
+      reloadKeys.value[camId] = (reloadKeys.value[camId] || 0) + 1
+    }, 800)
+  } catch (e) {
+    console.error('Failed to mirror hardware view', e)
+  }
+}
 
 const simulatedPlaybackTime = computed(() => {
   if (scrubPercentage.value >= 99) return 'LIVE'
@@ -1607,9 +1692,11 @@ watch(cameras, (newCams) => {
   }
 }, { immediate: true })
 
+const reloadKeys = ref({})
+
 const isOnline = (cam) => {
   if (!cam || !cam.last_seen) return false
-  return (Date.now() - new Date(cam.last_seen).getTime()) < 90000
+  return (Date.now() - new Date(cam.last_seen).getTime()) < 25000
 }
 
 const fetchPresets = async (cameraId) => {
@@ -1686,13 +1773,24 @@ const fetchCameras = async () => {
   try {
     const res = await $fetch('/api/admin/cameras')
     if (res.success) {
-      cameras.value = res.cameras.map(c => {
+      const oldCameras = cameras.value || []
+      const newCameras = res.cameras.map(c => {
         try {
           return { ...c, capabilities: c.capabilities ? JSON.parse(c.capabilities) : null }
         } catch(e) {
           return { ...c, capabilities: null }
         }
       })
+
+      newCameras.forEach(newCam => {
+        const oldCam = oldCameras.find(old => old.id === newCam.id)
+        if (oldCam && !isOnline(oldCam) && isOnline(newCam)) {
+          // Camera came back online, increment reload key to force iframe remount
+          reloadKeys.value[newCam.id] = (reloadKeys.value[newCam.id] || 0) + 1
+        }
+      })
+
+      cameras.value = newCameras
     }
   } catch (e) {
     console.error(e)
@@ -2001,9 +2099,17 @@ const fetchNotifications = async () => {
 
 
 onMounted(async () => {
+  try {
+    const savedInvert = localStorage.getItem('invertedCameras')
+    if (savedInvert) invertedCameras.value = JSON.parse(savedInvert)
+    const savedMirror = localStorage.getItem('mirroredCameras')
+    if (savedMirror) mirroredCameras.value = JSON.parse(savedMirror)
+  } catch(e) {}
+
   document.addEventListener('fullscreenchange', handleFullscreenChange)
   updateClock()
   clockInterval = setInterval(updateClock, 1000)
+  fetchCamerasInterval = setInterval(fetchCameras, 5000)
   // Login page is bypassed, load data directly
   try {
     await Promise.all([fetchCameras(), fetchDvrTimeline()])
@@ -2016,6 +2122,7 @@ onMounted(async () => {
 onUnmounted(() => {
   document.removeEventListener('fullscreenchange', handleFullscreenChange)
   if (clockInterval) clearInterval(clockInterval)
+  if (fetchCamerasInterval) clearInterval(fetchCamerasInterval)
   
 })
 

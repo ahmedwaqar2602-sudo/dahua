@@ -519,7 +519,7 @@ app.post('/api/view/log', async (c) => {
 // -----------------------------------------------------------------------------
 
 app.post('/api/camera/ptz', async (c) => {
-  const { token, cameraId, command, speed } = await c.req.json();
+  const { token, cameraId, command, speed, flip, mirror } = await c.req.json();
 
   if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
 
@@ -569,7 +569,7 @@ app.post('/api/camera/ptz', async (c) => {
     }
   }
 
-  console.log(`[PTZ] Executing ${command} on ${camName} (${brand} @ ${host}) with speed ${speed || 0.5}`);
+  console.log(`[PTZ] Executing ${command} on ${camName} (${brand} @ ${host}) with speed ${speed || 0.5}, flip: ${flip}, mirror: ${mirror}`);
 
   // Forward to local hardware agent (with ONVIF & Dahua Digest support)
   try {
@@ -583,7 +583,9 @@ app.post('/api/camera/ptz', async (c) => {
         user,
         pass,
         command,
-        speed: speed || 0.5
+        speed: speed || 0.5,
+        flip,
+        mirror
       }),
       signal: AbortSignal.timeout(3000)
     }).catch(() => null);

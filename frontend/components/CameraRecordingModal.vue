@@ -36,7 +36,7 @@
           <!-- Active Stream Player -->
           <iframe 
             :src="streamPlayerUrl" 
-            class="w-full h-full border-none"
+            class="w-full h-full border-none transition-transform duration-300"
             allow="autoplay; fullscreen"
             allowfullscreen
           ></iframe>

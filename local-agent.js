@@ -4,6 +4,7 @@ const { spawn } = require('child_process');
 const http = require('http');
 const crypto = require('crypto');
 const onvif = require('node-onvif');
+const net = require('net');
 
 let go2rtcProc = null;
 function ensureGo2rtc() {
@@ -123,6 +124,47 @@ function sendDahuaDigestPtz(host, user, pass, command, speed = 4) {
   }).on('error', (e) => console.warn('[PTZ Agent] Dahua error:', e.message));
 }
 
+function sendDigestRequest(urlStr, user, pass, method = 'GET', bodyStr = null) {
+  const u = new URL(urlStr);
+  const reqOpts = { host: u.hostname, port: u.port || 80, path: u.pathname + u.search, method };
+  const req = http.request(reqOpts, (res) => {
+    if (res.statusCode === 401 && res.headers['www-authenticate']) {
+      const auth = res.headers['www-authenticate'];
+      const realm = (auth.match(/realm="([^"]+)"/) || [])[1] || '';
+      const nonce = (auth.match(/nonce="([^"]+)"/) || [])[1] || '';
+      const qop = (auth.match(/qop="([^"]+)"/) || [])[1] || '';
+      
+      const ha1 = crypto.createHash('md5').update(`${user}:${realm}:${pass}`).digest('hex');
+      const ha2 = crypto.createHash('md5').update(`${method}:${u.pathname}${u.search}`).digest('hex');
+      let authStr = '';
+      if (qop.includes('auth')) {
+        const nc = '00000001';
+        const cnonce = crypto.randomBytes(8).toString('hex');
+        const resp = crypto.createHash('md5').update(`${ha1}:${nonce}:${nc}:${cnonce}:auth:${ha2}`).digest('hex');
+        authStr = `Digest username="${user}", realm="${realm}", nonce="${nonce}", uri="${u.pathname}${u.search}", response="${resp}", qop=auth, nc=${nc}, cnonce="${cnonce}"`;
+      } else {
+        const resp = crypto.createHash('md5').update(`${ha1}:${nonce}:${ha2}`).digest('hex');
+        authStr = `Digest username="${user}", realm="${realm}", nonce="${nonce}", uri="${u.pathname}${u.search}", response="${resp}"`;
+      }
+      
+      const req2Opts = { ...reqOpts, headers: { 'Authorization': authStr } };
+      if (bodyStr) {
+        req2Opts.headers['Content-Type'] = 'application/xml';
+        req2Opts.headers['Content-Length'] = Buffer.byteLength(bodyStr);
+      }
+      const req2 = http.request(req2Opts, (r2) => {
+        console.log(`[PTZ Agent] Digest ${method} -> Status ${r2.statusCode}`);
+      }).on('error', ()=>{});
+      if (bodyStr) req2.write(bodyStr);
+      req2.end();
+    } else {
+      console.log(`[PTZ Agent] ${method} -> Status ${res.statusCode}`);
+    }
+  }).on('error', (e) => console.warn('[PTZ Agent] error:', e.message));
+  if (bodyStr) req.write(bodyStr);
+  req.end();
+}
+
 // Local PTZ HTTP Server for backend worker delegation
 const ptzServer = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -141,6 +183,24 @@ const ptzServer = http.createServer(async (req, res) => {
       try {
         const { brand, host, user, pass, command, speed = 0.5 } = JSON.parse(bodyStr || '{}');
         console.log(`[PTZ Agent] Received ${command} for ${brand} @ ${host}`);
+
+        if (command === 'SET_FLIP_MIRROR') {
+          const { flip, mirror } = JSON.parse(bodyStr || '{}');
+          if (brand === 'Dahua' || host === '192.168.50.101' || host === '192.168.18.150') {
+            const url1 = `http://${host}/cgi-bin/configManager.cgi?action=setConfig&VideoInOptions[0].Flip=${!!flip}&VideoInOptions[0].Mirror=${!!mirror}`;
+            sendDigestRequest(url1, user, pass, 'GET');
+          } else {
+            // ISAPI fallback if supported, though CSS handles non-Dahua
+            const isapiUrl = `http://${host}/ISAPI/Image/channels/1/Flip`;
+            // CENTER is upside down (rotate 180), LEFT_RIGHT is mirror. For both, we might just try.
+            // Many consumer EZVIZ cameras return 404 here anyway.
+            const flipStyle = flip && mirror ? 'CENTER' : (mirror ? 'LEFT_RIGHT' : (flip ? 'UP_DOWN' : 'NORMAL'));
+            const xml = `<Flip><flipStyle>${flipStyle}</flipStyle></Flip>`;
+            sendDigestRequest(isapiUrl, user, pass, 'PUT', xml);
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ success: true, method: 'HardwareFlipMirror' }));
+        }
 
         // Try ONVIF first (works directly on motorized EZVIZ & ONVIF cameras)
         const onvifDev = await getCachedOnvif(host, user, pass);
@@ -191,39 +251,66 @@ ptzServer.listen(4002, () => {
 });
 
 
+async function checkRtspOnline(url) {
+  return new Promise((resolve) => {
+    try {
+      const match = url.match(/@([^:]+)(?::(\d+))?/);
+      if (!match) return resolve(false);
+      const host = match[1];
+      const port = match[2] ? parseInt(match[2], 10) : 554;
+      const socket = new net.Socket();
+      socket.setTimeout(2000);
+      socket.on('connect', () => {
+        socket.destroy();
+        resolve(true);
+      });
+      socket.on('timeout', () => {
+        socket.destroy();
+        resolve(false);
+      });
+      socket.on('error', () => {
+        resolve(false);
+      });
+      socket.connect(port, host);
+    } catch(e) {
+      resolve(false);
+    }
+  });
+}
+
 async function runWatchdog() {
   for (const cam of state.cameras) {
+    let isOnline = false;
+    
     if (!cam.rtsp_url.startsWith('onvif://')) {
-      // For RTSP, we might just assume online or check port. Stubbing for RTSP.
-      await fetch(`${API_BASE}/api/admin/cameras/${cam.id}/status`, {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify({ last_seen: new Date().toISOString() })
-      });
-      continue;
+      isOnline = await checkRtspOnline(cam.rtsp_url);
+    } else {
+      try {
+        const urlRegex = /:\/\/(.+):(.+)@([^:]+)/;
+        const match = cam.rtsp_url.match(urlRegex);
+        if (match) {
+          const [, username, password, hostname] = match;
+          const device = new onvif.OnvifDevice({
+            xaddr: `http://${hostname}:80/onvif/device_service`,
+            user: username,
+            pass: password
+          });
+          await device.init();
+          isOnline = true;
+        }
+      } catch (err) {
+        isOnline = false;
+      }
     }
 
-    try {
-      const urlRegex = /:\/\/(.+):(.+)@([^:]+)/;
-      const match = cam.rtsp_url.match(urlRegex);
-      if (!match) continue;
-      const [, username, password, hostname] = match;
-
-      const device = new onvif.OnvifDevice({
-        xaddr: `http://${hostname}:80/onvif/device_service`,
-        user: username,
-        pass: password
-      });
-
-      await device.init();
-      // Success! Update status
+    if (isOnline) {
       await fetch(`${API_BASE}/api/admin/cameras/${cam.id}/status`, {
         method: 'PUT',
         headers,
         body: JSON.stringify({ last_seen: new Date().toISOString() })
       });
       state.failedPings[cam.id] = 0;
-    } catch (err) {
+    } else {
       console.warn(`[Agent] Camera ${cam.name} ping failed.`);
       state.failedPings[cam.id] = (state.failedPings[cam.id] || 0) + 1;
       if (state.failedPings[cam.id] === 3) {
