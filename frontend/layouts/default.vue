@@ -78,13 +78,14 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, onUnmounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useCookie } from '#imports'
+import { useAlerts } from '~/composables/useAlerts'
 
 const router = useRouter()
 const route = useRoute()
-const { unreadCount } = useAlerts()
+const { unreadCount, addAlert } = useAlerts()
 
 const showLogoutModal = ref(false)
 
@@ -93,4 +94,48 @@ const handleLogout = () => {
   token.value = null // Clear the cookie
   router.push('/login')
 }
+
+let pollInterval = null
+let lastLogId = null
+
+const pollAuditLogs = async () => {
+  try {
+    const res = await $fetch('/api/admin/audit_logs')
+    if (res.success && res.logs && res.logs.length > 0) {
+      if (lastLogId === null) {
+        lastLogId = res.logs[0].id
+        return
+      }
+      
+      const newLogs = []
+      for (const log of res.logs) {
+        if (log.id > lastLogId) newLogs.push(log)
+        else break
+      }
+      
+      if (newLogs.length > 0) {
+        lastLogId = res.logs[0].id
+        newLogs.reverse().forEach(log => {
+          if (log.user_label && log.user_label !== 'Admin') {
+            const actionText = log.action === 'ENTER' ? 'is accessing a camera' : 'closed a camera stream'
+            addAlert(`${log.user_label} ${actionText}`)
+          }
+        })
+      }
+    }
+  } catch(e) {
+    console.error('Failed to poll audit logs', e)
+  }
+}
+
+onMounted(() => {
+  pollAuditLogs()
+  if (process.client) {
+    pollInterval = setInterval(pollAuditLogs, 5000)
+  }
+})
+
+onUnmounted(() => {
+  if (pollInterval) clearInterval(pollInterval)
+})
 </script>

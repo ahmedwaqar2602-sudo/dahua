@@ -13,7 +13,7 @@ const alerts = ref<AppAlert[]>([])
 export const useAlerts = () => {
   // Load from localStorage only on client-side and only once
   if (process.client && alerts.value.length === 0) {
-    const stored = localStorage.getItem('flexnook_alerts')
+    const stored = localStorage.getItem('flexnook_alerts_v2')
     if (stored) {
       try {
         alerts.value = JSON.parse(stored)
@@ -21,10 +21,10 @@ export const useAlerts = () => {
         console.error('Failed to parse alerts from localStorage', e)
       }
     }
-
+    
     // Watch for changes and save to localStorage
     watch(alerts, (newAlerts) => {
-      localStorage.setItem('flexnook_alerts', JSON.stringify(newAlerts))
+      localStorage.setItem('flexnook_alerts_v2', JSON.stringify(newAlerts))
     }, { deep: true })
   }
 

@@ -97,6 +97,7 @@
                 <!-- Live Stream Player (WebRTC Low-Latency) with Digital Zoom & ePTZ -->
                 <div class="w-full h-full overflow-hidden relative flex items-center justify-center bg-black">
                   <iframe 
+                    :id="'iframe-' + cam.id"
                     :src="getStreamUrl(cam)" 
                     class="w-full h-full border-none pointer-events-none transform origin-center transition-transform duration-200"
                     :style="{ transform: `scale(${getCamZoom(cam.id)}) translate(${getCamPanX(cam.id)}px, ${getCamPanY(cam.id)}px)` }"
@@ -342,15 +343,20 @@ const isAudioOn = (cam) => {
 
 const toggleAudio = (cam) => {
   if (!cam) return
-  viewerAudio.value = { ...viewerAudio.value, [cam.id]: !viewerAudio.value[cam.id] }
+  const nextState = !viewerAudio.value[cam.id]
+  viewerAudio.value = { ...viewerAudio.value, [cam.id]: nextState }
+  
+  const iframe = document.getElementById('iframe-' + cam.id)
+  if (iframe && iframe.contentWindow) {
+    iframe.contentWindow.postMessage(nextState ? 'unmute' : 'mute', '*')
+  }
 }
 
 const getStreamUrl = (cam) => {
   if (!cam) return ''
   let baseName = cam.name || 'dahua_cam'
   if (baseName.endsWith('_sub')) baseName = baseName.replace(/_sub$/, '')
-  const media = isAudioOn(cam) ? 'video,audio' : 'video'
-  return `http://${streamHost}:1984/stream.html?src=${encodeURIComponent(baseName)}_sub&mode=webrtc,mse&media=${media}`
+  return `/player.html?src=${encodeURIComponent(baseName)}_sub&muted=${!isAudioOn(cam)}`
 }
 
 const openAudioStream = (cam) => {

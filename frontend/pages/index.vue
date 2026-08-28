@@ -450,7 +450,7 @@
               </div>
 
               <!-- PTZ Direction Joystick Pad -->
-              <div class="flex flex-col items-center justify-center p-4 bg-slate-950/80 rounded-2xl border border-slate-800 shadow-inner my-3">
+              <div v-if="selectedCamera.camera_brand !== 'Dahua'" class="flex flex-col items-center justify-center p-4 bg-slate-950/80 rounded-2xl border border-slate-800 shadow-inner my-3">
                 <!-- UP -->
                 <button @pointerdown="triggerPtz(selectedCamera.id, 'UP', 1.0)" @pointerup="triggerPtz(selectedCamera.id, 'STOP', 0)" @pointerleave="triggerPtz(selectedCamera.id, 'STOP', 0)" class="w-12 h-12 bg-slate-800 hover:bg-cyan-600 active:scale-95 text-white rounded-xl flex items-center justify-center shadow-lg transition-all mb-2 select-none" title="Tilt Up">
                   <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 15l7-7 7 7"/></svg>

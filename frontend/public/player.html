@@ -30,7 +30,8 @@
     if (src) {
         const video = document.createElement('video-stream');
         video.mode = 'webrtc,mse,hls,mjpeg';
-        video.src = new URL(`http://127.0.0.1:1984/api/ws?src=${encodeURIComponent(src)}`);
+        const host = window.location.hostname || '127.0.0.1';
+        video.src = `http://${host}:1984/api/ws?src=${encodeURIComponent(src)}`;
         document.body.appendChild(video);
 
         // Listen for postMessage from parent Vue app to control audio
