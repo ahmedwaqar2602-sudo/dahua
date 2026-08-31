@@ -34,12 +34,16 @@
         <!-- Video Player Display Box -->
         <div class="relative bg-black flex items-center justify-center aspect-video w-full max-h-[50vh] overflow-hidden">
           <!-- Active Stream Player -->
-          <iframe 
-            :src="streamPlayerUrl" 
-            class="w-full h-full border-none transition-transform duration-300"
-            allow="autoplay; fullscreen"
-            allowfullscreen
-          ></iframe>
+          <video v-if="archiveVideoUrl"
+            :src="archiveVideoUrl" 
+            class="w-full h-full object-contain border-none transition-transform duration-300"
+            autoplay controls
+          ></video>
+
+          <div v-else class="absolute inset-0 flex items-center justify-center bg-slate-900/95 z-20 flex-col gap-3">
+            <svg class="w-12 h-12 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+            <span class="text-slate-300 font-bold text-sm">No recording for this time</span>
+          </div>
           
           <!-- Top Left Timestamp Badge -->
           <div class="absolute top-4 left-4 bg-black/75 backdrop-blur-md px-3 py-1.5 rounded-lg text-xs font-mono font-bold text-cyan-300 border border-white/10 flex items-center gap-2 pointer-events-none z-10">
@@ -161,7 +165,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 
 const props = defineProps({
   show: Boolean,
@@ -190,6 +194,43 @@ const streamPlayerUrl = computed(() => {
   if (!props.camera) return ''
   return `http://${streamHost}:1984/stream.html?src=${encodeURIComponent(props.camera.name)}&mode=webrtc,mse`
 })
+
+const archiveVideoUrl = ref(null)
+
+// Watch for scrubber and date changes to fetch new recording clip
+watch([scrubPercentage, selectedDate, () => props.camera], async ([pct, date, cam]) => {
+  if (!cam) return
+  
+  // Calculate ISO string for start time
+  const totalMinutes = Math.floor((pct / 100) * 1440)
+  const hours = Math.floor(totalMinutes / 60)
+  const mins = totalMinutes % 60
+  const secs = Math.floor((((pct / 100) * 1440) % 1) * 60)
+  
+  const targetDate = new Date(`${date}T${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.000Z`)
+  const targetIso = targetDate.toISOString()
+
+  try {
+    const res = await fetch(`http://localhost:4000/api/dvr/extract`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        cameraId: cam.name,
+        start: targetIso,
+        end: targetIso
+      })
+    })
+    
+    const data = await res.json()
+    if (data.success && data.downloadUrl) {
+      archiveVideoUrl.value = data.downloadUrl
+    } else {
+      archiveVideoUrl.value = null
+    }
+  } catch (e) {
+    archiveVideoUrl.value = null
+  }
+}, { immediate: true })
 
 const currentFrameUrl = computed(() => {
   if (!props.camera) return ''

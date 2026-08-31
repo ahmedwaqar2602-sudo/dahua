@@ -45,11 +45,18 @@ CREATE TABLE IF NOT EXISTS access_tokens (
     is_revoked BOOLEAN DEFAULT 0,
     daily_start_time TEXT,
     daily_end_time TEXT,
-    expires_at DATETIME,
+    daily_limit_minutes INTEGER DEFAULT 0,
     allow_ptz BOOLEAN DEFAULT 1,
     allow_recording BOOLEAN DEFAULT 1,
     allow_audio BOOLEAN DEFAULT 1,
     disable_ptz BOOLEAN DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS usage_logs (
+    share_id TEXT NOT NULL,
+    date TEXT NOT NULL,
+    seconds_used INTEGER DEFAULT 0,
+    PRIMARY KEY (share_id, date)
 );
 
 CREATE TABLE IF NOT EXISTS audit_logs (

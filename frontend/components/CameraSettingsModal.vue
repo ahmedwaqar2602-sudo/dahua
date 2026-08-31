@@ -63,6 +63,22 @@
             </code>
           </div>
 
+          <!-- Recording Mode -->
+          <div class="pt-2">
+            <label class="block text-xs font-semibold text-slate-400 mb-2">Recording Mode</label>
+            <div class="flex gap-2">
+              <button type="button" @click="editRecordingMode = 'off'" :class="editRecordingMode === 'off' ? 'bg-slate-700 text-white border-slate-600' : 'bg-slate-950 text-slate-400 border-slate-800'" class="flex-1 py-2 rounded-xl text-xs font-semibold border transition-all">
+                Off
+              </button>
+              <button type="button" @click="editRecordingMode = 'motion'" :class="editRecordingMode === 'motion' ? 'bg-amber-600/20 text-amber-400 border-amber-500/50' : 'bg-slate-950 text-slate-400 border-slate-800'" class="flex-1 py-2 rounded-xl text-xs font-semibold border transition-all">
+                Motion
+              </button>
+              <button type="button" @click="editRecordingMode = 'continuous'" :class="editRecordingMode === 'continuous' ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/50' : 'bg-slate-950 text-slate-400 border-slate-800'" class="flex-1 py-2 rounded-xl text-xs font-semibold border transition-all">
+                Continuous
+              </button>
+            </div>
+          </div>
+
           <!-- Footer Buttons -->
           <div class="flex items-center justify-between pt-4 border-t border-slate-800">
             <button type="button" @click="testDirectStream" :disabled="isTesting" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5">
@@ -97,6 +113,7 @@ const editDisplayName = ref('')
 const editIp = ref('')
 const editUsername = ref('admin')
 const editPassword = ref('')
+const editRecordingMode = ref('off')
 const isSaving = ref(false)
 const isTesting = ref(false)
 
@@ -112,6 +129,13 @@ watch(() => props.camera, (newCam) => {
     } else {
       editIp.value = newCam.public_ip || '192.168.18.101';
     }
+    
+    // Fetch recording mode
+    $fetch(`http://localhost:4002/api/cameras/${newCam.id}/recording-mode`)
+      .then(res => {
+        if (res && res.mode) editRecordingMode.value = res.mode;
+      })
+      .catch(() => { editRecordingMode.value = 'off'; });
   }
 }, { immediate: true })
 
@@ -154,6 +178,12 @@ const saveSettings = async () => {
     const baseName = props.camera.name.replace(/_sub$/, '');
     await fetch(`http://${host}:1984/api/streams?name=${baseName}&src=${encodeURIComponent(mainUrl)}`, { method: 'PUT' });
     await fetch(`http://${host}:1984/api/streams?name=${baseName}_sub&src=${encodeURIComponent(subUrl)}`, { method: 'PUT' });
+
+    // Save Recording Mode
+    await $fetch(`http://localhost:4002/api/cameras/${props.camera.id}/recording-mode`, {
+      method: 'PATCH',
+      body: { mode: editRecordingMode.value }
+    });
 
     alert('Settings updated successfully! Stream will now reload.');
     emit('close');

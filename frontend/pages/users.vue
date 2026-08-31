@@ -124,26 +124,6 @@ const users = ref([
     lastActive: 'Just now',
     colorClass: 'bg-accent/20 border-accent/30 text-accent',
     roleClass: 'bg-accent/10 text-accent border-accent/20'
-  },
-  {
-    name: 'User 1',
-    email: 'user1@flexnook.local',
-    initials: 'U1',
-    role: 'Viewer',
-    online: true,
-    lastActive: '2 mins ago',
-    colorClass: 'bg-indigo-500/20 border-indigo-500/30 text-indigo-400',
-    roleClass: 'bg-border-default text-secondary border-default'
-  },
-  {
-    name: 'User 2',
-    email: 'user2@flexnook.local',
-    initials: 'U2',
-    role: 'Operator',
-    online: false,
-    lastActive: '3 hours ago',
-    colorClass: 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400',
-    roleClass: 'bg-border-default text-secondary border-default'
   }
 ])
 

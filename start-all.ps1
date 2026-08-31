@@ -24,6 +24,16 @@ if (Test-Path $go2rtcPath) {
     Write-Host "  ERROR: go2rtc.exe not found!" -ForegroundColor Red
 }
 
+# --- 2.5 Start RTSP Proxy ---
+Write-Host "[2.5] Starting RTSP Proxy (Node on :8554)..." -ForegroundColor Yellow
+$proxyPath = Join-Path $scriptDir "rtsp-proxy.js"
+if (Test-Path $proxyPath) {
+    Start-Process -FilePath "node" -ArgumentList "`"$proxyPath`"" -WindowStyle Minimized
+    Write-Host "  RTSP Proxy running on :8554" -ForegroundColor Green
+} else {
+    Write-Host "  ERROR: rtsp-proxy.js not found!" -ForegroundColor Red
+}
+
 # --- 3. Start Backend (Wrangler) ---
 Write-Host "[3] Starting Backend (Cloudflare Worker on :8787)..." -ForegroundColor Yellow
 $backendPath = Join-Path $scriptDir "backend"

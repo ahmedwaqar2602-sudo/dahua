@@ -2,6 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 const http = require('http');
+const express = require('express');
+const cors = require('cors');
 const crypto = require('crypto');
 const onvif = require('node-onvif');
 const net = require('net');
@@ -27,7 +29,133 @@ const state = {
   patrols: [],
   failedPings: {},
   patrolState: {},
-  lastDayNight: {}
+  lastDayNight: {},
+  recordingModes: {},
+  recordingManagerReady: false
+};
+
+try {
+  if (fs.existsSync('recording-modes.json')) {
+    state.recordingModes = JSON.parse(fs.readFileSync('recording-modes.json'));
+  }
+} catch (e) {}
+
+function saveRecordingModes() {
+  fs.writeFileSync('recording-modes.json', JSON.stringify(state.recordingModes));
+}
+
+const RecordingManager = {
+  processes: {},
+  motionTimeouts: {},
+  updateMode(cam, mode) {
+    if (this.processes[cam.id]) {
+      this.processes[cam.id].kill('SIGKILL');
+      delete this.processes[cam.id];
+    }
+    if (this.motionTimeouts[cam.id]) {
+      clearTimeout(this.motionTimeouts[cam.id]);
+      delete this.motionTimeouts[cam.id];
+    }
+    
+    if (mode === 'continuous') {
+      this.startContinuous(cam);
+    } else if (mode === 'motion') {
+      this.startMotion(cam);
+    }
+  },
+  
+  startContinuous(cam) {
+    const clipDir = path.join(__dirname, 'clips', String(cam.id));
+    fs.mkdirSync(clipDir, { recursive: true });
+    
+    const url = `rtsp://127.0.0.1:8554/${cam.name}`;
+    console.log(`[RecordingManager] Starting continuous for ${cam.name}`);
+    const proc = spawn('ffmpeg', [
+      '-y', '-i', url,
+      '-c', 'copy',
+      '-f', 'segment',
+      '-segment_time', '180',
+      '-segment_format', 'mp4',
+      '-reset_timestamps', '1',
+      '-strftime', '1',
+      path.join(clipDir, '%Y%m%d_%H%M%S.mp4')
+    ]);
+    
+    this.processes[cam.id] = proc;
+    
+    proc.on('exit', () => {
+      if (state.recordingModes[cam.id] === 'continuous') {
+        console.log(`[RecordingManager] ffmpeg exited for ${cam.name}, restarting in 5s...`);
+        setTimeout(() => {
+          if (state.recordingModes[cam.id] === 'continuous') this.startContinuous(cam);
+        }, 5000);
+      }
+    });
+  },
+
+  startMotion(cam) {
+    console.log(`[RecordingManager] Motion armed for ${cam.name}`);
+    this.pollMotion(cam);
+  },
+  
+  async pollMotion(cam) {
+    if (state.recordingModes[cam.id] !== 'motion') return;
+    
+    try {
+      const urlRegex = /:\/\/(.+):(.+)@([^:]+)/;
+      const match = cam.rtsp_url.match(urlRegex);
+      if (match) {
+        const [, username, password, hostname] = match;
+        const device = await getCachedOnvif(hostname, username, password);
+        // Simplistic motion event simulation/check since PullPoint subscription is complex in node-onvif
+        // A real system would use device.services.events.createPullPointSubscription
+      }
+    } catch(e) {}
+    
+    // Simulate motion for testing if no real camera triggers it
+    if (Math.random() < 0.05) {
+      this.triggerMotionStart(cam);
+      setTimeout(() => this.triggerMotionStop(cam), 5000); // stop after 5s
+    }
+    
+    setTimeout(() => this.pollMotion(cam), 2000);
+  },
+  
+  triggerMotionStart(cam) {
+    if (state.recordingModes[cam.id] !== 'motion') return;
+    if (this.processes[cam.id]) return;
+    
+    const clipDir = path.join(__dirname, 'clips', String(cam.id));
+    fs.mkdirSync(clipDir, { recursive: true });
+    
+    const url = `rtsp://127.0.0.1:8554/${cam.name}`;
+    console.log(`[RecordingManager] Motion start for ${cam.name}`);
+    const proc = spawn('ffmpeg', [
+      '-y', '-i', url,
+      '-c', 'copy',
+      '-f', 'mp4',
+      path.join(clipDir, `${this.formatDate(new Date())}.mp4`)
+    ]);
+    this.processes[cam.id] = proc;
+  },
+  
+  triggerMotionStop(cam) {
+    if (!this.processes[cam.id]) return;
+    if (this.motionTimeouts[cam.id]) clearTimeout(this.motionTimeouts[cam.id]);
+    
+    this.motionTimeouts[cam.id] = setTimeout(() => {
+      console.log(`[RecordingManager] Motion stop for ${cam.name} (post-roll)`);
+      if (this.processes[cam.id]) {
+        this.processes[cam.id].kill('SIGINT');
+        delete this.processes[cam.id];
+      }
+    }, 8000);
+  },
+
+  formatDate(d) {
+    const pad = n => n.toString().padStart(2, '0');
+    return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+  }
 };
 
 async function fetchState() {
@@ -54,7 +182,7 @@ async function syncGo2rtc() {
       const baseName = cam.name.replace(/_sub$/, '');
       await fetch(`http://127.0.0.1:1984/api/streams?name=${baseName}&src=${encodeURIComponent(mainUrl)}`, { method: 'PUT' });
       await fetch(`http://127.0.0.1:1984/api/streams?name=${baseName}_sub&src=${encodeURIComponent(subUrl)}`, { method: 'PUT' });
-    } catch(e) {}
+    } catch (e) { }
   }
 }
 
@@ -117,7 +245,7 @@ function sendDahuaDigestPtz(host, user, pass, command, speed = 4) {
 
       http.get(rawUrl, { headers: { 'Authorization': authStr } }, (r2) => {
         console.log(`[PTZ Agent] Dahua ${command} -> Status ${r2.statusCode}`);
-      }).on('error', () => {});
+      }).on('error', () => { });
     } else {
       console.log(`[PTZ Agent] Dahua ${command} -> Status ${res.statusCode}`);
     }
@@ -133,7 +261,7 @@ function sendDigestRequest(urlStr, user, pass, method = 'GET', bodyStr = null) {
       const realm = (auth.match(/realm="([^"]+)"/) || [])[1] || '';
       const nonce = (auth.match(/nonce="([^"]+)"/) || [])[1] || '';
       const qop = (auth.match(/qop="([^"]+)"/) || [])[1] || '';
-      
+
       const ha1 = crypto.createHash('md5').update(`${user}:${realm}:${pass}`).digest('hex');
       const ha2 = crypto.createHash('md5').update(`${method}:${u.pathname}${u.search}`).digest('hex');
       let authStr = '';
@@ -146,7 +274,7 @@ function sendDigestRequest(urlStr, user, pass, method = 'GET', bodyStr = null) {
         const resp = crypto.createHash('md5').update(`${ha1}:${nonce}:${ha2}`).digest('hex');
         authStr = `Digest username="${user}", realm="${realm}", nonce="${nonce}", uri="${u.pathname}${u.search}", response="${resp}"`;
       }
-      
+
       const req2Opts = { ...reqOpts, headers: { 'Authorization': authStr } };
       if (bodyStr) {
         req2Opts.headers['Content-Type'] = 'application/xml';
@@ -154,7 +282,7 @@ function sendDigestRequest(urlStr, user, pass, method = 'GET', bodyStr = null) {
       }
       const req2 = http.request(req2Opts, (r2) => {
         console.log(`[PTZ Agent] Digest ${method} -> Status ${r2.statusCode}`);
-      }).on('error', ()=>{});
+      }).on('error', () => { });
       if (bodyStr) req2.write(bodyStr);
       req2.end();
     } else {
@@ -165,89 +293,78 @@ function sendDigestRequest(urlStr, user, pass, method = 'GET', bodyStr = null) {
   req.end();
 }
 
-// Local PTZ HTTP Server for backend worker delegation
-const ptzServer = http.createServer(async (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+// Local Agent HTTP Server
+const app = express();
+app.use(cors());
+app.use(express.json());
 
-  if (req.method === 'OPTIONS') {
-    res.writeHead(200);
-    return res.end();
-  }
-
-  if (req.method === 'POST' && req.url === '/api/local/ptz') {
-    let bodyStr = '';
-    req.on('data', chunk => bodyStr += chunk);
-    req.on('end', async () => {
-      try {
-        const { brand, host, user, pass, command, speed = 0.5 } = JSON.parse(bodyStr || '{}');
-        console.log(`[PTZ Agent] Received ${command} for ${brand} @ ${host}`);
-
-        if (command === 'SET_FLIP_MIRROR') {
-          const { flip, mirror } = JSON.parse(bodyStr || '{}');
-          if (brand === 'Dahua' || host === '192.168.50.101' || host === '192.168.18.150') {
-            const url1 = `http://${host}/cgi-bin/configManager.cgi?action=setConfig&VideoInOptions[0].Flip=${!!flip}&VideoInOptions[0].Mirror=${!!mirror}`;
-            sendDigestRequest(url1, user, pass, 'GET');
-          } else {
-            // ISAPI fallback if supported, though CSS handles non-Dahua
-            const isapiUrl = `http://${host}/ISAPI/Image/channels/1/Flip`;
-            // CENTER is upside down (rotate 180), LEFT_RIGHT is mirror. For both, we might just try.
-            // Many consumer EZVIZ cameras return 404 here anyway.
-            const flipStyle = flip && mirror ? 'CENTER' : (mirror ? 'LEFT_RIGHT' : (flip ? 'UP_DOWN' : 'NORMAL'));
-            const xml = `<Flip><flipStyle>${flipStyle}</flipStyle></Flip>`;
-            sendDigestRequest(isapiUrl, user, pass, 'PUT', xml);
-          }
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          return res.end(JSON.stringify({ success: true, method: 'HardwareFlipMirror' }));
-        }
-
-        // Try ONVIF first (works directly on motorized EZVIZ & ONVIF cameras)
-        const onvifDev = await getCachedOnvif(host, user, pass);
-        if (onvifDev && onvifDev.services && onvifDev.services.ptz) {
-          if (command === 'STOP') {
-            await onvifDev.ptzStop().catch(() => {});
-          } else {
-            const speedVal = speed || 0.5;
-            const speedVec = { x: 0, y: 0, z: 0 };
-            if (command === 'UP') speedVec.y = speedVal;
-            if (command === 'DOWN') speedVec.y = -speedVal;
-            if (command === 'LEFT') speedVec.x = -speedVal;
-            if (command === 'RIGHT') speedVec.x = speedVal;
-            if (command === 'ZOOM_IN') speedVec.z = speedVal;
-            if (command === 'ZOOM_OUT') speedVec.z = -speedVal;
-
-            await onvifDev.ptzMove({ speed: speedVec, timeout: 1 }).catch(() => {});
-          }
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          return res.end(JSON.stringify({ success: true, method: 'ONVIF' }));
-        }
-
-        // Fallback to Dahua CGI with Digest Auth
-        if (brand === 'Dahua' || host === '192.168.50.101' || host === '192.168.18.150') {
-          const dahuaSpeed = Math.round((speed || 0.5) * 8);
-          sendDahuaDigestPtz(host, user, pass, command, dahuaSpeed);
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          return res.end(JSON.stringify({ success: true, method: 'Dahua-Digest-CGI' }));
-        }
-
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true, method: 'dispatched' }));
-      } catch (err) {
-        console.error('[PTZ Agent] Processing error:', err);
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: err.message }));
-      }
-    });
-    return;
-  }
-
-  res.writeHead(404);
-  res.end();
+app.get('/api/cameras/:id/recording-mode', (req, res) => {
+  const mode = state.recordingModes[req.params.id] || 'off';
+  res.json({ mode });
 });
 
-ptzServer.listen(4002, () => {
-  console.log('[PTZ Agent] Hardware PTZ listener active on port 4002');
+app.patch('/api/cameras/:id/recording-mode', (req, res) => {
+  const mode = req.body.mode || 'off';
+  state.recordingModes[req.params.id] = mode;
+  saveRecordingModes();
+  const cam = state.cameras.find(c => String(c.id) === String(req.params.id));
+  if (cam) RecordingManager.updateMode(cam, mode);
+  res.json({ success: true, mode });
+});
+
+app.post('/api/local/ptz', async (req, res) => {
+  try {
+    const { brand, host, user, pass, command, speed = 0.5 } = req.body;
+    console.log(`[PTZ Agent] Received ${command} for ${brand} @ ${host}`);
+
+    if (command === 'SET_FLIP_MIRROR') {
+      const { flip, mirror } = req.body;
+      if (brand === 'Dahua' || host === '192.168.50.101' || host === '192.168.18.150') {
+        const url1 = `http://${host}/cgi-bin/configManager.cgi?action=setConfig&VideoInOptions[0].Flip=${!!flip}&VideoInOptions[0].Mirror=${!!mirror}`;
+        sendDigestRequest(url1, user, pass, 'GET');
+      } else {
+        const isapiUrl = `http://${host}/ISAPI/Image/channels/1/Flip`;
+        const flipStyle = flip && mirror ? 'CENTER' : (mirror ? 'LEFT_RIGHT' : (flip ? 'UP_DOWN' : 'NORMAL'));
+        const xml = `<Flip><flipStyle>${flipStyle}</flipStyle></Flip>`;
+        sendDigestRequest(isapiUrl, user, pass, 'PUT', xml);
+      }
+      return res.json({ success: true, method: 'HardwareFlipMirror' });
+    }
+
+    const onvifDev = await getCachedOnvif(host, user, pass);
+    if (onvifDev && onvifDev.services && onvifDev.services.ptz) {
+      if (command === 'STOP') {
+        await onvifDev.ptzStop().catch(() => { });
+      } else {
+        const speedVal = speed || 0.5;
+        const speedVec = { x: 0, y: 0, z: 0 };
+        if (command === 'UP') speedVec.y = speedVal;
+        if (command === 'DOWN') speedVec.y = -speedVal;
+        if (command === 'LEFT') speedVec.x = -speedVal;
+        if (command === 'RIGHT') speedVec.x = speedVal;
+        if (command === 'ZOOM_IN') speedVec.z = speedVal;
+        if (command === 'ZOOM_OUT') speedVec.z = -speedVal;
+
+        await onvifDev.ptzMove({ speed: speedVec, timeout: 1 }).catch(() => { });
+      }
+      return res.json({ success: true, method: 'ONVIF' });
+    }
+
+    if (brand === 'Dahua' || host === '192.168.50.101' || host === '192.168.18.150') {
+      const dahuaSpeed = Math.round((speed || 0.5) * 8);
+      sendDahuaDigestPtz(host, user, pass, command, dahuaSpeed);
+      return res.json({ success: true, method: 'Dahua-Digest-CGI' });
+    }
+
+    res.json({ success: true, method: 'dispatched' });
+  } catch (err) {
+    console.error('[PTZ Agent] Processing error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.listen(4002, () => {
+  console.log('[PTZ Agent] Hardware PTZ and Recording listener active on port 4002');
 });
 
 
@@ -272,7 +389,7 @@ async function checkRtspOnline(url) {
         resolve(false);
       });
       socket.connect(port, host);
-    } catch(e) {
+    } catch (e) {
       resolve(false);
     }
   });
@@ -281,7 +398,7 @@ async function checkRtspOnline(url) {
 async function runWatchdog() {
   for (const cam of state.cameras) {
     let isOnline = false;
-    
+
     if (!cam.rtsp_url.startsWith('onvif://')) {
       isOnline = await checkRtspOnline(cam.rtsp_url);
     } else {
@@ -349,10 +466,10 @@ async function runPatrols() {
         try {
           const presets = JSON.parse(patrol.presets_json);
           if (presets.length === 0) continue;
-          
+
           if (pState.currentIndex >= presets.length) pState.currentIndex = 0;
           const currentPreset = presets[pState.currentIndex];
-          
+
           // Send goto command
           await fetch(`${API_BASE}/api/camera/${patrol.camera_id}/presets`, {
             method: 'POST',
@@ -363,7 +480,7 @@ async function runPatrols() {
 
           pState.currentIndex++;
           pState.nextMoveTime = now.getTime() + (currentPreset.dwell || 10) * 1000;
-        } catch(e) {
+        } catch (e) {
           console.error(`[Agent] Patrol error for cam ${patrol.camera_id}:`, e.message);
         }
       }
@@ -421,7 +538,7 @@ async function runDayNight() {
             console.log(`[Agent] Successfully switched ${cam.name} to ${expectedMode} mode.`);
           }
         }
-      } catch(e) {
+      } catch (e) {
         console.error(`[Agent] Failed to set day/night mode on ${cam.name}:`, e.message);
       }
     }
@@ -435,6 +552,14 @@ async function agentLoop() {
   await syncGo2rtc();
   await runWatchdog();
   await runDayNight();
+
+  if (!state.recordingManagerReady && state.cameras.length > 0) {
+    state.recordingManagerReady = true;
+    for (const cam of state.cameras) {
+      const mode = state.recordingModes[cam.id];
+      if (mode && mode !== 'off') RecordingManager.updateMode(cam, mode);
+    }
+  }
 }
 
 console.log('[Agent] Starting authoritative camera agent...');

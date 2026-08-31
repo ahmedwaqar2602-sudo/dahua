@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "npx concurrently -k \"npm --prefix backend run dev\" \"npm --prefix frontend run dev\" \"node local-agent.js\" \"go2rtc.exe\"",
-    "start": "npx concurrently -k \"npm --prefix backend run dev\" \"npm --prefix frontend run dev\" \"node local-agent.js\" \"go2rtc.exe\"",
+    "dev": "npx concurrently -k \"npm --prefix backend run dev\" \"npm --prefix frontend run dev\" \"node local-agent.js\" \"node rtsp-proxy.js\" \"go2rtc.exe\"",
+    "start": "npx concurrently -k \"npm --prefix backend run dev\" \"npm --prefix frontend run dev\" \"node local-agent.js\" \"node rtsp-proxy.js\" \"go2rtc.exe\"",
     "agent": "node local-agent.js",
     "go2rtc": "go2rtc.exe",
     "dvr": "node local-dvr.js",

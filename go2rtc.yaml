@@ -3,7 +3,7 @@ api:
   origin: "*"
 
 rtsp:
-  listen: ":8554"
+  listen: ":8556"
 
 webrtc:
   listen: ":8555"
@@ -45,3 +45,5 @@ streams:
     - rtsp://admin:Khan1234%23@192.168.50.102:554/Streaming/Channels/102
     - rtsp://admin:Khan1234%23@192.168.18.39:554/Streaming/Channels/102
     - ffmpeg:ezviz_sub#audio=opus
+  test_cam:
+    - rtsp://localhost/test

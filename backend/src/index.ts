@@ -234,8 +234,7 @@ app.post('/api/admin/generate-link', requireAuth, async (c) => {
     userLabel: customLabel,
     daily_start_time, 
     daily_end_time, 
-    expires_in_hours,
-    expires_at: customExpiresAt,
+    dailyLimitMinutes,
     allow_ptz, 
     allow_recording, 
     allow_audio,
@@ -254,10 +253,7 @@ app.post('/api/admin/generate-link', requireAuth, async (c) => {
       userLabel = 'User ' + (total + 1);
     }
 
-    let calculatedExpiresAt = customExpiresAt || null;
-    if (!calculatedExpiresAt && expires_in_hours && Number(expires_in_hours) > 0) {
-      calculatedExpiresAt = new Date(Date.now() + Number(expires_in_hours) * 3600000).toISOString();
-    }
+
 
     const ptzAllowed = allow_ptz !== false && allow_ptz !== 0 ? 1 : 0;
     const recordingAllowed = allow_recording !== false && allow_recording !== 0 ? 1 : 0;
@@ -266,24 +262,24 @@ app.post('/api/admin/generate-link', requireAuth, async (c) => {
     await c.env.DB.prepare(`
       INSERT INTO access_tokens (
         token, user_label, allowed_cameras, daily_start_time, daily_end_time,
-        expires_at, allow_ptz, allow_recording, allow_audio, disable_ptz
+        daily_limit_minutes, allow_ptz, allow_recording, allow_audio, disable_ptz
       ) 
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       token, userLabel, JSON.stringify(cameraIds),
       daily_start_time || null, daily_end_time || null,
-      calculatedExpiresAt, ptzAllowed, recordingAllowed, audioAllowed,
+      dailyLimitMinutes ? Number(dailyLimitMinutes) : 0, ptzAllowed, recordingAllowed, audioAllowed,
       ptzAllowed ? 0 : 1
     ).run();
 
-    let rtspLink: string | null = null;
+    let rtspLinks: string[] = [];
     if (cameraIds.length > 0) {
-      // Just use the primary/first selected camera for a single clean link
-      const primaryCamId = cameraIds[0];
-      const cam = await c.env.DB.prepare(`SELECT name, public_ip FROM cameras WHERE id = ?`).bind(primaryCamId).first();
-      if (cam) {
-        const host = public_ip || cam.public_ip || '202.163.103.241';
-        rtspLink = `rtsp://${host}:8554/${cam.name}?token=${token}`;
+      for (const camId of cameraIds) {
+        const cam = await c.env.DB.prepare(`SELECT name, public_ip FROM cameras WHERE id = ?`).bind(camId).first();
+        if (cam) {
+          const host = public_ip || cam.public_ip || '202.163.103.241';
+          rtspLinks.push(`rtsp://${host}:8554/${cam.name}?token=${token}`);
+        }
       }
     }
 
@@ -291,11 +287,11 @@ app.post('/api/admin/generate-link', requireAuth, async (c) => {
       success: true, 
       token, 
       user_label: userLabel, 
-      expires_at: calculatedExpiresAt,
+      daily_limit_minutes: dailyLimitMinutes ? Number(dailyLimitMinutes) : 0,
       allow_ptz: ptzAllowed === 1,
       allow_recording: recordingAllowed === 1,
       allow_audio: audioAllowed === 1,
-      rtspLink 
+      rtspLinks 
     });
   } catch (err) {
     return c.json({ error: String(err) }, 500);
@@ -368,12 +364,14 @@ app.get('/api/admin/user-sessions', requireAuth, async (c) => {
 app.get('/api/admin/active-shares', requireAuth, async (c) => {
   if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
   try {
+    const today = new Date().toISOString().split('T')[0];
     const { results } = await c.env.DB.prepare(`
       SELECT t.*, 
              (SELECT action FROM audit_logs a WHERE a.token = t.token ORDER BY timestamp DESC LIMIT 1) as last_action,
-             (SELECT timestamp FROM audit_logs a WHERE a.token = t.token ORDER BY timestamp DESC LIMIT 1) as last_used
+             (SELECT timestamp FROM audit_logs a WHERE a.token = t.token ORDER BY timestamp DESC LIMIT 1) as last_used,
+             IFNULL((SELECT seconds_used FROM usage_logs u WHERE u.share_id = t.token AND u.date = ?), 0) as seconds_used
       FROM access_tokens t
-    `).all();
+    `).bind(today).all();
 
     const shares = (results || []).map((t: any) => {
       let status = 'Offline';
@@ -404,11 +402,13 @@ app.get('/api/view/verify', async (c) => {
     if (!accessToken) return c.json({ success: false, message: 'Invalid token' }, 403);
     if (accessToken.is_revoked) return c.json({ success: false, message: 'Token has been revoked by admin' }, 403);
 
-    // Check expiration timestamp
-    if (accessToken.expires_at) {
-      const expTime = new Date(accessToken.expires_at as string).getTime();
-      if (Date.now() > expTime) {
-        return c.json({ success: false, message: 'Access expired. The allocated viewing time limit has ended.' }, 403);
+    // Check daily usage limit
+    if (accessToken.daily_limit_minutes && accessToken.daily_limit_minutes > 0) {
+      const today = new Date().toISOString().split('T')[0];
+      const usageRow = await c.env.DB.prepare('SELECT seconds_used FROM usage_logs WHERE share_id = ? AND date = ?').bind(token, today).first();
+      const secondsUsed = usageRow ? (usageRow.seconds_used as number) : 0;
+      if (secondsUsed >= accessToken.daily_limit_minutes * 60) {
+        return c.json({ success: false, message: 'Daily viewing time limit has been reached.' }, 403);
       }
     }
 
@@ -467,7 +467,6 @@ app.get('/api/view/verify', async (c) => {
       allowPtz,
       allowRecording,
       allowAudio,
-      expiresAt: accessToken.expires_at,
       dailyStartTime: accessToken.daily_start_time,
       dailyEndTime: accessToken.daily_end_time
     });
@@ -509,6 +508,44 @@ app.post('/api/view/log', async (c) => {
   try {
     await c.env.DB.prepare('INSERT INTO audit_logs (token, action) VALUES (?, ?)').bind(token, action).run();
     return c.json({ success: true });
+  } catch (err) {
+    return c.json({ error: String(err) }, 500);
+  }
+});
+// -----------------------------------------------------------------------------
+// Internal RTSP Proxy Endpoints
+// -----------------------------------------------------------------------------
+app.post('/api/internal/usage', async (c) => {
+  const { token, secondsToAdd } = await c.req.json();
+  if (!token) return c.json({ error: 'Missing token' }, 400);
+  if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+
+  try {
+    const accessToken = await c.env.DB.prepare('SELECT daily_limit_minutes FROM access_tokens WHERE token = ? AND is_revoked = 0').bind(token).first();
+    if (!accessToken) return c.json({ valid: false, reason: 'Invalid or revoked token' });
+
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Add seconds and get new value
+    if (secondsToAdd > 0) {
+      await c.env.DB.prepare(`
+        INSERT INTO usage_logs (share_id, date, seconds_used) 
+        VALUES (?, ?, ?)
+        ON CONFLICT(share_id, date) DO UPDATE SET seconds_used = seconds_used + ?
+      `).bind(token, today, secondsToAdd, secondsToAdd).run();
+    }
+
+    const usageRow = await c.env.DB.prepare('SELECT seconds_used FROM usage_logs WHERE share_id = ? AND date = ?').bind(token, today).first();
+    const secondsUsed = usageRow ? (usageRow.seconds_used as number) : 0;
+    
+    const limitMinutes = (accessToken.daily_limit_minutes as number) || 0;
+    const isExceeded = limitMinutes > 0 && secondsUsed >= limitMinutes * 60;
+
+    return c.json({
+      valid: !isExceeded,
+      secondsUsed,
+      limitMinutes
+    });
   } catch (err) {
     return c.json({ error: String(err) }, 500);
   }
