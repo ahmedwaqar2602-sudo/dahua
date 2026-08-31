@@ -26,7 +26,6 @@
 <script type="module">
     const params = new URLSearchParams(location.search);
     const src = params.get('src');
-
     if (src) {
         const video = document.createElement('video-stream');
         video.mode = 'webrtc,mse,hls,mjpeg';
@@ -54,6 +53,77 @@
             // Try immediately and on play
             enforceMute();
             window.addEventListener('play', enforceMute, true);
+        }
+
+        // --- Stream Stop Alert & Snapshot Logic ---
+        let lastKnownFrame = null;
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        setInterval(() => {
+            const v = video.querySelector('video');
+            if (v && v.videoWidth > 0 && v.videoHeight > 0 && !v.paused) {
+                canvas.width = v.videoWidth;
+                canvas.height = v.videoHeight;
+                ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+                // Save a compressed JPEG snapshot
+                lastKnownFrame = canvas.toDataURL('image/jpeg', 0.6);
+            }
+        }, 1500); // Capture every 1.5 seconds
+
+        const triggerError = () => {
+            if (window.parent) {
+                window.parent.postMessage({
+                    type: 'stream_error',
+                    src: src,
+                    snapshot: lastKnownFrame
+                }, '*');
+            }
+        };
+
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.target.className === 'mode') {
+                    const mode = mutation.target.innerText.toLowerCase();
+                    if (mode === 'error') {
+                        triggerError();
+                        
+                        // Auto-reconnect after 4 seconds
+                        if (!window.reconnectTimer) {
+                            window.reconnectTimer = setTimeout(() => {
+                                location.reload();
+                            }, 4000);
+                        }
+                    }
+                }
+            });
+        });
+
+        observer.observe(video, { childList: true, subtree: true, characterData: true });
+
+        const v = video.querySelector('video');
+        if (v) {
+            v.addEventListener('error', triggerError);
+            v.addEventListener('stalled', triggerError);
+            v.addEventListener('playing', () => {
+                const checkFrames = setInterval(() => {
+                    const quality = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : null;
+                    const frames = quality ? quality.totalVideoFrames : (v.webkitDecodedFrameCount || 0);
+                    if (frames > 0) {
+                        clearInterval(checkFrames);
+                        if (window.reconnectTimer) {
+                            clearTimeout(window.reconnectTimer);
+                            window.reconnectTimer = null;
+                        }
+                        if (window.parent) {
+                            window.parent.postMessage({
+                                type: 'stream_playing',
+                                src: src
+                            }, '*');
+                        }
+                    }
+                }, 250);
+            });
         }
     }
 </script>

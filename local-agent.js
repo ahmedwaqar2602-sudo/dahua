@@ -167,6 +167,10 @@ async function fetchState() {
     const patRes = await fetch(`${API_BASE}/api/admin/patrols`, { headers });
     const patData = await patRes.json();
     if (patData.success) state.patrols = patData.patrols;
+
+    const combinedRes = await fetch(`${API_BASE}/api/internal/combined-shares`, { headers });
+    const combinedData = await combinedRes.json();
+    if (combinedData.success) state.combinedShares = combinedData.shares;
   } catch (err) {
     console.error('[Agent] Failed to fetch state from backend', err.message);
   }
@@ -183,6 +187,48 @@ async function syncGo2rtc() {
       await fetch(`http://127.0.0.1:1984/api/streams?name=${baseName}&src=${encodeURIComponent(mainUrl)}`, { method: 'PUT' });
       await fetch(`http://127.0.0.1:1984/api/streams?name=${baseName}_sub&src=${encodeURIComponent(subUrl)}`, { method: 'PUT' });
     } catch (e) { }
+  }
+
+  // Sync combined streams
+  for (const share of (state.combinedShares || [])) {
+    try {
+      let cameraIds = [];
+      try { cameraIds = JSON.parse(share.allowed_cameras); } catch(e){}
+      if (cameraIds.length < 2) continue;
+
+      let ffmpegInputs = '';
+      let ffmpegFilters = '';
+      const width = 640;
+      const height = 360;
+
+      const cams = cameraIds.map(id => state.cameras.find(c => c.id === id)).filter(Boolean);
+      if (cams.length < 2) continue;
+
+      for (let i = 0; i < cams.length; i++) {
+        const cam = cams[i];
+        const baseName = cam.name.replace(/_sub$/, '') + "_sub"; // Use sub-stream to save CPU during transcode
+        ffmpegInputs += `-rtsp_transport tcp -i rtsp://127.0.0.1:8556/${baseName} `;
+        ffmpegFilters += `[${i}:v]scale=${width}:${height}[v${i}];`;
+      }
+
+      const n = cams.length;
+      if (n === 2) {
+        ffmpegFilters += `[v0][v1]hstack=inputs=2[out]`;
+      } else if (n === 3 || n === 4) {
+        if (n === 3) ffmpegFilters += `color=c=black:s=${width}x${height}[v3];`;
+        ffmpegFilters += `[v0][v1][v2][v3]xstack=inputs=4:layout=0_0|w0_0|0_h0|w0_h0[out]`;
+      } else if (n === 5 || n === 6) {
+        if (n === 5) ffmpegFilters += `color=c=black:s=${width}x${height}[v5];`;
+        ffmpegFilters += `[v0][v1][v2][v3][v4][v5]xstack=inputs=6:layout=0_0|w0_0|w0+w1_0|0_h0|w0_h0|w0+w1_h0[out]`;
+      } else if (n >= 7 && n <= 9) {
+        if (n === 7) ffmpegFilters += `color=c=black:s=${width}x${height}[v7];color=c=black:s=${width}x${height}[v8];`;
+        if (n === 8) ffmpegFilters += `color=c=black:s=${width}x${height}[v8];`;
+        ffmpegFilters += `[v0][v1][v2][v3][v4][v5][v6][v7][v8]xstack=inputs=9:layout=0_0|w0_0|w0+w1_0|0_h0|w0_h0|w0+w1_h0|0_h0+h3|w0_h0+h3|w0+w1_h0+h3[out]`;
+      }
+
+      const execStr = `exec:ffmpeg -hide_banner ${ffmpegInputs.trim()} -filter_complex "${ffmpegFilters}" -map "[out]" -c:v libx264 -preset veryfast -b:v 2M -f rtsp {output}`;
+      await fetch(`http://127.0.0.1:1984/api/streams?name=combined_${share.token}&src=${encodeURIComponent(execStr)}`, { method: 'PUT' });
+    } catch(e) { console.error('[Agent] Error syncing combined stream', e); }
   }
 }
 
@@ -376,18 +422,29 @@ async function checkRtspOnline(url) {
       const host = match[1];
       const port = match[2] ? parseInt(match[2], 10) : 554;
       const socket = new net.Socket();
-      socket.setTimeout(2000);
+      let resolved = false;
+
+      const finish = (result) => {
+        if (!resolved) {
+          resolved = true;
+          socket.destroy();
+          resolve(result);
+        }
+      };
+
+      socket.setTimeout(2500);
       socket.on('connect', () => {
-        socket.destroy();
-        resolve(true);
+        socket.write(`OPTIONS rtsp://${host}:${port}/ RTSP/1.0\r\nCSeq: 1\r\n\r\n`);
       });
-      socket.on('timeout', () => {
-        socket.destroy();
-        resolve(false);
+      socket.on('data', (data) => {
+        if (data.toString().includes('RTSP/1.0')) {
+          finish(true);
+        } else {
+          finish(false);
+        }
       });
-      socket.on('error', () => {
-        resolve(false);
-      });
+      socket.on('timeout', () => finish(false));
+      socket.on('error', () => finish(false));
       socket.connect(port, host);
     } catch (e) {
       resolve(false);

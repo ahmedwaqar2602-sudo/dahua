@@ -238,22 +238,32 @@ app.post('/api/admin/generate-link', requireAuth, async (c) => {
     allow_ptz, 
     allow_recording, 
     allow_audio,
-    public_ip 
+    public_ip,
+    is_combined 
   } = await c.req.json();
 
   if (!cameraIds || !Array.isArray(cameraIds)) return c.json({ error: 'Missing or invalid cameraIds' }, 400);
+  if (is_combined && (cameraIds.length < 2 || cameraIds.length > 9)) {
+    return c.json({ error: 'Combined streams must have between 2 and 9 cameras.' }, 400);
+  }
   if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
-  
-  const token = crypto.randomUUID();
+
   try {
+    if (is_combined) {
+      const activeCombined = await c.env.DB.prepare('SELECT COUNT(*) as count FROM access_tokens WHERE is_combined = 1 AND is_revoked = 0').first();
+      const count = (activeCombined?.count as number) || 0;
+      if (count >= 2) {
+        return c.json({ error: 'Maximum combined streams limit reached (2). Please revoke an existing combined share before creating a new one.' }, 400);
+      }
+    }
+
+    const token = crypto.randomUUID();
     let userLabel = customLabel;
     if (!userLabel) {
       const row = await c.env.DB.prepare('SELECT COUNT(*) as total FROM access_tokens').first();
       const total = (row?.total as number) || 0;
       userLabel = 'User ' + (total + 1);
     }
-
-
 
     const ptzAllowed = allow_ptz !== false && allow_ptz !== 0 ? 1 : 0;
     const recordingAllowed = allow_recording !== false && allow_recording !== 0 ? 1 : 0;
@@ -262,18 +272,21 @@ app.post('/api/admin/generate-link', requireAuth, async (c) => {
     await c.env.DB.prepare(`
       INSERT INTO access_tokens (
         token, user_label, allowed_cameras, daily_start_time, daily_end_time,
-        daily_limit_minutes, allow_ptz, allow_recording, allow_audio, disable_ptz
+        daily_limit_minutes, allow_ptz, allow_recording, allow_audio, disable_ptz, is_combined
       ) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       token, userLabel, JSON.stringify(cameraIds),
       daily_start_time || null, daily_end_time || null,
       dailyLimitMinutes ? Number(dailyLimitMinutes) : 0, ptzAllowed, recordingAllowed, audioAllowed,
-      ptzAllowed ? 0 : 1
+      ptzAllowed ? 0 : 1, is_combined ? 1 : 0
     ).run();
 
     let rtspLinks: string[] = [];
-    if (cameraIds.length > 0) {
+    if (is_combined) {
+      const host = public_ip || '202.163.103.241';
+      rtspLinks.push(`rtsp://${host}:8554/combined_${token}?token=${token}`);
+    } else if (cameraIds.length > 0) {
       for (const camId of cameraIds) {
         const cam = await c.env.DB.prepare(`SELECT name, public_ip FROM cameras WHERE id = ?`).bind(camId).first();
         if (cam) {
@@ -308,6 +321,12 @@ app.post('/api/admin/update-access', requireAuth, async (c) => {
       await c.env.DB.prepare('UPDATE access_tokens SET is_revoked = 1 WHERE token = ?').bind(token).run();
       return c.json({ success: true, message: 'Token revoked' });
     } else if (cameraIds && Array.isArray(cameraIds)) {
+      const tokenRec = await c.env.DB.prepare('SELECT is_combined FROM access_tokens WHERE token = ?').bind(token).first();
+      if (tokenRec && tokenRec.is_combined) {
+        if (cameraIds.length < 2 || cameraIds.length > 9) {
+          return c.json({ error: 'Combined streams must have between 2 and 9 cameras.' }, 400);
+        }
+      }
       await c.env.DB.prepare('UPDATE access_tokens SET allowed_cameras = ? WHERE token = ?').bind(JSON.stringify(cameraIds), token).run();
       return c.json({ success: true, message: 'Access updated' });
     }
@@ -515,6 +534,17 @@ app.post('/api/view/log', async (c) => {
 // -----------------------------------------------------------------------------
 // Internal RTSP Proxy Endpoints
 // -----------------------------------------------------------------------------
+
+app.get('/api/internal/combined-shares', async (c) => {
+  if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+  try {
+    const { results } = await c.env.DB.prepare('SELECT token, allowed_cameras FROM access_tokens WHERE is_combined = 1 AND is_revoked = 0').all();
+    return c.json({ success: true, shares: results || [] });
+  } catch (err) {
+    return c.json({ error: String(err) }, 500);
+  }
+});
+
 app.post('/api/internal/usage', async (c) => {
   const { token, secondsToAdd } = await c.req.json();
   if (!token) return c.json({ error: 'Missing token' }, 400);

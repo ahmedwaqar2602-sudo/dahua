@@ -75,16 +75,19 @@
             <!-- Slot 0 -->
             <div class="relative bg-black rounded-lg overflow-hidden border border-[#252936] shadow-xl group aspect-video">
               <template v-if="mosaicSlots[0]">
-                <div class="absolute inset-0 z-0 cursor-pointer" @click="openCameraDetail(mosaicSlots[0])" title="Click to open PTZ & Audio settings"></div>
-                <iframe :key="'iframe-' + mosaicSlots[0].id + '-' + (reloadKeys[mosaicSlots[0].id] || 0)" :id="'iframe-' + mosaicSlots[0].id" :src="'/player.html?src=' + getWsUrlPath(mosaicSlots[0]) + '&muted=' + (!isAudioOn(mosaicSlots[0]))" class="w-full h-full object-contain pointer-events-none border-none relative z-[-1] transition-transform duration-300" :class="[needsCssFlip(mosaicSlots[0]) ? 'scale-y-[-1]' : '', needsCssMirror(mosaicSlots[0]) ? 'scale-x-[-1]' : '']"></iframe>
+                <div class="absolute inset-0 z-10 cursor-pointer" @click="openCameraDetail(mosaicSlots[0])" title="Click to open PTZ & Audio settings"></div>
+                
+                <img v-if="streamSnapshots[mosaicSlots[0].id]" :src="streamSnapshots[mosaicSlots[0].id]" class="absolute inset-0 w-full h-full object-contain pointer-events-none z-[5]" />
+                <iframe v-else :key="'iframe-' + mosaicSlots[0].id + '-' + (reloadKeys[mosaicSlots[0].id] || 0)" :id="'iframe-' + mosaicSlots[0].id" :src="'/player.html?v=3&src=' + getWsUrlPath(mosaicSlots[0]) + '&muted=' + (!isAudioOn(mosaicSlots[0]))" class="w-full h-full object-contain pointer-events-none border-none relative z-0 transition-transform duration-300" :class="[needsCssFlip(mosaicSlots[0]) ? 'scale-y-[-1]' : '', needsCssMirror(mosaicSlots[0]) ? 'scale-x-[-1]' : '']"></iframe>
+                
                 <!-- Top-Left Timestamp & Label -->
-                <div class="absolute top-2.5 left-2.5 flex items-center gap-2 bg-black/60 backdrop-blur px-2.5 py-1 rounded text-xs text-white font-mono font-bold border border-white/10 z-10 pointer-events-none">
+                <div class="absolute top-2.5 left-2.5 flex items-center gap-2 bg-black/60 backdrop-blur px-2.5 py-1 rounded text-xs text-white font-mono font-bold border border-white/10 z-20 pointer-events-none">
                   <span class="text-cyan-300">{{ mosaicSlots[0].displayTime || liveClock }}</span>
                   <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                   <span>{{ mosaicSlots[0].display_name || mosaicSlots[0].name }}</span>
                 </div>
                 <!-- Top-Right Actions: Voice ON/OFF & Remove Slot -->
-                <div class="absolute top-2.5 right-2.5 flex items-center gap-1.5 z-10">
+                <div class="absolute top-2.5 right-2.5 flex items-center gap-1.5 z-20">
                   <!-- Voice ON/OFF Button -->
                   <button @click.stop="toggleCameraAudio(mosaicSlots[0])" class="px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 transition-all shadow-md" :class="isAudioOn(mosaicSlots[0]) ? 'bg-emerald-600 text-white shadow-emerald-600/40' : 'bg-black/75 hover:bg-slate-800 text-slate-300 border border-white/10'" :title="isAudioOn(mosaicSlots[0]) ? 'Voice is ON (Click to Mute)' : 'Voice is OFF (Click to Listen)'">
                     <svg v-if="isAudioOn(mosaicSlots[0])" class="w-3.5 h-3.5 text-white animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M6 10H4a1 1 0 00-1 1v2a1 1 0 001 1h2l4 4V6l-4 4z"/></svg>
@@ -106,14 +109,17 @@
             <!-- Slot 1 (Highlighted with Blue Border in Screenshot 2) -->
             <div class="relative bg-black rounded-lg overflow-hidden border border-[#252936] shadow-xl group aspect-video" :class="!mosaicSlots[1] ? 'border-2 border-cyan-500/80 bg-[#121c2e]' : ''">
               <template v-if="mosaicSlots[1]">
-                <div class="absolute inset-0 z-0 cursor-pointer" @click="openCameraDetail(mosaicSlots[1])" title="Click to open PTZ & Audio settings"></div>
-                <iframe :key="'iframe-' + mosaicSlots[1].id + '-' + (reloadKeys[mosaicSlots[1].id] || 0)" :id="'iframe-' + mosaicSlots[1].id" :src="'/player.html?src=' + getWsUrlPath(mosaicSlots[1]) + '&muted=' + (!isAudioOn(mosaicSlots[1]))" class="w-full h-full object-contain pointer-events-none border-none relative z-[-1] transition-transform duration-300" :class="[needsCssFlip(mosaicSlots[1]) ? 'scale-y-[-1]' : '', needsCssMirror(mosaicSlots[1]) ? 'scale-x-[-1]' : '']"></iframe>
-                <div class="absolute top-2.5 left-2.5 flex items-center gap-2 bg-black/60 backdrop-blur px-2.5 py-1 rounded text-xs text-white font-mono font-bold border border-white/10 z-10 pointer-events-none">
+                <div class="absolute inset-0 z-10 cursor-pointer" @click="openCameraDetail(mosaicSlots[1])" title="Click to open PTZ & Audio settings"></div>
+                
+                <img v-if="streamSnapshots[mosaicSlots[1].id]" :src="streamSnapshots[mosaicSlots[1].id]" class="absolute inset-0 w-full h-full object-contain pointer-events-none z-[5]" />
+                <iframe v-else :key="'iframe-' + mosaicSlots[1].id + '-' + (reloadKeys[mosaicSlots[1].id] || 0)" :id="'iframe-' + mosaicSlots[1].id" :src="'/player.html?v=3&src=' + getWsUrlPath(mosaicSlots[1]) + '&muted=' + (!isAudioOn(mosaicSlots[1]))" class="w-full h-full object-contain pointer-events-none border-none relative z-0 transition-transform duration-300" :class="[needsCssFlip(mosaicSlots[1]) ? 'scale-y-[-1]' : '', needsCssMirror(mosaicSlots[1]) ? 'scale-x-[-1]' : '']"></iframe>
+                
+                <div class="absolute top-2.5 left-2.5 flex items-center gap-2 bg-black/60 backdrop-blur px-2.5 py-1 rounded text-xs text-white font-mono font-bold border border-white/10 z-20 pointer-events-none">
                   <span class="text-cyan-300">{{ mosaicSlots[1].displayTime || liveClock }}</span>
                   <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                   <span>{{ mosaicSlots[1].display_name || mosaicSlots[1].name }}</span>
                 </div>
-                <div class="absolute top-2.5 right-2.5 flex items-center gap-1.5 z-10">
+                <div class="absolute top-2.5 right-2.5 flex items-center gap-1.5 z-20">
                   <button @click.stop="toggleCameraAudio(mosaicSlots[1])" class="px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 transition-all shadow-md" :class="isAudioOn(mosaicSlots[1]) ? 'bg-emerald-600 text-white shadow-emerald-600/40' : 'bg-black/75 hover:bg-slate-800 text-slate-300 border border-white/10'" :title="isAudioOn(mosaicSlots[1]) ? 'Voice is ON (Click to Mute)' : 'Voice is OFF (Click to Listen)'">
                     <svg v-if="isAudioOn(mosaicSlots[1])" class="w-3.5 h-3.5 text-white animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M6 10H4a1 1 0 00-1 1v2a1 1 0 001 1h2l4 4V6l-4 4z"/></svg>
                     <svg v-else class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/></svg>
@@ -155,8 +161,9 @@
               </div>
 
               <!-- Stream Video Container -->
-              <div class="relative aspect-video w-full bg-black overflow-hidden">
-                <iframe :key="'iframe-' + cam.id + '-' + (reloadKeys[cam.id] || 0)" :id="'iframe-' + cam.id" :src="'/player.html?src=' + getWsUrlPath(cam) + '&muted=' + (!isAudioOn(cam))" class="w-full h-full object-contain border-none transition-transform duration-300" :class="[needsCssFlip(cam) ? 'scale-y-[-1]' : '', needsCssMirror(cam) ? 'scale-x-[-1]' : '']"></iframe>
+              <div class="relative aspect-video w-full bg-black overflow-hidden pointer-events-none">
+                <img v-if="streamSnapshots[cam.id]" :src="streamSnapshots[cam.id]" class="absolute inset-0 w-full h-full object-contain pointer-events-none z-[5]" />
+                <iframe v-else :key="'iframe-' + cam.id + '-' + (reloadKeys[cam.id] || 0)" :id="'iframe-' + cam.id" :src="'/player.html?v=3&src=' + getWsUrlPath(cam) + '&muted=' + (!isAudioOn(cam))" class="w-full h-full object-contain border-none transition-transform duration-300" :class="[needsCssFlip(cam) ? 'scale-y-[-1]' : '', needsCssMirror(cam) ? 'scale-x-[-1]' : '']"></iframe>
                 
                 <!-- Telemetry Badges Overlay on Hover -->
                 <div class="absolute top-2.5 left-2.5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 text-[10px] font-mono text-slate-200 bg-black/80 px-2 py-1 rounded-md border border-white/10 pointer-events-none">
@@ -214,7 +221,8 @@
           <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             <div v-for="cam in filteredCameras" :key="cam.id" @click="openCameraDetail(cam)" class="bg-[#1e2330] rounded-lg overflow-hidden border border-[#282f40] hover:border-cyan-500 cursor-pointer shadow-lg group">
               <div class="relative aspect-video w-full bg-black">
-                <iframe :key="'iframe-' + cam.id + '-' + (reloadKeys[cam.id] || 0)" :id="'iframe-' + cam.id" :src="'/player.html?src=' + getWsUrlPath(cam) + '&muted=' + (!isAudioOn(cam))" class="w-full h-full object-contain pointer-events-none border-none transition-transform duration-300" :class="[needsCssFlip(cam) ? 'scale-y-[-1]' : '', needsCssMirror(cam) ? 'scale-x-[-1]' : '']"></iframe>
+                <img v-if="streamSnapshots[cam.id]" :src="streamSnapshots[cam.id]" class="absolute inset-0 w-full h-full object-contain pointer-events-none z-[5]" />
+                <iframe v-else :key="'iframe-' + cam.id + '-' + (reloadKeys[cam.id] || 0)" :id="'iframe-' + cam.id" :src="'/player.html?v=3&src=' + getWsUrlPath(cam) + '&muted=' + (!isAudioOn(cam))" class="w-full h-full object-contain pointer-events-none border-none transition-transform duration-300" :class="[needsCssFlip(cam) ? 'scale-y-[-1]' : '', needsCssMirror(cam) ? 'scale-x-[-1]' : '']"></iframe>
                 <div class="absolute top-1.5 left-1.5 bg-black/70 px-1.5 py-0.5 rounded text-[9px] font-bold text-emerald-400 flex items-center gap-1">
                   <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
                   LIVE
@@ -423,7 +431,8 @@
         <div class="flex-1 relative bg-black flex overflow-hidden min-h-0">
           <div class="flex-1 relative flex items-center justify-center overflow-hidden">
             <!-- Stream Iframe with ePTZ and Digital Zoom Transform -->
-            <iframe :key="'iframe-' + selectedCamera.id + '-' + (reloadKeys[selectedCamera.id] || 0)" :id="'iframe-' + selectedCamera.id" :src="'/player.html?src=' + getWsUrlPath(selectedCamera, 'main') + '&muted=' + (!isAudioOn(selectedCamera))" class="w-full h-full object-contain origin-center transition-transform duration-300 border-none" :style="{ transform: (needsCssFlip(selectedCamera) ? 'scaleY(-1) ' : '') + (needsCssMirror(selectedCamera) ? 'scaleX(-1) ' : '') + `scale(${getCamZoom(selectedCamera.id)}) translate(${getCamPanX(selectedCamera.id)}px, ${getCamPanY(selectedCamera.id)}px)` }"></iframe>
+            <img v-if="streamSnapshots[selectedCamera.id]" :src="streamSnapshots[selectedCamera.id]" class="absolute inset-0 w-full h-full object-contain pointer-events-none z-[5]" :style="{ transform: (needsCssFlip(selectedCamera) ? 'scaleY(-1) ' : '') + (needsCssMirror(selectedCamera) ? 'scaleX(-1) ' : '') + `scale(${getCamZoom(selectedCamera.id)}) translate(${getCamPanX(selectedCamera.id)}px, ${getCamPanY(selectedCamera.id)}px)` }" />
+            <iframe v-else :key="'iframe-' + selectedCamera.id + '-' + (reloadKeys[selectedCamera.id] || 0)" :id="'iframe-' + selectedCamera.id" :src="'/player.html?v=3&src=' + getWsUrlPath(selectedCamera, 'main') + '&muted=' + (!isAudioOn(selectedCamera))" class="w-full h-full object-contain origin-center transition-transform duration-300 border-none" :style="{ transform: (needsCssFlip(selectedCamera) ? 'scaleY(-1) ' : '') + (needsCssMirror(selectedCamera) ? 'scaleX(-1) ' : '') + `scale(${getCamZoom(selectedCamera.id)}) translate(${getCamPanX(selectedCamera.id)}px, ${getCamPanY(selectedCamera.id)}px)` }"></iframe>
 
             <!-- Digital Zoom Badge Overlay -->
             <div v-if="getCamZoom(selectedCamera.id) > 1" class="absolute top-4 left-4 bg-cyan-600/90 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-xl backdrop-blur-md flex items-center gap-2 z-20 border border-cyan-400/30">
@@ -539,14 +548,37 @@
               <input v-model="shareLabel" type="text" placeholder="e.g. Guard Desk, Client View, Guest" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500 text-slate-200 placeholder-slate-500">
             </div>
 
+            <!-- Combined Streams Toggle -->
+            <div class="p-3.5 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between">
+              <div>
+                <span class="text-xs font-bold text-emerald-400 block">Combine into Single Stream</span>
+                <span class="text-[10px] text-slate-400">Combine 2-9 cameras into a single grid RTSP link</span>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" v-model="shareIsCombined" class="sr-only peer">
+                <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+              </label>
+            </div>
+
             <div>
-              <label class="block text-xs font-semibold text-slate-300 mb-2">Select Allowed Cameras</label>
+              <label class="block text-xs font-semibold text-slate-300 mb-2">Select Allowed Cameras <span v-if="shareIsCombined" class="text-emerald-400">({{selectedCamerasForLink.length}} selected, max 9)</span></label>
               <div class="max-h-36 overflow-y-auto space-y-2 pr-2 scrollbar-thin scrollbar-thumb-slate-700">
-                <label v-for="cam in cameras" :key="cam.id" class="flex items-center gap-3 p-2.5 bg-slate-950 border border-slate-800 rounded-xl cursor-pointer hover:bg-slate-800/50 transition-colors">
+                <label v-for="cam in cameras" :key="cam.id" class="flex items-center gap-3 p-2.5 bg-slate-950 border border-slate-800 rounded-xl cursor-pointer hover:bg-slate-800/50 transition-colors" :class="{'opacity-50 pointer-events-none': shareIsCombined && selectedCamerasForLink.length >= 9 && !selectedCamerasForLink.includes(cam.id)}">
                   <input type="checkbox" :value="cam.id" v-model="selectedCamerasForLink" class="w-4 h-4 rounded border-slate-700 text-indigo-500 bg-slate-900 focus:ring-indigo-500">
                   <span class="text-sm font-medium text-slate-200">{{ cam.display_name || cam.name }}</span>
                   <span class="ml-auto text-[10px] text-slate-500 font-mono">{{ cam.camera_brand || 'IP CAM' }}</span>
                 </label>
+              </div>
+            </div>
+
+            <!-- Grid Visualizer for Combined Mode -->
+            <div v-if="shareIsCombined && selectedCamerasForLink.length > 0" class="p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-3">
+              <span class="text-xs font-bold text-slate-300 block">Layout Preview:</span>
+              <div class="w-full max-w-[240px] mx-auto aspect-video bg-black rounded overflow-hidden border border-slate-700 grid gap-0.5 p-0.5" :style="getGridPreviewStyle()">
+                <div v-for="(id, i) in getGridPreviewTiles()" :key="'tile-'+i" class="bg-slate-800 flex items-center justify-center relative border border-slate-700/50">
+                  <span v-if="id" class="text-[9px] font-bold text-white text-center px-1 truncate w-full">{{ getCameraName(id) }}</span>
+                  <span v-else class="text-[10px] text-slate-600 font-bold">BLANK</span>
+                </div>
               </div>
             </div>
 
@@ -1162,6 +1194,7 @@ const panCam = (id, dir) => {
 }
 
 // Share Modal State
+const shareIsCombined = ref(false)
 const shareLabel = ref('')
 const sharePublicIp = ref('')
 const shareStartHour = ref('')
@@ -1182,6 +1215,37 @@ const dailyStartTime = ref('')
 const dailyEndTime = ref('')
 const disablePtz = ref(false)
 const isGeneratingLink = ref(false)
+
+// Combined Stream Helpers
+const getGridPreviewStyle = () => {
+  const n = selectedCamerasForLink.value.length;
+  if (n === 0) return 'grid-template-columns: 1fr;';
+  if (n <= 2) return 'grid-template-columns: repeat(2, 1fr);';
+  if (n <= 4) return 'grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr);';
+  if (n <= 6) return 'grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr);';
+  return 'grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);';
+};
+
+const getGridPreviewTiles = () => {
+  const n = selectedCamerasForLink.value.length;
+  let totalTiles = 1;
+  if (n === 2) totalTiles = 2;
+  else if (n > 2 && n <= 4) totalTiles = 4;
+  else if (n > 4 && n <= 6) totalTiles = 6;
+  else if (n > 6 && n <= 9) totalTiles = 9;
+  
+  const tiles = [];
+  for (let i = 0; i < totalTiles; i++) {
+    tiles.push(selectedCamerasForLink.value[i] || null);
+  }
+  return tiles;
+};
+
+const getCameraName = (id) => {
+  const cam = cameras.value.find(c => c.id === id);
+  return cam ? (cam.display_name || cam.name) : 'Unknown';
+};
+
 
 
 const padTime = (type, field) => {
@@ -1504,7 +1568,8 @@ const generateShareLink = async () => {
         allow_ptz: shareAllowPtz.value,
         allow_recording: shareAllowRecording.value,
         allow_audio: shareAllowAudio.value,
-        public_ip: sharePublicIp.value || null
+        public_ip: sharePublicIp.value || null,
+        is_combined: shareIsCombined.value
       }
     })
     
@@ -1564,6 +1629,7 @@ const toggleInvert = async (camId) => {
     // Force iframe reload to drop buffered frames and fetch flipped stream faster
     setTimeout(() => {
       reloadKeys.value[camId] = (reloadKeys.value[camId] || 0) + 1
+      delete streamSnapshots.value[camId]
     }, 800)
   } catch (e) {
     console.error('Failed to flip hardware view', e)
@@ -1589,6 +1655,7 @@ const toggleMirror = async (camId) => {
     })
     setTimeout(() => {
       reloadKeys.value[camId] = (reloadKeys.value[camId] || 0) + 1
+      delete streamSnapshots.value[camId]
     }, 800)
   } catch (e) {
     console.error('Failed to mirror hardware view', e)
@@ -1681,8 +1748,9 @@ watch(cameras, (newCams) => {
 const reloadKeys = ref({})
 
 const isOnline = (cam) => {
-  if (!cam || !cam.last_seen) return false
-  return (Date.now() - new Date(cam.last_seen).getTime()) < 25000
+  if (!cam) return false
+  if (!cam.last_seen) return true
+  return (Date.now() - new Date(cam.last_seen).getTime()) < 20000
 }
 
 const fetchPresets = async (cameraId) => {
@@ -1773,6 +1841,7 @@ const fetchCameras = async () => {
         if (oldCam && !isOnline(oldCam) && isOnline(newCam)) {
           // Camera came back online, increment reload key to force iframe remount
           reloadKeys.value[newCam.id] = (reloadKeys.value[newCam.id] || 0) + 1
+          delete streamSnapshots.value[newCam.id]
         }
       })
 
@@ -2084,6 +2153,31 @@ const fetchNotifications = async () => {
 }
 
 
+const streamSnapshots = ref({})
+
+const handleStreamMessage = (event) => {
+  if (event.data && event.data.type === 'stream_error') {
+    const { src, snapshot } = event.data;
+    if (snapshot) {
+      const cam = cameras.value.find(c => getWsUrlPath(c) === src || getWsUrlPath(c, 'main') === src);
+      if (cam && !streamSnapshots.value[cam.id]) {
+        streamSnapshots.value[cam.id] = snapshot;
+        showToast(`Camera ${cam.name || cam.id} has stopped!`);
+      }
+    }
+  } else if (event.data && event.data.type === 'stream_playing') {
+    const { src } = event.data;
+    const cam = cameras.value.find(c => getWsUrlPath(c) === src || getWsUrlPath(c, 'main') === src);
+    if (cam) {
+      if (streamSnapshots.value[cam.id]) {
+        delete streamSnapshots.value[cam.id];
+        showToast(`Camera ${cam.name || cam.id} has recovered!`);
+      }
+      cam.last_seen = new Date().toISOString();
+    }
+  }
+}
+
 onMounted(async () => {
   try {
     const savedInvert = localStorage.getItem('invertedCameras')
@@ -2092,6 +2186,7 @@ onMounted(async () => {
     if (savedMirror) mirroredCameras.value = JSON.parse(savedMirror)
   } catch(e) {}
 
+  window.addEventListener('message', handleStreamMessage)
   document.addEventListener('fullscreenchange', handleFullscreenChange)
   updateClock()
   clockInterval = setInterval(updateClock, 1000)
@@ -2106,10 +2201,10 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener('message', handleStreamMessage)
   document.removeEventListener('fullscreenchange', handleFullscreenChange)
   if (clockInterval) clearInterval(clockInterval)
   if (fetchCamerasInterval) clearInterval(fetchCamerasInterval)
-  
 })
 
 

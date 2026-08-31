@@ -49,7 +49,8 @@ CREATE TABLE IF NOT EXISTS access_tokens (
     allow_ptz BOOLEAN DEFAULT 1,
     allow_recording BOOLEAN DEFAULT 1,
     allow_audio BOOLEAN DEFAULT 1,
-    disable_ptz BOOLEAN DEFAULT 0
+    disable_ptz BOOLEAN DEFAULT 0,
+    is_combined BOOLEAN DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS usage_logs (
