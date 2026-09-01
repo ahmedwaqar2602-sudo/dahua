@@ -36,8 +36,55 @@ app.use('*', cors({
 app.get('/', (c) => c.text('Dahua Secure Backend Worker is running.'));
 
 const getJwtSecret = (c: any) => c.env.JWT_SECRET || 'fallback-secret-key-for-local-dev-123';
+const getEncryptionKey = (c: any) => c.env.ENCRYPTION_KEY || 'default-dev-key-must-be-32bytes!';
+const getInternalToken = (c: any) => c.env.INTERNAL_API_KEY;
 
+async function encryptPassword(text: string, keyString: string): Promise<string> {
+  if (!text) return text;
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(keyString.padEnd(32, '0').slice(0, 32)),
+    { name: "AES-GCM" },
+    false,
+    ["encrypt"]
+  );
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encrypted = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    keyMaterial,
+    new TextEncoder().encode(text)
+  );
+  
+  const buf2hex = (buf: ArrayBuffer) => [...new Uint8Array(buf)].map(x => x.toString(16).padStart(2, '0')).join('');
+  return `${buf2hex(iv.buffer)}:${buf2hex(encrypted)}`;
+}
 
+async function decryptPassword(cipherStr: string, keyString: string): Promise<string> {
+  if (!cipherStr || !cipherStr.includes(':')) return cipherStr; 
+  const [ivHex, cipherHex] = cipherStr.split(':');
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(keyString.padEnd(32, '0').slice(0, 32)),
+    { name: "AES-GCM" },
+    false,
+    ["decrypt"]
+  );
+  const hex2buf = (hex: string) => {
+    const bytes = new Uint8Array(Math.ceil(hex.length / 2));
+    for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.substring(i * 2, i * 2 + 2), 16);
+    return bytes.buffer;
+  };
+  try {
+    const decrypted = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: new Uint8Array(hex2buf(ivHex)) },
+      keyMaterial,
+      hex2buf(cipherHex)
+    );
+    return new TextDecoder().decode(decrypted);
+  } catch (e) {
+    return cipherStr; 
+  }
+}
 
 // -----------------------------------------------------------------------------
 // Admin Auth
@@ -113,6 +160,52 @@ app.get('/api/admin/me', async (c) => {
 app.get('/api/admin/cameras', requireAuth, async (c) => {
   if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
   const { results } = await c.env.DB.prepare('SELECT * FROM cameras').all();
+  
+  for (const cam of results || []) {
+    if (cam.password) cam.password = '';
+  }
+
+  return c.json({ success: true, cameras: results || [] });
+});
+
+app.get('/api/admin/cameras/:id/credentials', requireAuth, async (c) => {
+  const id = c.req.param('id');
+  if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+  
+  const cam = await c.env.DB.prepare('SELECT password, rtsp_url, sub_stream_url FROM cameras WHERE id = ?').bind(id).first();
+  if (!cam) return c.json({ error: 'Camera not found' }, 404);
+
+  const encKey = getEncryptionKey(c);
+  if (cam.password) {
+    cam.password = await decryptPassword(cam.password as string, encKey);
+    const encPass = encodeURIComponent(cam.password as string);
+    if (cam.rtsp_url) cam.rtsp_url = (cam.rtsp_url as string).replace(':***@', `:${encPass}@`);
+    if (cam.sub_stream_url) cam.sub_stream_url = (cam.sub_stream_url as string).replace(':***@', `:${encPass}@`);
+  }
+
+  return c.json({ success: true, credentials: cam });
+});
+
+app.get('/api/internal/cameras', async (c) => {
+  const token = c.req.header('x-internal-token');
+  const expectedToken = getInternalToken(c);
+  if (!expectedToken || token !== expectedToken) {
+    return c.json({ error: 'Unauthorized internal access' }, 403);
+  }
+
+  if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+  const { results } = await c.env.DB.prepare('SELECT * FROM cameras').all();
+  
+  const encKey = getEncryptionKey(c);
+  for (const cam of results || []) {
+    if (cam.password) {
+      cam.password = await decryptPassword(cam.password as string, encKey);
+      const encPass = encodeURIComponent(cam.password as string);
+      if (cam.rtsp_url) cam.rtsp_url = (cam.rtsp_url as string).replace(':***@', `:${encPass}@`);
+      if (cam.sub_stream_url) cam.sub_stream_url = (cam.sub_stream_url as string).replace(':***@', `:${encPass}@`);
+    }
+  }
+
   return c.json({ success: true, cameras: results || [] });
 });
 
@@ -167,10 +260,18 @@ app.post('/api/admin/cameras', requireAuth, async (c) => {
     rtsp_url = `rtsp://${username}:${password}@${public_ip}:${fport}/`;
   }
   
-  let capabilities = null;
   let subStreamUrl = null;
 
+  let parsedCapabilities = null;
+  if (typeof capabilities === 'string') parsedCapabilities = capabilities;
+  else if (typeof capabilities === 'object' && capabilities !== null) parsedCapabilities = JSON.stringify(capabilities);
+  
   try {
+    const encKey = getEncryptionKey(c);
+    const encPassword = await encryptPassword(password, encKey);
+    const db_rtsp_url = rtsp_url.replace(`:${password}@`, ':***@');
+    const db_sub_url = subStreamUrl ? (subStreamUrl as string).replace(`:${password}@`, ':***@') : null;
+
     await c.env.DB.prepare(`
       INSERT INTO cameras (
         name, display_name, rtsp_url, sub_stream_url, capabilities, last_seen,
@@ -178,8 +279,8 @@ app.post('/api/admin/cameras', requireAuth, async (c) => {
       ) 
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
-      name, display_name || name, rtsp_url, subStreamUrl, capabilities, new Date().toISOString(),
-      public_ip, fport, stream_type, camera_brand, username, password
+      name, display_name || name, db_rtsp_url, db_sub_url || null, parsedCapabilities || null, new Date().toISOString(),
+      public_ip, fport, stream_type || null, camera_brand || null, username || null, encPassword || null
     ).run();
 
     // Dynamically register stream with go2rtc to avoid needing a reboot
@@ -204,6 +305,27 @@ app.put('/api/admin/cameras/:id', requireAuth, async (c) => {
     const existing = await c.env.DB.prepare('SELECT * FROM cameras WHERE id = ?').bind(id).first();
     if (!existing) return c.json({ error: 'Camera not found' }, 404);
 
+    const encKey = getEncryptionKey(c);
+    let db_password = password !== undefined ? password : null;
+    if (db_password) {
+      db_password = await encryptPassword(db_password, encKey);
+    }
+    
+    let db_rtsp_url = rtsp_url !== undefined ? rtsp_url : null;
+    if (db_rtsp_url && password) db_rtsp_url = db_rtsp_url.replace(`:${password}@`, ':***@');
+    else if (db_rtsp_url && !password) {
+       // if we update url without sending password, assume existing password replacement
+       const oldPlaintext = await decryptPassword(existing.password as string, encKey);
+       db_rtsp_url = db_rtsp_url.replace(`:${oldPlaintext}@`, ':***@');
+    }
+
+    let db_sub_url = sub_stream_url !== undefined ? sub_stream_url : null;
+    if (db_sub_url && password) db_sub_url = db_sub_url.replace(`:${password}@`, ':***@');
+    else if (db_sub_url && !password) {
+       const oldPlaintext = await decryptPassword(existing.password as string, encKey);
+       db_sub_url = db_sub_url.replace(`:${oldPlaintext}@`, ':***@');
+    }
+
     await c.env.DB.prepare(`
       UPDATE cameras SET 
         display_name = COALESCE(?, display_name),
@@ -214,10 +336,10 @@ app.put('/api/admin/cameras/:id', requireAuth, async (c) => {
       WHERE id = ?
     `).bind(
       display_name !== undefined ? display_name : null,
-      rtsp_url !== undefined ? rtsp_url : null,
-      sub_stream_url !== undefined ? sub_stream_url : null,
+      db_rtsp_url,
+      db_sub_url,
       username !== undefined ? username : null,
-      password !== undefined ? password : null,
+      db_password,
       id
     ).run();
 
@@ -521,7 +643,7 @@ app.get('/api/view/recordings/:id/stream', async (c) => {
     const parts = (recording.file_path as string).split(/[\\/]/);
     const fileName = parts[parts.length - 1];
 
-    const proxyRes = await fetch(`http://127.0.0.1:4000/clips/${recording.camera_id}/${fileName}`, {
+    const proxyRes = await fetch(`http://127.0.0.1:4002/clips/${recording.camera_id}/${fileName}`, {
       headers: c.req.raw.headers
     });
     
@@ -584,16 +706,21 @@ app.get('/api/view/verify', async (c) => {
     if (!allowedCameraIds || allowedCameraIds.length === 0) return c.json({ success: false, message: 'No cameras authorized for this token' }, 403);
 
     const placeholders = allowedCameraIds.map(() => '?').join(',');
-    const cameras = await c.env.DB.prepare(`SELECT id, name, display_name, rtsp_url, sub_stream_url, camera_brand FROM cameras WHERE id IN (${placeholders})`).bind(...allowedCameraIds).all();
+    const cameras = await c.env.DB.prepare(`SELECT id, name, display_name, rtsp_url, sub_stream_url, camera_brand, capabilities FROM cameras WHERE id IN (${placeholders})`).bind(...allowedCameraIds).all();
 
     const host = new URL(c.req.url).hostname || 'localhost';
-    const streams = (cameras.results || []).map((cam: any) => ({
-      id: cam.id,
-      name: cam.name,
-      display_name: cam.display_name || cam.name,
-      camera_brand: cam.camera_brand,
-      streamUrl: `http://${host}:1984/stream.html?src=${encodeURIComponent(cam.name)}&mode=webrtc,mse`
-    }));
+    const streams = (cameras.results || []).map((cam: any) => {
+      let caps = {};
+      try { caps = cam.capabilities ? JSON.parse(cam.capabilities) : {}; } catch(e){}
+      return {
+        id: cam.id,
+        name: cam.name,
+        display_name: cam.display_name || cam.name,
+        camera_brand: cam.camera_brand,
+        capabilities: caps,
+        streamUrl: `http://${host}:1984/stream.html?src=${encodeURIComponent(cam.name)}&mode=webrtc,mse`
+      };
+    });
 
     const allowPtz = accessToken.allow_ptz !== 0 && !accessToken.disable_ptz;
     const allowRecording = accessToken.allow_recording !== 0;
@@ -661,24 +788,33 @@ app.post('/api/internal/session-event', async (c) => {
   if (!token || !action) return c.json({ error: 'Missing token or action' }, 400);
   if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
 
-  try {
-    await c.env.DB.prepare(
-      'INSERT INTO audit_logs (token, action, camera_id, duration_seconds) VALUES (?, ?, ?, ?)'
-    ).bind(token, action, camera_id || null, duration_seconds || null).run();
+    try {
+      await c.env.DB.prepare(
+        'INSERT INTO audit_logs (token, action, camera_id, duration_seconds) VALUES (?, ?, ?, ?)'
+      ).bind(token, action, camera_id || null, duration_seconds || null).run();
 
-    // Broadcast via SSE
-    broadcastSessionEvent({
-      token,
-      camera_id,
-      action,
-      duration_seconds,
-      timestamp: new Date().toISOString()
-    });
+      if (action === 'ENTER') {
+        const now = Date.now();
+        await c.env.DB.prepare(
+          'INSERT INTO active_sessions_tracker (token, camera_id, start_time, last_ping) VALUES (?, ?, ?, ?)'
+        ).bind(token, camera_id || null, now, now).run();
+      } else if (action === 'EXIT') {
+        await c.env.DB.prepare('DELETE FROM active_sessions_tracker WHERE token = ?').bind(token).run();
+      }
 
-    return c.json({ success: true });
-  } catch (err) {
-    return c.json({ error: String(err) }, 500);
-  }
+      // Broadcast via SSE
+      broadcastSessionEvent({
+        token,
+        camera_id,
+        action,
+        duration_seconds,
+        timestamp: new Date().toISOString()
+      });
+
+      return c.json({ success: true });
+    } catch (err) {
+      return c.json({ error: String(err) }, 500);
+    }
 });
 
 app.post('/api/internal/recordings', async (c) => {
@@ -694,6 +830,23 @@ app.post('/api/internal/recordings', async (c) => {
     ).bind(camera_id, file_path, segment_start, segment_end, duration_seconds).run();
 
     return c.json({ success: true });
+  } catch (err) {
+    return c.json({ error: String(err) }, 500);
+  }
+});
+
+app.get('/api/internal/recordings/protected', async (c) => {
+  if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+  try {
+    const now = new Date().toISOString();
+    const tokens = await c.env.DB.prepare(`
+      SELECT token, user_label, allowed_cameras, recording_access_start, recording_access_end 
+      FROM access_tokens 
+      WHERE is_revoked = 0 
+      AND recording_access_start IS NOT NULL 
+      AND recording_access_end > ?
+    `).bind(now).all();
+    return c.json({ success: true, tokens: tokens.results || [] });
   } catch (err) {
     return c.json({ error: String(err) }, 500);
   }
@@ -761,6 +914,9 @@ app.post('/api/internal/usage', async (c) => {
     const accessToken = await c.env.DB.prepare('SELECT daily_limit_minutes FROM access_tokens WHERE token = ? AND is_revoked = 0').bind(token).first();
     if (!accessToken) return c.json({ valid: false, reason: 'Invalid or revoked token' });
 
+    const now = Date.now();
+    await c.env.DB.prepare('UPDATE active_sessions_tracker SET last_ping = ? WHERE token = ?').bind(now, token).run();
+
     const today = new Date().toISOString().split('T')[0];
     
     // Add seconds and get new value
@@ -827,10 +983,11 @@ app.post('/api/camera/ptz', async (c) => {
   if (!cam) return c.json({ error: 'Camera not found' }, 404);
 
   // Extract camera connection details
+  const encKey = getEncryptionKey(c);
+  let pass = cam.password ? await decryptPassword(cam.password as string, encKey) : 'admin123';
   let host = cam.public_ip || '192.168.50.101';
   let port = cam.forwarded_port || 80;
   let user = cam.username || 'admin';
-  let pass = cam.password || 'admin123';
   const camName = String(cam.name || '');
   const brand = String(cam.camera_brand || (camName.includes('ezviz') ? 'EZVIZ' : 'Dahua'));
 
@@ -838,8 +995,8 @@ app.post('/api/camera/ptz', async (c) => {
     const match = (cam.rtsp_url as string).match(/:\/\/(?:([^:]+):([^@]+)@)?([^:/]+)(?::(\d+))?/);
     if (match) {
       if (match[1]) user = decodeURIComponent(match[1]);
-      if (match[2]) pass = decodeURIComponent(match[2]);
       if (match[3]) host = match[3];
+      // Note: match[2] is likely '***' due to DB stripping, so we rely on the decrypted `pass` variable
     }
   }
 
@@ -958,18 +1115,22 @@ app.delete('/api/admin/patrols/:id', requireAuth, async (c) => {
 });
 
 async function getOnvifDevice(c: any, cameraId: any) {
-  const cam = await c.env.DB.prepare('SELECT rtsp_url FROM cameras WHERE id = ?').bind(cameraId).first();
+  const cam = await c.env.DB.prepare('SELECT rtsp_url, password FROM cameras WHERE id = ?').bind(cameraId).first();
   if (!cam || !cam.rtsp_url) throw new Error('Camera not found');
   const urlRegex = /:\/\/(.+):(.+)@([^:]+)/;
-  const match = cam.rtsp_url.match(urlRegex);
+  const match = (cam.rtsp_url as string).match(urlRegex);
   if (!match) throw new Error('Invalid URL');
-  const [, username, password, hostname] = match;
+  
+  const encKey = getEncryptionKey(c);
+  const decryptedPass = cam.password ? await decryptPassword(cam.password as string, encKey) : match[2];
+  
+  const [, username, _dbPassword, hostname] = match;
   const reqFn = (globalThis as any).require;
   const onvifLib = (globalThis as any).onvif || (reqFn ? reqFn('node-onvif') : {});
   const device = new onvifLib.OnvifDevice({
     xaddr: `http://${hostname}:80/onvif/device_service`,
     user: username,
-    pass: password
+    pass: decryptedPass
   });
   await device.init();
   return device;
@@ -1051,4 +1212,39 @@ app.get('/api/admin/audit_logs', requireAuth, async (c) => {
   }
 });
 
-export default app;
+export default {
+  fetch: app.fetch,
+  scheduled: async (batch: any, env: any, ctx: any) => {
+    try {
+      const now = Date.now();
+      const staleThreshold = now - 60000; // 60 seconds (since cron runs every minute)
+      
+      const { results } = await env.DB.prepare('SELECT * FROM active_sessions_tracker WHERE last_ping < ?').bind(staleThreshold).all();
+      
+      if (results && results.length > 0) {
+        for (const session of results) {
+          const duration_seconds = Math.round((now - session.start_time) / 1000);
+          
+          await env.DB.prepare(
+            'INSERT INTO audit_logs (token, action, camera_id, duration_seconds) VALUES (?, ?, ?, ?)'
+          ).bind(session.token, 'EXIT', session.camera_id, duration_seconds).run();
+          
+          await env.DB.prepare('DELETE FROM active_sessions_tracker WHERE token = ?').bind(session.token).run();
+          
+          console.log(`[Cron Staleness Tracker] Auto-resolved session for ${session.token} to EXIT due to timeout.`);
+          
+          // Best effort broadcast (will only reach SSE clients on this specific isolate)
+          broadcastSessionEvent({
+            token: session.token,
+            camera_id: session.camera_id,
+            action: 'EXIT',
+            duration_seconds,
+            timestamp: new Date().toISOString()
+          });
+        }
+      }
+    } catch (e) {
+      console.error('[Cron Staleness Tracker] Error during cron sweep:', e);
+    }
+  }
+};

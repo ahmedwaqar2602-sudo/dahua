@@ -9,5 +9,10 @@
       "database_name": "access_logs",
       "database_id": "dahua-d1-placeholder-id"
     }
-  ]
+  ],
+  "triggers": {
+    "crons": [
+      "* * * * *"
+    ]
+  }
 }

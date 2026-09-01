@@ -8,6 +8,8 @@ export default defineNuxtConfig({
   modules: ['@nuxtjs/tailwindcss'],
   css: ['~/assets/css/main.css'],
   routeRules: {
+    '/api/dvr/**': { proxy: 'http://localhost:4002/api/dvr/**' },
+    '/clips/**': { proxy: 'http://localhost:4002/clips/**' },
     '/api/**': { proxy: 'http://localhost:8787/api/**' },
     '/admin/dashboard': { redirect: '/' },
     '/admin/login': { redirect: '/' },
@@ -16,6 +18,14 @@ export default defineNuxtConfig({
   },
   nitro: {
     devProxy: {
+      '/api/dvr': {
+        target: 'http://localhost:4002/api/dvr',
+        changeOrigin: true
+      },
+      '/clips': {
+        target: 'http://localhost:4002/clips',
+        changeOrigin: true
+      },
       '/api': {
         target: 'http://localhost:8787/api',
         changeOrigin: true

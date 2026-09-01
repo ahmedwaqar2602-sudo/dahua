@@ -12,9 +12,9 @@ streams:
         - rtsp://admin:admin123@192.168.18.150:554/cam/realmonitor?channel=1&subtype=0
         - ffmpeg:dahua#audio=opus
     dahua_cam:
-      - rtsp://admin:admin123@192.168.50.101:554/cam/realmonitor?channel=1&subtype=0#video=copy#audio=copy
+      - rtsp://admin:admin123@192.168.50.101:554/cam/realmonitor?channel=1&subtype=0
     dahua_cam_sub:
-      - rtsp://admin:admin123@192.168.50.101:554/cam/realmonitor?channel=1&subtype=1#video=copy#audio=copy
+      - rtsp://admin:admin123@192.168.50.101:554/cam/realmonitor?channel=1&subtype=1
     dahua_sub:
         - rtsp://admin:admin123@192.168.50.101:554/cam/realmonitor?channel=1&subtype=1
         - rtsp://admin:admin123@192.168.18.150:554/cam/realmonitor?channel=1&subtype=1
@@ -24,14 +24,16 @@ streams:
         - rtsp://admin:Khan1234%23@192.168.18.39:554/Streaming/Channels/101
         - ffmpeg:ezviz#audio=opus
     ezviz_cam:
-      - rtsp://admin:Khan1234%23@192.168.50.102:554/Streaming/Channels/101#video=copy#audio=copy
+      - rtsp://admin:Khan1234%23@192.168.50.102:554/Streaming/Channels/101
     ezviz_cam_sub:
-      - rtsp://admin:Khan1234%23@192.168.50.102:554/Streaming/Channels/102#video=copy#audio=copy
+      - rtsp://admin:Khan1234%23@192.168.50.102:554/Streaming/Channels/102
     ezviz_sub:
         - rtsp://admin:Khan1234%23@192.168.50.102:554/Streaming/Channels/102
         - rtsp://admin:Khan1234%23@192.168.18.39:554/Streaming/Channels/102
         - ffmpeg:ezviz_sub#audio=opus
     test_cam:
-        - rtsp://localhost/test
+      - rtsp://admin:newpassword123@192.168.1.100:554/cam/realmonitor?channel=1&subtype=0
+    test_cam_sub:
+      - rtsp://admin:newpassword123@192.168.1.100:554/cam/realmonitor?channel=1&subtype=0
 webrtc:
     listen: :8555

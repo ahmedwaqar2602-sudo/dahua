@@ -78,14 +78,15 @@
               @mouseup="endScrub"
               @mouseleave="endScrub"
             >
-              <!-- 24h Green Archive Blocks -->
-              <div class="absolute inset-y-1 left-[5%] right-[5%] bg-emerald-500/40 rounded border-y border-emerald-400/50"></div>
-              
-              <!-- Motion Event Ticks -->
-              <div class="absolute inset-y-1 left-[15%] w-1.5 bg-amber-400 rounded-full" title="Motion Event 03:30"></div>
-              <div class="absolute inset-y-1 left-[32%] w-2 bg-amber-400 rounded-full" title="Motion Event 07:45"></div>
-              <div class="absolute inset-y-1 left-[58%] w-1.5 bg-amber-400 rounded-full" title="Motion Event 14:10"></div>
-              <div class="absolute inset-y-1 left-[85%] w-2 bg-amber-400 rounded-full" title="Motion Event 20:25"></div>
+              <!-- Real DVR Segments -->
+              <div 
+                v-for="(seg, idx) in dvrSegments" 
+                :key="idx"
+                class="absolute inset-y-1 rounded border-y transition-all"
+                :class="seg.status === 'motion' ? 'bg-amber-400 border-amber-500 z-10 w-1.5 rounded-full' : 'bg-emerald-500/40 border-emerald-400/50'"
+                :style="seg.status === 'motion' ? { left: seg.startPercent + '%' } : { left: seg.startPercent + '%', width: Math.max(0.2, seg.widthPercent) + '%' }"
+                :title="seg.title"
+              ></div>
 
               <!-- Hour Markers -->
               <div class="absolute inset-0 flex justify-between px-3 items-center text-[10px] font-mono text-slate-500 pointer-events-none">
@@ -195,7 +196,33 @@ const streamPlayerUrl = computed(() => {
   return `http://${streamHost}:1984/stream.html?src=${encodeURIComponent(props.camera.name)}&mode=webrtc,mse`
 })
 
+
 const archiveVideoUrl = ref(null)
+const dvrSegments = ref([])
+
+watch([selectedDate, () => props.camera], async ([date, cam]) => {
+  if (!cam) return;
+  try {
+    const res = await $fetch(`/api/dvr/continuous?cameraId=${cam.name}&date=${date}`);
+    if (res.success) {
+      dvrSegments.value = res.segments.map(seg => {
+        const [sH, sM] = seg.start.split(':').map(Number);
+        const [eH, eM] = seg.end.split(':').map(Number);
+        const sPercent = ((sH * 60 + sM) / 1440) * 100;
+        const ePercent = ((eH * 60 + eM) / 1440) * 100;
+        return {
+          startPercent: sPercent,
+          widthPercent: ePercent - sPercent,
+          title: `Recorded ${seg.start} - ${seg.end}`,
+          status: seg.status // 'recorded', 'motion'
+        };
+      });
+    }
+  } catch(e) {
+    console.error(e);
+  }
+}, { immediate: true })
+
 
 // Watch for scrubber and date changes to fetch new recording clip
 watch([scrubPercentage, selectedDate, () => props.camera], async ([pct, date, cam]) => {
@@ -211,7 +238,7 @@ watch([scrubPercentage, selectedDate, () => props.camera], async ([pct, date, ca
   const targetIso = targetDate.toISOString()
 
   try {
-    const res = await fetch(`http://localhost:4000/api/dvr/extract`, {
+    const res = await fetch(`/api/dvr/extract`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

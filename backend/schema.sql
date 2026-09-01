@@ -89,3 +89,4 @@ VALUES
 ('dahua_cam', 'Dahua Camera (Switch 101)', 'rtsp://admin:admin123@192.168.50.101:554/cam/realmonitor?channel=1&subtype=0', 'rtsp://admin:admin123@192.168.50.101:554/cam/realmonitor?channel=1&subtype=1', 'Dahua', '202.163.103.241', 8554, 'admin', 'admin123'),
 ('ezviz_cam', 'EZVIZ Camera (Switch 102)', 'rtsp://admin:Khan1234%23@192.168.50.102:554/Streaming/Channels/101', 'rtsp://admin:Khan1234%23@192.168.50.102:554/Streaming/Channels/102', 'EZVIZ', '202.163.103.241', 8555, 'admin', 'Khan1234#');
 
+CREATE TABLE IF NOT EXISTS active_sessions_tracker (token TEXT PRIMARY KEY, camera_id TEXT, start_time INTEGER, last_ping INTEGER);

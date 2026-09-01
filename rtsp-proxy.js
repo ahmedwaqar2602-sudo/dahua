@@ -140,6 +140,7 @@ const server = net.createServer((clientSocket) => {
 
   clientSocket.on('end', cleanup);
   clientSocket.on('error', cleanup);
+  clientSocket.on('close', cleanup);
 });
 
 server.listen(PROXY_PORT, () => {

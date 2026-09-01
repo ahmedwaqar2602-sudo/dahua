@@ -76,6 +76,15 @@
             </div>
           </div>
 
+          <!-- Hardware Capabilities -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-2 mt-4">Hardware Capabilities</label>
+            <label class="flex items-center gap-2 cursor-pointer bg-slate-900/50 p-2.5 rounded-lg border border-slate-800 hover:bg-slate-800/50 transition-colors">
+              <input type="checkbox" v-model="editSupportsPtz" class="form-checkbox bg-slate-950 border-slate-700 text-cyan-500 rounded h-4 w-4">
+              <span class="text-sm font-medium text-slate-200">Camera hardware supports PTZ (Pan/Tilt/Zoom)</span>
+            </label>
+          </div>
+
           <!-- Footer Buttons -->
           <div class="flex items-center justify-between pt-4 border-t border-slate-800">
             <button type="button" @click="testDirectStream" :disabled="isTesting" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5">
@@ -110,6 +119,7 @@ const editDisplayName = ref('')
 const editIp = ref('')
 const editUsername = ref('admin')
 const editPassword = ref('')
+const editSupportsPtz = ref(false)
 const editRecordingMode = ref('off')
 const isSaving = ref(false)
 const isTesting = ref(false)
@@ -120,13 +130,30 @@ watch(() => props.camera, (newCam) => {
     editUsername.value = newCam.username || 'admin';
     editPassword.value = newCam.password || '';
     
-    if (newCam.rtsp_url) {
-      const match = newCam.rtsp_url.match(/@([^:/]+)/);
-      if (match) editIp.value = match[1];
+    // Parse capabilities
+    if (newCam.capabilities) {
+      try {
+        const caps = typeof newCam.capabilities === 'string' ? JSON.parse(newCam.capabilities) : newCam.capabilities;
+        editSupportsPtz.value = !!caps.ptz;
+      } catch (e) {
+        editSupportsPtz.value = false;
+      }
     } else {
-      editIp.value = newCam.public_ip || '192.168.18.101';
+      editSupportsPtz.value = false;
     }
-    
+
+    // Fetch real credentials securely on demand
+    $fetch(`/api/admin/cameras/${newCam.id}/credentials`)
+      .then(res => {
+        if (res && res.credentials) {
+          editPassword.value = res.credentials.password || '';
+          if (res.credentials.rtsp_url) {
+            const match = res.credentials.rtsp_url.match(/@([^:/]+)/);
+            if (match) editIp.value = match[1];
+          }
+        }
+      }).catch(err => console.error('Failed to fetch credentials', err));
+
     // Fetch recording mode
     $fetch(`http://localhost:4002/api/cameras/${newCam.id}/recording-mode`)
       .then(res => {
@@ -168,6 +195,7 @@ const computedRtspUrl = computed(() => {
   const user = editUsername.value || 'admin';
   const pass = editPassword.value ? encodeURIComponent(editPassword.value) : '';
   const ip = editIp.value || '192.168.18.101';
+  const caps = { ptz: editSupportsPtz.value };
   
   if (isDahua) {
     return `rtsp://${user}:${pass}@${ip}:554/cam/realmonitor?channel=1&subtype=1`;

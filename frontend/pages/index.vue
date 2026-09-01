@@ -286,6 +286,7 @@
                   <td class="p-3"><span class="text-emerald-400 font-bold">30 Days (24/7)</span></td>
                   <td class="p-3 font-mono text-slate-400">H.264 / 2.4 Mbps / 25 FPS</td>
                   <td class="p-3 text-right space-x-1">
+                    <button @click="activeSettingsCamera = cam" class="px-2.5 py-1 bg-amber-600/20 hover:bg-amber-600 text-amber-300 hover:text-white rounded text-xs font-bold transition-colors">Settings</button>
                     <button @click="openCameraDetail(cam)" class="px-2.5 py-1 bg-cyan-600/20 hover:bg-cyan-600 text-cyan-300 hover:text-white rounded text-xs font-bold transition-colors">View</button>
                     <button @click="activeRecordingCamera = cam" class="px-2.5 py-1 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white rounded text-xs font-bold transition-colors">DVR</button>
                   </td>
@@ -350,6 +351,9 @@
                     <span class="text-slate-200 group-hover:text-cyan-300 font-semibold truncate max-w-[120px]">{{ cam.display_name || cam.name }}</span>
                   </div>
                   <div class="flex items-center gap-1">
+                    <button @click.stop="activeSettingsCamera = cam" class="text-slate-500 hover:text-amber-400 p-0.5" title="Camera Settings">
+                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    </button>
                     <button @click.stop="openCameraDetail(cam)" class="text-slate-500 hover:text-white p-0.5" title="PTZ & Audio">
                       <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
                     </button>
@@ -386,6 +390,9 @@
                     <span class="text-slate-200 group-hover:text-cyan-300 font-semibold truncate max-w-[120px]">{{ cam.display_name || cam.name }}</span>
                   </div>
                   <div class="flex items-center gap-1">
+                    <button @click.stop="activeSettingsCamera = cam" class="text-slate-500 hover:text-amber-400 p-0.5" title="Camera Settings">
+                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    </button>
                     <button @click.stop="openCameraDetail(cam)" class="text-slate-500 hover:text-white p-0.5" title="PTZ & Audio">
                       <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
                     </button>
@@ -1247,6 +1254,7 @@ const notifications = ref([])
 const newCameraName = ref('')
 const newCameraDisplayName = ref('')
 const newCameraUrl = ref('')
+const newCameraSupportsPtz = ref(false)
 const newCameraIp = ref('')
 const newCameraPort = ref('')
 const newCameraUsername = ref('')
@@ -1565,6 +1573,7 @@ const applyCameraPreset = (brand) => {
     newCameraUsername.value = 'admin';
     newCameraPassword.value = 'admin123';
     newCameraUrl.value = 'rtsp://admin:admin123@192.168.50.101:554/cam/realmonitor?channel=1&subtype=1#video=copy#audio=copy';
+    newCameraSupportsPtz.value = true;
     newCameraPublicIp.value = '202.163.103.241';
     newCameraExternalPort.value = 8554;
     showToast('Dahua Switch preset loaded!');
@@ -1577,6 +1586,7 @@ const applyCameraPreset = (brand) => {
     newCameraUsername.value = 'admin';
     newCameraPassword.value = 'Khan1234#';
     newCameraUrl.value = 'rtsp://admin:Khan1234%23@192.168.50.102:554/Streaming/Channels/102#video=copy#audio=copy';
+    newCameraSupportsPtz.value = false;
     newCameraPublicIp.value = '202.163.103.241';
     newCameraExternalPort.value = 8555;
     showToast('EZVIZ Switch preset loaded (Voice Enabled)!');
@@ -1589,6 +1599,7 @@ const resetAddCameraModal = () => {
   newCameraName.value = '';
   newCameraDisplayName.value = '';
   newCameraUrl.value = '';
+  newCameraSupportsPtz.value = false;
   addCameraError.value = '';
   isAddingCamera.value = false;
 }
@@ -1617,7 +1628,8 @@ const addCamera = async () => {
           public_ip: newCameraPublicIp.value || '202.163.103.241',
           forwarded_port: parseInt(newCameraExternalPort.value) || 8554,
           username: newCameraUsername.value || 'admin',
-          password: newCameraPassword.value || ''
+          password: newCameraPassword.value || '',
+          capabilities: { ptz: newCameraSupportsPtz.value }
         }
       });
     } catch(dbErr) {
@@ -1971,7 +1983,7 @@ const downloadExport = () => {
   const startIso = new Date(startFile.timestamp - 3600000).toISOString()
   const endIso = new Date(endFile.timestamp).toISOString()
 
-  window.open(`http://localhost:4000/api/dvr/extract?start=${encodeURIComponent(startIso)}&end=${encodeURIComponent(endIso)}&camera=${encodeURIComponent(selectedCamera.value.name)}`, '_blank')
+  window.open(`/api/dvr/extract?start=${encodeURIComponent(startIso)}&end=${encodeURIComponent(endIso)}&camera=${encodeURIComponent(selectedCamera.value.name)}`, '_blank')
 }
 
 const fetchRecordingModes = async () => {
@@ -2030,7 +2042,7 @@ const fetchSessions = async () => {
 
 const fetchArchives = async (cameraName) => {
   try {
-    const res = await $fetch(`http://localhost:4000/api/dvr/continuous?camera=${encodeURIComponent(cameraName)}`)
+    const res = await $fetch(`/api/dvr/continuous?camera=${encodeURIComponent(cameraName)}`)
     if (res.success) continuousArchives.value = res.files
   } catch (e) {
     console.warn('Could not fetch archives from DVR API', e)
@@ -2125,7 +2137,7 @@ const openSessionVideo = (session) => {
   const camObj = cameras.value.find(c => c.id === camera) || cameras.value[0]
   const camName = camObj ? camObj.name : 'dahua_cam'
 
-  sessionVideoSrc.value = `http://localhost:4000/api/dvr/extract?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}&camera=${encodeURIComponent(camName)}`
+  sessionVideoSrc.value = `/api/dvr/extract?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}&camera=${encodeURIComponent(camName)}`
   showSessionVideoModal.value = true
 }
 
@@ -2212,7 +2224,7 @@ const hasCapability = (serviceKey) => {
 
 const extractVideo = async (notif) => {
   try {
-    const res = await $fetch('http://localhost:4000/api/dvr/extract', {
+    const res = await $fetch('/api/dvr/extract', {
       method: 'POST',
       body: {
         cameraId: 'all',
@@ -2225,7 +2237,7 @@ const extractVideo = async (notif) => {
       alert(`DVR Extraction Complete:\n${res.downloadUrl}`)
     }
   } catch(e) {
-    alert('Extraction failed. Is local-dvr.js running on port 4000?')
+    alert('Extraction failed. Is local-agent.js running the DVR proxy?')
   }
 }
 
@@ -2285,7 +2297,7 @@ const executeDeleteCamera = async () => {
 
 const fetchDvrTimeline = async (camName = 'all') => {
   try {
-    const res = await $fetch(`http://localhost:4000/api/dvr/continuous?cameraId=${camName}&date=today`)
+    const res = await $fetch(`/api/dvr/continuous?cameraId=${camName}&date=today`)
     if (res.success) {
       dvrSegments.value = res.segments.map(seg => {
         const [sH, sM] = seg.start.split(':').map(Number)
