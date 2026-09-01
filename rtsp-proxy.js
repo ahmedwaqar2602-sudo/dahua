@@ -3,6 +3,8 @@ const net = require('net');
 const PROXY_PORT = 8554;
 const GO2RTC_PORT = 8556;
 const BACKEND_URL = 'http://127.0.0.1:8787/api/internal/usage';
+const SESSION_EVENT_URL = 'http://127.0.0.1:8787/api/internal/session-event';
+
 
 // Maps socket to its tracking interval
 const activeConnections = new Map();
@@ -23,10 +25,21 @@ const server = net.createServer((clientSocket) => {
       if (dataStr.includes('\r\n\r\n')) {
         hasParsedInitial = true;
         
-        // Extract token from RTSP URL (e.g. rtsp://.../?token=xyz)
+        // Extract token from RTSP URL (e.g. rtsp://.../?token=xyz or rtsp://.../combined_xyz)
         const match = dataStr.match(/token=([a-zA-Z0-9-]+)/);
+        const combinedMatch = dataStr.match(/combined_([a-zA-Z0-9-]+)/);
+        
         if (match) {
           token = match[1];
+        } else if (combinedMatch) {
+          token = combinedMatch[1];
+        }
+
+        // Extract camera_id (stream name) from the RTSP URL path
+        let camera_id = null;
+        const urlMatch = dataStr.match(/rtsp:\/\/[^\/]+\/([^\?\s]+)/);
+        if (urlMatch) {
+          camera_id = urlMatch[1];
         }
 
         if (token) {
@@ -45,6 +58,17 @@ const server = net.createServer((clientSocket) => {
               clientSocket.destroy();
               return;
             }
+
+            // Connection is valid, log ENTER event
+            const startTime = Date.now();
+            fetch(SESSION_EVENT_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ token, camera_id, action: 'ENTER' })
+            }).catch(err => console.error('[RTSP Proxy] Error logging ENTER', err));
+
+            // Attach session info to socket for cleanup
+            clientSocket.sessionInfo = { token, camera_id, startTime };
 
             // Start tracking usage (e.g. every 10s)
             const intervalId = setInterval(async () => {
@@ -98,6 +122,18 @@ const server = net.createServer((clientSocket) => {
     if (activeConnections.has(clientSocket)) {
       clearInterval(activeConnections.get(clientSocket));
       activeConnections.delete(clientSocket);
+      
+      // Log EXIT event if session was authenticated
+      if (clientSocket.sessionInfo) {
+        const { token, camera_id, startTime } = clientSocket.sessionInfo;
+        const duration_seconds = Math.round((Date.now() - startTime) / 1000);
+        fetch(SESSION_EVENT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, camera_id, action: 'EXIT', duration_seconds })
+        }).catch(err => console.error('[RTSP Proxy] Error logging EXIT', err));
+        delete clientSocket.sessionInfo;
+      }
     }
     if (go2rtcSocket) go2rtcSocket.destroy();
   };

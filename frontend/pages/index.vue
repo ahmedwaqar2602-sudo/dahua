@@ -85,6 +85,9 @@
                   <span class="text-cyan-300">{{ mosaicSlots[0].displayTime || liveClock }}</span>
                   <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                   <span>{{ mosaicSlots[0].display_name || mosaicSlots[0].name }}</span>
+                  <span v-if="activeRecordingModes[mosaicSlots[0].id] && activeRecordingModes[mosaicSlots[0].id] !== 'off'" class="flex items-center gap-1 text-[10px] text-rose-400 bg-rose-500/20 px-1.5 py-0.5 rounded border border-rose-500/40">
+                    <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>REC
+                  </span>
                 </div>
                 <!-- Top-Right Actions: Voice ON/OFF & Remove Slot -->
                 <div class="absolute top-2.5 right-2.5 flex items-center gap-1.5 z-20">
@@ -118,6 +121,9 @@
                   <span class="text-cyan-300">{{ mosaicSlots[1].displayTime || liveClock }}</span>
                   <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                   <span>{{ mosaicSlots[1].display_name || mosaicSlots[1].name }}</span>
+                  <span v-if="activeRecordingModes[mosaicSlots[1].id] && activeRecordingModes[mosaicSlots[1].id] !== 'off'" class="flex items-center gap-1 text-[10px] text-rose-400 bg-rose-500/20 px-1.5 py-0.5 rounded border border-rose-500/40">
+                    <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>REC
+                  </span>
                 </div>
                 <div class="absolute top-2.5 right-2.5 flex items-center gap-1.5 z-20">
                   <button @click.stop="toggleCameraAudio(mosaicSlots[1])" class="px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 transition-all shadow-md" :class="isAudioOn(mosaicSlots[1]) ? 'bg-emerald-600 text-white shadow-emerald-600/40' : 'bg-black/75 hover:bg-slate-800 text-slate-300 border border-white/10'" :title="isAudioOn(mosaicSlots[1]) ? 'Voice is ON (Click to Mute)' : 'Voice is OFF (Click to Listen)'">
@@ -148,6 +154,9 @@
                   <button @click.stop="toggleFavorite(cam.id)" class="text-sm transition-colors" :class="favorites.includes(cam.id) ? 'text-amber-400' : 'text-slate-500 hover:text-amber-400'">★</button>
                   <span class="w-2 h-2 rounded-full" :class="isOnline(cam) ? 'bg-emerald-400 shadow-[0_0_6px_#34d399]' : 'bg-rose-500'"></span>
                   <span class="text-xs font-bold text-white truncate max-w-[160px]">{{ cam.display_name || cam.name }}</span>
+                  <span v-if="activeRecordingModes[cam.id] && activeRecordingModes[cam.id] !== 'off'" class="flex items-center gap-1 text-[10px] font-bold text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/30">
+                    <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>REC
+                  </span>
                 </div>
                 <div class="flex items-center gap-1.5">
                   <!-- Header Voice Indicator / Toggle -->
@@ -227,6 +236,10 @@
                   <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
                   LIVE
                 </div>
+                <div v-if="activeRecordingModes[cam.id] && activeRecordingModes[cam.id] !== 'off'" class="absolute top-1.5 right-1.5 bg-black/70 px-1.5 py-0.5 rounded text-[9px] font-bold text-rose-400 flex items-center gap-1 border border-rose-500/30">
+                  <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>
+                  REC
+                </div>
               </div>
               <div class="p-2 bg-[#1a1e2a] flex items-center justify-between text-xs">
                 <span class="font-bold text-white truncate">{{ cam.display_name || cam.name }}</span>
@@ -262,6 +275,9 @@
                   </td>
                   <td class="p-3 font-bold text-white hover:text-cyan-400 cursor-pointer" @click="openCameraDetail(cam)">
                     {{ cam.display_name || cam.name }}
+                    <span v-if="activeRecordingModes[cam.id] && activeRecordingModes[cam.id] !== 'off'" class="ml-2 inline-flex items-center gap-1 text-[9px] font-bold text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/30 align-middle">
+                      <span class="w-1 h-1 rounded-full bg-rose-500 animate-ping"></span>REC
+                    </span>
                   </td>
                   <td class="p-3 font-mono text-cyan-300">{{ getCameraIp(cam) }}</td>
                   <td class="p-3">
@@ -373,6 +389,61 @@
                     <button @click.stop="openCameraDetail(cam)" class="text-slate-500 hover:text-white p-0.5" title="PTZ & Audio">
                       <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
                     </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Category: ACTIVE SESSIONS -->
+            <div>
+              <div @click="groupSessionsOpen = !groupSessionsOpen" class="flex items-center justify-between px-2 py-1 text-xs font-bold text-slate-300 hover:text-white cursor-pointer rounded hover:bg-[#252936]">
+                <div class="flex items-center gap-1.5">
+                  <svg class="w-3 h-3 text-slate-400 transition-transform" :class="groupSessionsOpen ? 'rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                  <span>ACTIVE SESSIONS</span>
+                </div>
+                <div class="flex items-center gap-1 bg-[#252936] px-1.5 py-0.5 rounded text-[10px] text-slate-300">
+                  <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block align-middle mr-1"></span>
+                  <span>{{ activeSessions.length }}</span>
+                </div>
+              </div>
+
+              <div v-if="groupSessionsOpen" class="pt-1 space-y-1">
+                <div v-if="activeSessions.length === 0" class="text-xs text-slate-500 px-2 italic">No active view sessions</div>
+                <div v-for="session in activeSessions" :key="session.token + session.timestamp" class="p-2 rounded-md bg-[#252a3a] border border-[#2e3547] text-xs">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-cyan-300 font-bold truncate" :title="session.token">Token: {{ session.token.substring(0, 8) }}...</span>
+                    <span class="text-emerald-400 font-mono">{{ getElapsed(session.timestamp) }}</span>
+                  </div>
+                  <div class="text-slate-400 flex items-center justify-between">
+                    <span>Cam: {{ session.camera_id || 'Combined' }}</span>
+                    <span class="text-[9px] text-slate-500">{{ new Date(session.timestamp).toLocaleTimeString() }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Category: RECENT SESSIONS -->
+            <div>
+              <div @click="groupRecentOpen = !groupRecentOpen" class="flex items-center justify-between px-2 py-1 text-xs font-bold text-slate-300 hover:text-white cursor-pointer rounded hover:bg-[#252936]">
+                <div class="flex items-center gap-1.5">
+                  <svg class="w-3 h-3 text-slate-400 transition-transform" :class="groupRecentOpen ? 'rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                  <span>RECENT ACTIVITY</span>
+                </div>
+                <div class="flex items-center gap-1 bg-[#252936] px-1.5 py-0.5 rounded text-[10px] text-slate-300">
+                  <span>{{ recentSessions.length }}</span>
+                </div>
+              </div>
+
+              <div v-if="groupRecentOpen" class="pt-1 space-y-1">
+                <div v-if="recentSessions.length === 0" class="text-xs text-slate-500 px-2 italic">No recent activity</div>
+                <div v-for="session in recentSessions" :key="session.token + session.endTime" class="p-2 rounded-md bg-[#1a1e2a] border border-[#252936] text-xs opacity-70 hover:opacity-100 transition-opacity">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-slate-300 font-bold truncate" :title="session.token">Token: {{ session.token.substring(0, 8) }}...</span>
+                    <span class="text-slate-400 font-mono text-[10px]">{{ formatDuration(session.duration_seconds) }}</span>
+                  </div>
+                  <div class="text-slate-500 flex items-center justify-between">
+                    <span>Cam: {{ session.camera_id || 'Combined' }}</span>
+                    <span class="text-[9px]">{{ new Date(session.endTime).toLocaleTimeString() }}</span>
                   </div>
                 </div>
               </div>
@@ -650,17 +721,51 @@
               </div>
             </div>
 
+            <!-- Recording Access Range -->
+            <div class="p-3.5 bg-slate-950 border border-slate-800 rounded-xl space-y-3">
+              <span class="text-xs font-bold text-sky-400 block">Recording Access Range (Optional):</span>
+              <span class="text-[10px] text-slate-400 block -mt-2">Restrict which past recordings this token can play. Leave blank for no recording access.</span>
+
+              <div class="grid grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label class="block text-[11px] font-semibold text-slate-400 mb-1">Start Range</label>
+                  <input type="datetime-local" v-model="shareRecordingStart" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-200 focus:outline-none" />
+                </div>
+                <div>
+                  <label class="block text-[11px] font-semibold text-slate-400 mb-1">End Range</label>
+                  <input type="datetime-local" v-model="shareRecordingEnd" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-200 focus:outline-none" />
+                </div>
+              </div>
+            </div>
+
             <!-- Result Link Section -->
-            <div v-if="generatedLinks && generatedLinks.length > 0" class="p-4 bg-slate-950 border border-emerald-500/30 rounded-xl space-y-3">
+            <div v-if="(generatedLinks && generatedLinks.length > 0) || generatedCombinedUrl" class="p-4 bg-slate-950 border border-emerald-500/30 rounded-xl space-y-3">
               <div class="flex items-center justify-between">
                 <span class="text-xs font-bold text-emerald-400 flex items-center gap-2">
                   <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                  Active Share RTSP Links Ready
+                  {{ shareIsCombined ? 'Combined Stream Ready' : 'Active Share RTSP Links Ready' }}
                 </span>
                 <span v-if="generatedExpiresAt" class="text-[10px] text-amber-300 font-mono">Expires: {{ new Date(generatedExpiresAt).toLocaleTimeString() }}</span>
               </div>
-              
-              <div v-for="(link, idx) in generatedLinks" :key="idx" class="flex items-center gap-2 mt-2">
+
+              <!-- go2rtc registration status (combined only) -->
+              <div v-if="shareIsCombined && go2rtcInfo" class="flex items-center gap-2 p-2.5 rounded-lg text-[11px] font-medium" :class="go2rtcInfo.registered ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300' : 'bg-amber-500/10 border border-amber-500/30 text-amber-300'">
+                <span class="text-base">{{ go2rtcInfo.registered ? '✅' : '⏳' }}</span>
+                <div class="flex-1">
+                  <div class="font-bold">{{ go2rtcInfo.registered ? 'go2rtc: Stream is live' : 'go2rtc: Registering...' }}</div>
+                  <div class="text-[10px] opacity-70 mt-0.5">{{ go2rtcInfo.note }}</div>
+                </div>
+                <a href="http://127.0.0.1:1984" target="_blank" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] font-bold border border-slate-700 shrink-0">Dashboard ↗</a>
+              </div>
+
+              <div v-if="shareIsCombined && generatedCombinedUrl" class="flex items-center gap-2 mt-2">
+                <input :value="generatedCombinedUrl" readonly class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs font-mono text-cyan-300 focus:outline-none select-all" />
+                <button @click="copyText(generatedCombinedUrl, 'Share link copied!')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-all shadow-md shrink-0">
+                  Copy Link
+                </button>
+              </div>
+
+              <div v-if="!shareIsCombined" v-for="(link, idx) in generatedLinks" :key="idx" class="flex items-center gap-2 mt-2">
                 <input :value="link" readonly class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs font-mono text-cyan-300 focus:outline-none select-all" />
                 <button @click="copyText(link, 'Share link copied!')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-all shadow-md shrink-0">
                   Copy Link
@@ -671,6 +776,15 @@
                 <span :class="shareAllowPtz ? 'text-cyan-400' : 'text-slate-500'">• PTZ: {{ shareAllowPtz ? 'Allowed' : 'Disabled' }}</span>
                 <span :class="shareAllowRecording ? 'text-emerald-400' : 'text-slate-500'">• Recording: {{ shareAllowRecording ? 'Allowed' : 'Disabled' }}</span>
                 <span :class="shareAllowAudio ? 'text-indigo-400' : 'text-slate-500'">• Voice: {{ shareAllowAudio ? 'Allowed' : 'Disabled' }}</span>
+              </div>
+
+              <!-- VLC Playlist Download (only for multi-link non-combined shares) -->
+              <div v-if="!shareIsCombined && generatedLinks.length > 1" class="pt-2 border-t border-slate-800">
+                <p class="text-[10px] text-slate-400 mb-2">Open all {{ generatedLinks.length }} camera streams at once in VLC:</p>
+                <button @click="downloadVlcPlaylist(generatedLinks)" class="w-full px-4 py-2 bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 border border-amber-500/30 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                  Download VLC Playlist (.m3u) — Open All Cameras
+                </button>
               </div>
             </div>
           </div>
@@ -1000,6 +1114,7 @@ const selectedCamerasForShare = ref([])
 const selectedCamerasForLink = ref([])
 const cameraSearch = ref('')
 const selectedCamera = ref(null)
+const activeRecordingModes = ref({})
 
 // UI and Navigation State (Flussonic Watcher Standard)
 const viewMode = ref(route?.query?.view === 'cards' ? 'cards' : 'mosaic') // Default to 'mosaic' (Flussonic Screenshot 2)
@@ -1203,6 +1318,8 @@ const shareStartPeriod = ref('AM')
 const shareEndHour = ref('')
 const shareEndMin = ref('')
 const shareEndPeriod = ref('PM')
+const shareRecordingStart = ref('')
+const shareRecordingEnd = ref('')
 const shareAllowPtz = ref(true)
 const shareAllowRecording = ref(true)
 const shareAllowAudio = ref(true)
@@ -1210,7 +1327,9 @@ const shareExpiryHours = ref('4')
 const generatedViewerUrl = ref('')
 const generatedExpiresAt = ref('')
 const generatedLinks = ref([])
+const generatedCombinedUrl = ref('')
 const generatedUserLabel = ref('')
+const go2rtcInfo = ref(null)
 const dailyStartTime = ref('')
 const dailyEndTime = ref('')
 const disablePtz = ref(false)
@@ -1390,6 +1509,25 @@ const copyText = async (text, msg = 'Copied to clipboard!') => {
   }
 }
 
+const downloadVlcPlaylist = (links) => {
+  const camNames = cameras.value.reduce((acc, c) => { acc[c.id] = c.display_name || c.name; return acc; }, {});
+  let m3u = '#EXTM3U\n';
+  links.forEach((url, i) => {
+    // Try to extract camera name from URL path
+    const pathMatch = url.match(/\/([^/?]+)\?/);
+    const streamName = pathMatch ? pathMatch[1].replace(/_/g, ' ') : `Camera ${i + 1}`;
+    m3u += `#EXTINF:-1,${streamName}\n${url}\n`;
+  });
+  const blob = new Blob([m3u], { type: 'audio/x-mpegurl' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `cameras_${Date.now()}.m3u`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  showToast('VLC Playlist downloaded!');
+}
+
 const getCameraIp = (cam) => {
   if (cam.rtsp_url) {
     const match = cam.rtsp_url.match(/@([^:/]+)/);
@@ -1505,6 +1643,8 @@ const openShareModal = () => {
   shareEndHour.value = ''
   shareEndMin.value = ''
   shareEndPeriod.value = 'PM'
+  shareRecordingStart.value = ''
+  shareRecordingEnd.value = ''
   shareAllowPtz.value = true
   shareAllowRecording.value = true
   shareAllowAudio.value = true
@@ -1512,6 +1652,7 @@ const openShareModal = () => {
   generatedViewerUrl.value = ''
   generatedExpiresAt.value = ''
   generatedLinks.value = []
+  generatedCombinedUrl.value = ''
   selectedCamerasForLink.value = [...selectedCameraIds.value]
   showShareModal.value = true
 }
@@ -1569,7 +1710,9 @@ const generateShareLink = async () => {
         allow_recording: shareAllowRecording.value,
         allow_audio: shareAllowAudio.value,
         public_ip: sharePublicIp.value || null,
-        is_combined: shareIsCombined.value
+        is_combined: shareIsCombined.value,
+        recording_access_start: shareRecordingStart.value ? new Date(shareRecordingStart.value).toISOString() : null,
+        recording_access_end: shareRecordingEnd.value ? new Date(shareRecordingEnd.value).toISOString() : null
       }
     })
     
@@ -1577,13 +1720,21 @@ const generateShareLink = async () => {
       const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
       generatedViewerUrl.value = `${origin}/viewer/${res.token}`;
       generatedExpiresAt.value = res.expires_at || null;
-      generatedLinks.value = res.rtspLinks || [];
-      showToast('Time-restricted Share Link Generated!');
+      if (shareIsCombined.value) {
+        generatedCombinedUrl.value = res.rtspUrl || '';
+        generatedLinks.value = [];
+      } else {
+        generatedLinks.value = res.rtspLinks || [];
+        generatedCombinedUrl.value = '';
+      }
+      go2rtcInfo.value = res.go2rtc || null;
+      showToast('Share Link Generated!');
     } else {
       alert(res.error || 'Failed to generate link')
     }
   } catch(e) {
-    alert('Network error while generating link')
+    console.error(e)
+    alert(e.data?.error || e.message || 'Network error while generating link')
   } finally {
     isGeneratingLink.value = false
   }
@@ -1821,6 +1972,13 @@ const downloadExport = () => {
   const endIso = new Date(endFile.timestamp).toISOString()
 
   window.open(`http://localhost:4000/api/dvr/extract?start=${encodeURIComponent(startIso)}&end=${encodeURIComponent(endIso)}&camera=${encodeURIComponent(selectedCamera.value.name)}`, '_blank')
+}
+
+const fetchRecordingModes = async () => {
+  try {
+    const res = await $fetch('http://localhost:4002/api/cameras/recording-modes')
+    if (res && res.modes) activeRecordingModes.value = res.modes
+  } catch(e) {}
 }
 
 const fetchCameras = async () => {
@@ -2152,6 +2310,29 @@ const fetchNotifications = async () => {
   } catch(e) {}
 }
 
+const groupSessionsOpen = ref(true)
+const groupRecentOpen = ref(true)
+const activeSessions = ref([])
+const recentSessions = ref([])
+const now = ref(Date.now())
+let nowInterval = null
+
+
+const getElapsed = (timestamp) => {
+  const diff = Math.max(0, Math.floor((now.value - new Date(timestamp).getTime()) / 1000))
+  const m = Math.floor(diff / 60).toString().padStart(2, '0')
+  const s = (diff % 60).toString().padStart(2, '0')
+  return `${m}:${s}`
+}
+
+const formatDuration = (seconds) => {
+  if (!seconds) return '00:00'
+  const m = Math.floor(seconds / 60).toString().padStart(2, '0')
+  const s = (seconds % 60).toString().padStart(2, '0')
+  return `${m}:${s}`
+}
+
+
 
 const streamSnapshots = ref({})
 
@@ -2190,17 +2371,48 @@ onMounted(async () => {
   document.addEventListener('fullscreenchange', handleFullscreenChange)
   updateClock()
   clockInterval = setInterval(updateClock, 1000)
-  fetchCamerasInterval = setInterval(fetchCameras, 5000)
+  nowInterval = setInterval(() => { now.value = Date.now() }, 1000)
+  fetchCamerasInterval = setInterval(() => { fetchCameras(); fetchRecordingModes(); }, 5000)
   // Login page is bypassed, load data directly
   try {
-    await Promise.all([fetchCameras(), fetchDvrTimeline()])
-    
+    await Promise.all([fetchCameras(), fetchDvrTimeline(), fetchRecordingModes()])
+    setupSSE()
   } catch (e) {
     console.error('Failed to load dashboard data:', e)
   }
 })
 
+let sseEventSource = null;
+
+const setupSSE = () => {
+  sseEventSource = new EventSource('/api/admin/sessions/live')
+  sseEventSource.onmessage = (event) => {
+    if (event.data === 'ping') return
+    try {
+      const data = JSON.parse(event.data)
+      if (data.action === 'ENTER') {
+        activeSessions.value.push(data)
+      } else if (data.action === 'EXIT') {
+        const idx = activeSessions.value.findIndex(s => s.token === data.token && s.camera_id === data.camera_id)
+        if (idx !== -1) {
+          const finished = activeSessions.value.splice(idx, 1)[0]
+          finished.duration_seconds = data.duration_seconds
+          finished.endTime = data.timestamp
+          recentSessions.value.unshift(finished)
+          if (recentSessions.value.length > 20) recentSessions.value.pop()
+        }
+      }
+    } catch (e) {
+      console.error('SSE parse error:', e)
+    }
+  }
+}
+
 onUnmounted(() => {
+  if (nowInterval) clearInterval(nowInterval)
+  if (sseEventSource) {
+    sseEventSource.close()
+  }
   window.removeEventListener('message', handleStreamMessage)
   document.removeEventListener('fullscreenchange', handleFullscreenChange)
   if (clockInterval) clearInterval(clockInterval)

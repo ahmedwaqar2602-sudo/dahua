@@ -3,11 +3,28 @@ import { cors } from 'hono/cors';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import { sign, verify } from 'hono/jwt';
 import bcrypt from 'bcryptjs';
+import { streamSSE } from 'hono/streaming';
 
 type Bindings = {
   DB: D1Database;
   JWT_SECRET?: string;
 };
+
+// Global set to hold active SSE streams for live session updates
+const sseClients = new Set<any>();
+
+function broadcastSessionEvent(data: any) {
+  for (const client of sseClients) {
+    try {
+      client.writeSSE({
+        data: JSON.stringify(data),
+      });
+    } catch (e) {
+      sseClients.delete(client);
+    }
+  }
+}
+
 
 const app = new Hono<{ Bindings: Bindings }>();
 
@@ -239,23 +256,18 @@ app.post('/api/admin/generate-link', requireAuth, async (c) => {
     allow_recording, 
     allow_audio,
     public_ip,
-    is_combined 
+    is_combined,
+    recording_access_start,
+    recording_access_end
   } = await c.req.json();
 
   if (!cameraIds || !Array.isArray(cameraIds)) return c.json({ error: 'Missing or invalid cameraIds' }, 400);
-  if (is_combined && (cameraIds.length < 2 || cameraIds.length > 9)) {
-    return c.json({ error: 'Combined streams must have between 2 and 9 cameras.' }, 400);
+  if (is_combined && cameraIds.length < 2) {
+    return c.json({ error: 'Combined streams must have at least 2 cameras.' }, 400);
   }
   if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
 
   try {
-    if (is_combined) {
-      const activeCombined = await c.env.DB.prepare('SELECT COUNT(*) as count FROM access_tokens WHERE is_combined = 1 AND is_revoked = 0').first();
-      const count = (activeCombined?.count as number) || 0;
-      if (count >= 2) {
-        return c.json({ error: 'Maximum combined streams limit reached (2). Please revoke an existing combined share before creating a new one.' }, 400);
-      }
-    }
 
     const token = crypto.randomUUID();
     let userLabel = customLabel;
@@ -272,26 +284,69 @@ app.post('/api/admin/generate-link', requireAuth, async (c) => {
     await c.env.DB.prepare(`
       INSERT INTO access_tokens (
         token, user_label, allowed_cameras, daily_start_time, daily_end_time,
-        daily_limit_minutes, allow_ptz, allow_recording, allow_audio, disable_ptz, is_combined
+        daily_limit_minutes, allow_ptz, allow_recording, allow_audio, disable_ptz, is_combined,
+        recording_access_start, recording_access_end
       ) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       token, userLabel, JSON.stringify(cameraIds),
       daily_start_time || null, daily_end_time || null,
       dailyLimitMinutes ? Number(dailyLimitMinutes) : 0, ptzAllowed, recordingAllowed, audioAllowed,
-      ptzAllowed ? 0 : 1, is_combined ? 1 : 0
+      ptzAllowed ? 0 : 1, is_combined ? 1 : 0,
+      recording_access_start || null, recording_access_end || null
     ).run();
 
     let rtspLinks: string[] = [];
     if (is_combined) {
-      const host = public_ip || '202.163.103.241';
-      rtspLinks.push(`rtsp://${host}:8554/combined_${token}?token=${token}`);
-    } else if (cameraIds.length > 0) {
+      // Immediately tell local-agent to register this stream in go2rtc
+      const firstCam = await c.env.DB.prepare(`SELECT public_ip FROM cameras WHERE id = ?`).bind(cameraIds[0]).first();
+      const host = public_ip || (firstCam?.public_ip as string) || '202.163.103.241';
+
+      let registeredInGo2rtc = false;
+      let go2rtcNote = 'local-agent not reachable — stream will be created within 10s by background reconciler';
+      try {
+        const agentRes = await fetch('http://127.0.0.1:4002/api/local/combined-stream', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ shareId: token, cameraIds }),
+          signal: AbortSignal.timeout(8000)
+        });
+        if (agentRes.ok) {
+          const agentData = await agentRes.json() as any;
+          registeredInGo2rtc = agentData.registeredInGo2rtc;
+          go2rtcNote = agentData.note || go2rtcNote;
+        }
+      } catch (e) {
+        console.warn('[generate-link] Could not reach local-agent for immediate combined stream registration:', e);
+      }
+
+      // No ?token= — the shareId in the path IS the access secret
+      const rtspUrl = `rtsp://${host}:8554/combined_${token}`;
+
+      return c.json({
+        success: true,
+        token,
+        user_label: userLabel,
+        daily_limit_minutes: dailyLimitMinutes ? Number(dailyLimitMinutes) : 0,
+        allow_ptz: ptzAllowed === 1,
+        allow_recording: recordingAllowed === 1,
+        allow_audio: audioAllowed === 1,
+        rtspUrl,
+        go2rtc: {
+          registered: registeredInGo2rtc,
+          streamName: `combined_${token}`,
+          dashboard: 'http://127.0.0.1:1984',
+          note: go2rtcNote
+        }
+      });
+    } else {
+      // Individual per-camera RTSP links
       for (const camId of cameraIds) {
-        const cam = await c.env.DB.prepare(`SELECT name, public_ip FROM cameras WHERE id = ?`).bind(camId).first();
+        const cam = await c.env.DB.prepare(`SELECT name, public_ip, forwarded_port FROM cameras WHERE id = ?`).bind(camId).first();
         if (cam) {
-          const host = public_ip || cam.public_ip || '202.163.103.241';
-          rtspLinks.push(`rtsp://${host}:8554/${cam.name}?token=${token}`);
+          const host = public_ip || (cam.public_ip as string) || '202.163.103.241';
+          const port = (cam.forwarded_port as number) || 8554;
+          rtspLinks.push(`rtsp://${host}:${port}/${cam.name}?token=${token}`);
         }
       }
     }
@@ -321,12 +376,6 @@ app.post('/api/admin/update-access', requireAuth, async (c) => {
       await c.env.DB.prepare('UPDATE access_tokens SET is_revoked = 1 WHERE token = ?').bind(token).run();
       return c.json({ success: true, message: 'Token revoked' });
     } else if (cameraIds && Array.isArray(cameraIds)) {
-      const tokenRec = await c.env.DB.prepare('SELECT is_combined FROM access_tokens WHERE token = ?').bind(token).first();
-      if (tokenRec && tokenRec.is_combined) {
-        if (cameraIds.length < 2 || cameraIds.length > 9) {
-          return c.json({ error: 'Combined streams must have between 2 and 9 cameras.' }, 400);
-        }
-      }
       await c.env.DB.prepare('UPDATE access_tokens SET allowed_cameras = ? WHERE token = ?').bind(JSON.stringify(cameraIds), token).run();
       return c.json({ success: true, message: 'Access updated' });
     }
@@ -411,6 +460,77 @@ app.get('/api/admin/active-shares', requireAuth, async (c) => {
 // -----------------------------------------------------------------------------
 // User Viewer Endpoints
 // -----------------------------------------------------------------------------
+app.get('/api/view/recordings', async (c) => {
+  const token = c.req.query('token');
+  if (!token) return c.json({ error: 'Missing token' }, 400);
+  if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+
+  try {
+    const tokenRow = await c.env.DB.prepare('SELECT * FROM access_tokens WHERE token = ?').bind(token).first();
+    if (!tokenRow || tokenRow.is_revoked) return c.json({ error: 'Invalid or revoked token' }, 403);
+    
+    if (!tokenRow.recording_access_start || !tokenRow.recording_access_end) {
+      return c.json({ error: 'No recording access' }, 403);
+    }
+
+    const allowedCameras = JSON.parse(tokenRow.allowed_cameras as string || '[]');
+    if (allowedCameras.length === 0) return c.json({ success: true, recordings: [] });
+
+    const placeholders = allowedCameras.map(() => '?').join(',');
+    const recordings = await c.env.DB.prepare(`
+      SELECT r.*, c.name as camera_name, c.display_name
+      FROM recordings r
+      JOIN cameras c ON r.camera_id = c.id
+      WHERE r.camera_id IN (${placeholders})
+      AND r.segment_start >= ?
+      AND r.segment_end <= ?
+      ORDER BY r.segment_start DESC
+    `).bind(...allowedCameras, tokenRow.recording_access_start, tokenRow.recording_access_end).all();
+
+    return c.json({ success: true, recordings: recordings.results });
+  } catch (err) {
+    return c.json({ error: String(err) }, 500);
+  }
+});
+
+app.get('/api/view/recordings/:id/stream', async (c) => {
+  const { id } = c.req.param();
+  const token = c.req.query('token');
+  if (!token) return c.body('Missing token', 400);
+  
+  try {
+    const tokenRow = await c.env.DB.prepare('SELECT * FROM access_tokens WHERE token = ?').bind(token).first();
+    if (!tokenRow || tokenRow.is_revoked) return c.body('Invalid token', 403);
+    if (!tokenRow.recording_access_start || !tokenRow.recording_access_end) return c.body('No recording access', 403);
+
+    const recording = await c.env.DB.prepare('SELECT * FROM recordings WHERE id = ?').bind(id).first();
+    if (!recording) return c.body('Not found', 404);
+
+    const allowedCameras = JSON.parse(tokenRow.allowed_cameras as string || '[]');
+    if (!allowedCameras.includes(Number(recording.camera_id)) && !allowedCameras.includes(String(recording.camera_id))) {
+      return c.body('Forbidden camera', 403);
+    }
+
+    const recStart = new Date(recording.segment_start as string).getTime();
+    const recEnd = new Date(recording.segment_end as string).getTime();
+    const tStart = new Date(tokenRow.recording_access_start as string).getTime();
+    const tEnd = new Date(tokenRow.recording_access_end as string).getTime();
+
+    if (recStart < tStart || recEnd > tEnd) return c.body('Out of bounds', 403);
+
+    const parts = (recording.file_path as string).split(/[\\/]/);
+    const fileName = parts[parts.length - 1];
+
+    const proxyRes = await fetch(`http://127.0.0.1:4000/clips/${recording.camera_id}/${fileName}`, {
+      headers: c.req.raw.headers
+    });
+    
+    return new Response(proxyRes.body, proxyRes);
+  } catch (err) {
+    return c.body(String(err), 500);
+  }
+});
+
 app.get('/api/view/verify', async (c) => {
   const token = c.req.query('token');
   if (!token) return c.json({ error: 'Missing token' }, 400);
@@ -531,6 +651,93 @@ app.post('/api/view/log', async (c) => {
     return c.json({ error: String(err) }, 500);
   }
 });
+
+// -----------------------------------------------------------------------------
+// Live Session Internal & SSE Endpoints
+// -----------------------------------------------------------------------------
+
+app.post('/api/internal/session-event', async (c) => {
+  const { token, camera_id, action, duration_seconds } = await c.req.json();
+  if (!token || !action) return c.json({ error: 'Missing token or action' }, 400);
+  if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+
+  try {
+    await c.env.DB.prepare(
+      'INSERT INTO audit_logs (token, action, camera_id, duration_seconds) VALUES (?, ?, ?, ?)'
+    ).bind(token, action, camera_id || null, duration_seconds || null).run();
+
+    // Broadcast via SSE
+    broadcastSessionEvent({
+      token,
+      camera_id,
+      action,
+      duration_seconds,
+      timestamp: new Date().toISOString()
+    });
+
+    return c.json({ success: true });
+  } catch (err) {
+    return c.json({ error: String(err) }, 500);
+  }
+});
+
+app.post('/api/internal/recordings', async (c) => {
+  const { camera_id, file_path, segment_start, segment_end, duration_seconds } = await c.req.json();
+  if (!camera_id || !file_path || !segment_start || !segment_end || !duration_seconds) {
+    return c.json({ error: 'Missing parameters' }, 400);
+  }
+  if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+
+  try {
+    await c.env.DB.prepare(
+      'INSERT INTO recordings (camera_id, file_path, segment_start, segment_end, duration_seconds) VALUES (?, ?, ?, ?, ?)'
+    ).bind(camera_id, file_path, segment_start, segment_end, duration_seconds).run();
+
+    return c.json({ success: true });
+  } catch (err) {
+    return c.json({ error: String(err) }, 500);
+  }
+});
+
+app.post('/api/internal/recordings/delete', async (c) => {
+  const { deletedFiles } = await c.req.json();
+  if (!deletedFiles || !Array.isArray(deletedFiles) || deletedFiles.length === 0) {
+    return c.json({ success: true });
+  }
+  if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+
+  try {
+    const placeholders = deletedFiles.map(() => '?').join(',');
+    await c.env.DB.prepare(`DELETE FROM recordings WHERE file_path IN (${placeholders})`)
+      .bind(...deletedFiles)
+      .run();
+    return c.json({ success: true });
+  } catch (err) {
+    return c.json({ error: String(err) }, 500);
+  }
+});
+
+app.get('/api/admin/sessions/live', requireAuth, async (c) => {
+  return streamSSE(c, async (stream) => {
+    sseClients.add(stream);
+    
+    stream.onAbort(() => {
+      sseClients.delete(stream);
+    });
+
+    // Keep-alive loop to prevent Cloudflare Worker timeout
+    while (true) {
+      await stream.sleep(15000);
+      try {
+        await stream.writeSSE({ data: 'ping' });
+      } catch (e) {
+        sseClients.delete(stream);
+        break;
+      }
+    }
+  });
+});
+
 // -----------------------------------------------------------------------------
 // Internal RTSP Proxy Endpoints
 // -----------------------------------------------------------------------------

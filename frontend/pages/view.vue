@@ -76,24 +76,6 @@ const gridStyle = computed(() => {
   return { gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }
 })
 
-const sendAuditLog = (action) => {
-  if (!token) return
-  const url = '/api/view/log'
-  const data = new URLSearchParams()
-  data.append('token', token)
-  data.append('action', action)
-  
-  if (navigator.sendBeacon) {
-    navigator.sendBeacon(url, data)
-  } else {
-    // fallback
-    fetch(url, {
-      method: 'POST',
-      body: data,
-      keepalive: true
-    }).catch(console.error)
-  }
-}
 
 const verifyToken = async () => {
   if (!token) {
@@ -120,19 +102,8 @@ const verifyToken = async () => {
   }
 }
 
-const handleUnload = () => {
-  sendAuditLog('EXIT')
-}
-
 onMounted(() => {
-  sendAuditLog('ENTER')
   verifyToken()
-  window.addEventListener('beforeunload', handleUnload)
 })
 
-onBeforeUnmount(() => {
-  window.removeEventListener('beforeunload', handleUnload)
-  // Ensure EXIT is logged if component is unmounted directly via router
-  sendAuditLog('EXIT')
-})
 </script>

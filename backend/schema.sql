@@ -50,7 +50,9 @@ CREATE TABLE IF NOT EXISTS access_tokens (
     allow_recording BOOLEAN DEFAULT 1,
     allow_audio BOOLEAN DEFAULT 1,
     disable_ptz BOOLEAN DEFAULT 0,
-    is_combined BOOLEAN DEFAULT 0
+    is_combined BOOLEAN DEFAULT 0,
+    recording_access_start DATETIME NULL,
+    recording_access_end DATETIME NULL
 );
 
 CREATE TABLE IF NOT EXISTS usage_logs (
@@ -63,9 +65,23 @@ CREATE TABLE IF NOT EXISTS usage_logs (
 CREATE TABLE IF NOT EXISTS audit_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     token TEXT NOT NULL,
+    camera_id TEXT,
     action TEXT NOT NULL, -- 'ENTER' or 'EXIT'
+    duration_seconds INTEGER,
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS recordings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    camera_id INTEGER NOT NULL REFERENCES cameras(id),
+    file_path TEXT NOT NULL,
+    segment_start DATETIME NOT NULL,
+    segment_end DATETIME NOT NULL,
+    duration_seconds INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_recordings_camera_start ON recordings(camera_id, segment_start);
 
 -- Seed Dahua (192.168.50.101 Switch / 192.168.18.150 Direct) & EZVIZ (192.168.50.102 Switch / 192.168.18.39 Direct)
 INSERT INTO cameras (name, display_name, rtsp_url, sub_stream_url, camera_brand, public_ip, forwarded_port, username, password)

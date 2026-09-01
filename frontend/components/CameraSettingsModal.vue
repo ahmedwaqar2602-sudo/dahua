@@ -67,14 +67,11 @@
           <div class="pt-2">
             <label class="block text-xs font-semibold text-slate-400 mb-2">Recording Mode</label>
             <div class="flex gap-2">
-              <button type="button" @click="editRecordingMode = 'off'" :class="editRecordingMode === 'off' ? 'bg-slate-700 text-white border-slate-600' : 'bg-slate-950 text-slate-400 border-slate-800'" class="flex-1 py-2 rounded-xl text-xs font-semibold border transition-all">
-                Off
+              <button type="button" @click="setRecordingMode('motion')" :class="editRecordingMode === 'motion' ? 'bg-amber-600/20 text-amber-400 border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.2)]' : 'bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-600'" class="flex-1 py-2 rounded-xl text-xs font-semibold border transition-all">
+                Event Recording
               </button>
-              <button type="button" @click="editRecordingMode = 'motion'" :class="editRecordingMode === 'motion' ? 'bg-amber-600/20 text-amber-400 border-amber-500/50' : 'bg-slate-950 text-slate-400 border-slate-800'" class="flex-1 py-2 rounded-xl text-xs font-semibold border transition-all">
-                Motion
-              </button>
-              <button type="button" @click="editRecordingMode = 'continuous'" :class="editRecordingMode === 'continuous' ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/50' : 'bg-slate-950 text-slate-400 border-slate-800'" class="flex-1 py-2 rounded-xl text-xs font-semibold border transition-all">
-                Continuous
+              <button type="button" @click="setRecordingMode('continuous')" :class="editRecordingMode === 'continuous' ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/50 shadow-[0_0_10px_rgba(16,185,129,0.2)]' : 'bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-600'" class="flex-1 py-2 rounded-xl text-xs font-semibold border transition-all">
+                Continuous Recording
               </button>
             </div>
           </div>
@@ -148,6 +145,24 @@ const toggleSubnet = (sub) => {
   }
 }
 
+const setRecordingMode = async (mode) => {
+  if (!props.camera) return;
+  const newMode = editRecordingMode.value === mode ? 'off' : mode;
+  editRecordingMode.value = newMode; // Optimistic update
+
+  try {
+    await $fetch(`http://localhost:4002/api/cameras/${props.camera.id}/recording-mode`, {
+      method: 'PATCH',
+      body: { mode: newMode }
+    });
+  } catch (e) {
+    console.error('Failed to set recording mode', e);
+    // Refresh to actual state if failed
+    $fetch(`http://localhost:4002/api/cameras/${props.camera.id}/recording-mode`)
+      .then(res => { if (res && res.mode) editRecordingMode.value = res.mode; });
+  }
+}
+
 const computedRtspUrl = computed(() => {
   const isDahua = props.camera?.camera_brand === 'Dahua' || props.camera?.name?.includes('dahua') || props.camera?.name?.includes('cam1');
   const user = editUsername.value || 'admin';
@@ -178,12 +193,6 @@ const saveSettings = async () => {
     const baseName = props.camera.name.replace(/_sub$/, '');
     await fetch(`http://${host}:1984/api/streams?name=${baseName}&src=${encodeURIComponent(mainUrl)}`, { method: 'PUT' });
     await fetch(`http://${host}:1984/api/streams?name=${baseName}_sub&src=${encodeURIComponent(subUrl)}`, { method: 'PUT' });
-
-    // Save Recording Mode
-    await $fetch(`http://localhost:4002/api/cameras/${props.camera.id}/recording-mode`, {
-      method: 'PATCH',
-      body: { mode: editRecordingMode.value }
-    });
 
     alert('Settings updated successfully! Stream will now reload.');
     emit('close');

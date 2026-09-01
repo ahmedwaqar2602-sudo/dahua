@@ -44,12 +44,114 @@ function saveRecordingModes() {
   fs.writeFileSync('recording-modes.json', JSON.stringify(state.recordingModes));
 }
 
+// ─── Combined Stream Manager ──────────────────────────────────────────────────
+// Uses go2rtc's exec: source to spawn one FFmpeg process per combined share.
+// FFmpeg pulls each camera from go2rtc's own RTSP port (8556) and composites
+// them into a single tiled video that go2rtc serves on the external port (8554).
+const CombinedStreamManager = {
+  active: {}, // shareId -> { cams, proc }
+
+  buildFilterComplex(n) {
+    const w = 640, h = 360;
+    const cols = Math.ceil(Math.sqrt(n));
+    const rows = Math.ceil(n / cols);
+    const total = cols * rows;
+
+    const parts = [];
+    for (let i = 0; i < n; i++) parts.push(`[${i}:v]scale=${w}:${h}[v${i}]`);
+    for (let i = n; i < total; i++) parts.push(`color=c=black:s=${w}x${h}:r=15[v${i}]`);
+
+    const vInputs = Array.from({ length: total }, (_, i) => `[v${i}]`).join('');
+    if (total === 2) {
+      parts.push(`${vInputs}hstack=inputs=2[v]`);
+    } else {
+      const layout = [];
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const x = c === 0 ? '0' : Array.from({ length: c }, (_, k) => `w${k}`).join('+');
+          const y = r === 0 ? '0' : Array.from({ length: r }, (_, k) => `h${k * cols}`).join('+');
+          layout.push(`${x}_${y}`);
+        }
+      }
+      parts.push(`${vInputs}xstack=inputs=${total}:layout=${layout.join('|')}[v]`);
+    }
+    return parts.join(';'); 
+  },
+
+  async sync(shareId, cams) {
+    if (!cams || cams.length < 2) return;
+    
+    try {
+      const url = `http://127.0.0.1:1984/api/streams?name=combined_${shareId}&src=rtsp://`;
+      await fetch(url, { method: 'PATCH' });
+    } catch (e) {}
+
+    let config = this.active[shareId];
+    if (config) {
+      config.cams = cams;
+    } else {
+      config = { cams, proc: null };
+      this.active[shareId] = config;
+    }
+
+    this.startProcess(shareId);
+  },
+
+  startProcess(shareId) {
+    const config = this.active[shareId];
+    if (!config || config.proc) return;
+
+    console.log(`[CombinedStream] ⏵ Starting ffmpeg for combined_${shareId}...`);
+    const ffmpegBin = path.join(__dirname, 'ffmpeg.exe');
+    const filterComplex = this.buildFilterComplex(config.cams.length);
+
+    const args = ['-hide_banner'];
+    for (const cam of config.cams) {
+      args.push('-rtsp_transport', 'tcp', '-i', `rtsp://127.0.0.1:8556/${cam.name}`);
+    }
+    args.push(
+      '-filter_complex', filterComplex,
+      '-map', '[v]',
+      '-c:v', 'libx264',
+      '-preset', 'veryfast',
+      '-tune', 'zerolatency',
+      '-rtsp_transport', 'tcp',
+      '-f', 'rtsp',
+      `rtsp://127.0.0.1:8556/combined_${shareId}`
+    );
+
+    config.proc = spawn(ffmpegBin, args, { stdio: ['ignore', 'ignore', 'pipe'] });
+    config.proc.stderr.on('data', (data) => {
+      console.log(`[FFmpeg Error] ${data.toString()}`);
+    });
+
+    config.proc.on('exit', (code) => {
+      console.log(`[CombinedStream] ⏹ ffmpeg for combined_${shareId} exited with code ${code}`);
+      if (this.active[shareId]) {
+        this.active[shareId].proc = null;
+        setTimeout(() => this.startProcess(shareId), 5000);
+      }
+    });
+  },
+
+  async remove(shareId) {
+    if (this.active[shareId]) {
+      const proc = this.active[shareId].proc;
+      delete this.active[shareId];
+      if (proc) {
+        proc.kill('SIGKILL');
+      }
+    }
+  }
+};
+
+
 const RecordingManager = {
   processes: {},
   motionTimeouts: {},
   updateMode(cam, mode) {
     if (this.processes[cam.id]) {
-      this.processes[cam.id].kill('SIGKILL');
+      this.processes[cam.id].kill('SIGTERM');
       delete this.processes[cam.id];
     }
     if (this.motionTimeouts[cam.id]) {
@@ -68,6 +170,7 @@ const RecordingManager = {
     const clipDir = path.join(__dirname, 'clips', String(cam.id));
     fs.mkdirSync(clipDir, { recursive: true });
     
+    // We expect the go2rtc restream URL at 127.0.0.1:8554
     const url = `rtsp://127.0.0.1:8554/${cam.name}`;
     console.log(`[RecordingManager] Starting continuous for ${cam.name}`);
     const proc = spawn('ffmpeg', [
@@ -83,7 +186,34 @@ const RecordingManager = {
     
     this.processes[cam.id] = proc;
     
+    let currentSegmentFile = null;
+    let currentSegmentStartTime = null;
+
+    proc.stderr.on('data', (data) => {
+      const str = data.toString();
+      // Look for FFmpeg writing a new segment file
+      const match = str.match(/Opening '(.+?)' for writing/);
+      if (match) {
+        const nextSegmentFile = match[1];
+        const now = new Date();
+        
+        if (currentSegmentFile) {
+          const duration_seconds = Math.round((now - currentSegmentStartTime) / 1000);
+          this.postSegmentMetadata(cam.id, currentSegmentFile, currentSegmentStartTime, now, duration_seconds);
+        }
+        
+        currentSegmentFile = nextSegmentFile;
+        currentSegmentStartTime = now;
+      }
+    });
+    
     proc.on('exit', () => {
+      if (currentSegmentFile) {
+        const now = new Date();
+        const duration_seconds = Math.round((now - currentSegmentStartTime) / 1000);
+        this.postSegmentMetadata(cam.id, currentSegmentFile, currentSegmentStartTime, now, duration_seconds);
+      }
+
       if (state.recordingModes[cam.id] === 'continuous') {
         console.log(`[RecordingManager] ffmpeg exited for ${cam.name}, restarting in 5s...`);
         setTimeout(() => {
@@ -93,37 +223,106 @@ const RecordingManager = {
     });
   },
 
-  startMotion(cam) {
-    console.log(`[RecordingManager] Motion armed for ${cam.name}`);
-    this.pollMotion(cam);
-  },
-  
-  async pollMotion(cam) {
-    if (state.recordingModes[cam.id] !== 'motion') return;
-    
-    try {
-      const urlRegex = /:\/\/(.+):(.+)@([^:]+)/;
-      const match = cam.rtsp_url.match(urlRegex);
-      if (match) {
-        const [, username, password, hostname] = match;
-        const device = await getCachedOnvif(hostname, username, password);
-        // Simplistic motion event simulation/check since PullPoint subscription is complex in node-onvif
-        // A real system would use device.services.events.createPullPointSubscription
-      }
-    } catch(e) {}
-    
-    // Simulate motion for testing if no real camera triggers it
-    if (Math.random() < 0.05) {
-      this.triggerMotionStart(cam);
-      setTimeout(() => this.triggerMotionStop(cam), 5000); // stop after 5s
+  postSegmentMetadata(cameraId, filePath, segmentStart, segmentEnd, durationSeconds) {
+    let parsedStart = segmentStart;
+    const base = path.basename(filePath);
+    // Parse timestamp from filename: YYYYMMDD_HHMMSS.mp4
+    const m = base.match(/^(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})\.mp4$/);
+    if (m) {
+      parsedStart = new Date(m[1], parseInt(m[2]) - 1, m[3], m[4], m[5], m[6]);
     }
     
-    setTimeout(() => this.pollMotion(cam), 2000);
+    const actualSegmentEnd = new Date(parsedStart.getTime() + durationSeconds * 1000);
+
+    fetch('http://127.0.0.1:8787/api/internal/recordings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        camera_id: cameraId,
+        file_path: filePath,
+        segment_start: parsedStart.toISOString(),
+        segment_end: actualSegmentEnd.toISOString(),
+        duration_seconds: durationSeconds
+      })
+    }).then(res => res.json()).then(res => {
+      if (!res.success) console.warn(`[RecordingManager] Failed to index ${filePath}:`, res.error);
+    }).catch(err => {
+      console.error(`[RecordingManager] Error indexing recording ${filePath}:`, err.message);
+    });
+  },
+
+  async startMotion(cam) {
+    console.log(`[RecordingManager] Motion armed for ${cam.name}`);
+    
+    const urlRegex = /:\/\/(.+):(.+)@([^:]+)/;
+    const match = cam.rtsp_url.match(urlRegex);
+    if (!match) return;
+    
+    const [, username, password, hostname] = match;
+    
+    let isSubscribed = false;
+    try {
+      const device = await getCachedOnvif(hostname, username, password);
+      if (device && device.services && device.services.events) {
+        // Attempt ONVIF PullPoint Subscription
+        await device.services.events.createPullPointSubscription();
+        device.on('event', (evt) => {
+          if (state.recordingModes[cam.id] !== 'motion') return;
+          // Simple check for motion event
+          const isMotion = JSON.stringify(evt).includes('VideoSource') && JSON.stringify(evt).includes('Motion');
+          const isStateTrue = JSON.stringify(evt).includes('true');
+          
+          if (isMotion) {
+            if (isStateTrue) this.triggerMotionStart(cam);
+            else this.triggerMotionStop(cam);
+          }
+        });
+        isSubscribed = true;
+        console.log(`[RecordingManager] Successfully subscribed to ONVIF events for ${cam.name}`);
+      }
+    } catch(e) {
+      console.warn(`[RecordingManager] ONVIF event subscription failed for ${cam.name}: ${e.message}`);
+    }
+    
+    if (!isSubscribed) {
+      // Fallback to Dahua CGI API polling for motion if ONVIF fails
+      console.log(`[RecordingManager] Falling back to Dahua CGI API for ${cam.name}`);
+      this.pollDahuaMotion(cam, hostname, username, password);
+    }
+  },
+  
+  pollDahuaMotion(cam, hostname, username, password) {
+    if (state.recordingModes[cam.id] !== 'motion') return;
+    
+    const rawUrl = `http://${hostname}/cgi-bin/eventManager.cgi?action=getEventIndexes&code=VideoMotion`;
+    sendDigestRequest(rawUrl, username, password, 'GET', null, (resCode, data) => {
+       if (resCode === 200 && data) {
+         if (data.includes('channels[0]=0')) {
+           this.triggerMotionStart(cam);
+         } else {
+           this.triggerMotionStop(cam);
+         }
+       }
+    });
+    
+    // Poll every 3 seconds
+    setTimeout(() => {
+      if (state.recordingModes[cam.id] === 'motion') {
+         this.pollDahuaMotion(cam, hostname, username, password);
+      }
+    }, 3000);
   },
   
   triggerMotionStart(cam) {
     if (state.recordingModes[cam.id] !== 'motion') return;
-    if (this.processes[cam.id]) return;
+    
+    // If a stop timeout is pending, cancel it (motion re-triggered)
+    if (this.motionTimeouts[cam.id]) {
+       clearTimeout(this.motionTimeouts[cam.id]);
+       delete this.motionTimeouts[cam.id];
+    }
+    
+    if (this.processes[cam.id]) return; // Already recording
     
     const clipDir = path.join(__dirname, 'clips', String(cam.id));
     fs.mkdirSync(clipDir, { recursive: true });
@@ -137,18 +336,24 @@ const RecordingManager = {
       path.join(clipDir, `${this.formatDate(new Date())}.mp4`)
     ]);
     this.processes[cam.id] = proc;
+    
+    proc.on('exit', () => {
+      // Clear process reference on exit
+      if (this.processes[cam.id] === proc) delete this.processes[cam.id];
+    });
   },
   
   triggerMotionStop(cam) {
     if (!this.processes[cam.id]) return;
-    if (this.motionTimeouts[cam.id]) clearTimeout(this.motionTimeouts[cam.id]);
+    if (this.motionTimeouts[cam.id]) return; // Already stopping
     
+    // 8 second post-roll
     this.motionTimeouts[cam.id] = setTimeout(() => {
       console.log(`[RecordingManager] Motion stop for ${cam.name} (post-roll)`);
       if (this.processes[cam.id]) {
         this.processes[cam.id].kill('SIGINT');
-        delete this.processes[cam.id];
       }
+      delete this.motionTimeouts[cam.id];
     }, 8000);
   },
 
@@ -181,54 +386,10 @@ async function syncGo2rtc() {
     try {
       let mainUrl = cam.rtsp_url;
       let subUrl = cam.sub_stream_url || cam.rtsp_url;
-      if (!mainUrl.includes('#')) mainUrl += '#video=copy#audio=copy';
-      if (!subUrl.includes('#')) subUrl += '#video=copy#audio=copy';
       const baseName = cam.name.replace(/_sub$/, '');
       await fetch(`http://127.0.0.1:1984/api/streams?name=${baseName}&src=${encodeURIComponent(mainUrl)}`, { method: 'PUT' });
       await fetch(`http://127.0.0.1:1984/api/streams?name=${baseName}_sub&src=${encodeURIComponent(subUrl)}`, { method: 'PUT' });
     } catch (e) { }
-  }
-
-  // Sync combined streams
-  for (const share of (state.combinedShares || [])) {
-    try {
-      let cameraIds = [];
-      try { cameraIds = JSON.parse(share.allowed_cameras); } catch(e){}
-      if (cameraIds.length < 2) continue;
-
-      let ffmpegInputs = '';
-      let ffmpegFilters = '';
-      const width = 640;
-      const height = 360;
-
-      const cams = cameraIds.map(id => state.cameras.find(c => c.id === id)).filter(Boolean);
-      if (cams.length < 2) continue;
-
-      for (let i = 0; i < cams.length; i++) {
-        const cam = cams[i];
-        const baseName = cam.name.replace(/_sub$/, '') + "_sub"; // Use sub-stream to save CPU during transcode
-        ffmpegInputs += `-rtsp_transport tcp -i rtsp://127.0.0.1:8556/${baseName} `;
-        ffmpegFilters += `[${i}:v]scale=${width}:${height}[v${i}];`;
-      }
-
-      const n = cams.length;
-      if (n === 2) {
-        ffmpegFilters += `[v0][v1]hstack=inputs=2[out]`;
-      } else if (n === 3 || n === 4) {
-        if (n === 3) ffmpegFilters += `color=c=black:s=${width}x${height}[v3];`;
-        ffmpegFilters += `[v0][v1][v2][v3]xstack=inputs=4:layout=0_0|w0_0|0_h0|w0_h0[out]`;
-      } else if (n === 5 || n === 6) {
-        if (n === 5) ffmpegFilters += `color=c=black:s=${width}x${height}[v5];`;
-        ffmpegFilters += `[v0][v1][v2][v3][v4][v5]xstack=inputs=6:layout=0_0|w0_0|w0+w1_0|0_h0|w0_h0|w0+w1_h0[out]`;
-      } else if (n >= 7 && n <= 9) {
-        if (n === 7) ffmpegFilters += `color=c=black:s=${width}x${height}[v7];color=c=black:s=${width}x${height}[v8];`;
-        if (n === 8) ffmpegFilters += `color=c=black:s=${width}x${height}[v8];`;
-        ffmpegFilters += `[v0][v1][v2][v3][v4][v5][v6][v7][v8]xstack=inputs=9:layout=0_0|w0_0|w0+w1_0|0_h0|w0_h0|w0+w1_h0|0_h0+h3|w0_h0+h3|w0+w1_h0+h3[out]`;
-      }
-
-      const execStr = `exec:ffmpeg -hide_banner ${ffmpegInputs.trim()} -filter_complex "${ffmpegFilters}" -map "[out]" -c:v libx264 -preset veryfast -b:v 2M -f rtsp {output}`;
-      await fetch(`http://127.0.0.1:1984/api/streams?name=combined_${share.token}&src=${encodeURIComponent(execStr)}`, { method: 'PUT' });
-    } catch(e) { console.error('[Agent] Error syncing combined stream', e); }
   }
 }
 
@@ -298,43 +459,56 @@ function sendDahuaDigestPtz(host, user, pass, command, speed = 4) {
   }).on('error', (e) => console.warn('[PTZ Agent] Dahua error:', e.message));
 }
 
-function sendDigestRequest(urlStr, user, pass, method = 'GET', bodyStr = null) {
+function sendDigestRequest(urlStr, user, pass, method = 'GET', bodyStr = null, callback = null) {
   const u = new URL(urlStr);
   const reqOpts = { host: u.hostname, port: u.port || 80, path: u.pathname + u.search, method };
   const req = http.request(reqOpts, (res) => {
-    if (res.statusCode === 401 && res.headers['www-authenticate']) {
-      const auth = res.headers['www-authenticate'];
-      const realm = (auth.match(/realm="([^"]+)"/) || [])[1] || '';
-      const nonce = (auth.match(/nonce="([^"]+)"/) || [])[1] || '';
-      const qop = (auth.match(/qop="([^"]+)"/) || [])[1] || '';
+    let data = '';
+    res.on('data', chunk => data += chunk);
+    res.on('end', () => {
+      if (res.statusCode === 401 && res.headers['www-authenticate']) {
+        const auth = res.headers['www-authenticate'];
+        const realm = (auth.match(/realm="([^"]+)"/) || [])[1] || '';
+        const nonce = (auth.match(/nonce="([^"]+)"/) || [])[1] || '';
+        const qop = (auth.match(/qop="([^"]+)"/) || [])[1] || '';
 
-      const ha1 = crypto.createHash('md5').update(`${user}:${realm}:${pass}`).digest('hex');
-      const ha2 = crypto.createHash('md5').update(`${method}:${u.pathname}${u.search}`).digest('hex');
-      let authStr = '';
-      if (qop.includes('auth')) {
-        const nc = '00000001';
-        const cnonce = crypto.randomBytes(8).toString('hex');
-        const resp = crypto.createHash('md5').update(`${ha1}:${nonce}:${nc}:${cnonce}:auth:${ha2}`).digest('hex');
-        authStr = `Digest username="${user}", realm="${realm}", nonce="${nonce}", uri="${u.pathname}${u.search}", response="${resp}", qop=auth, nc=${nc}, cnonce="${cnonce}"`;
+        const ha1 = crypto.createHash('md5').update(`${user}:${realm}:${pass}`).digest('hex');
+        const ha2 = crypto.createHash('md5').update(`${method}:${u.pathname}${u.search}`).digest('hex');
+        let authStr = '';
+        if (qop.includes('auth')) {
+          const nc = '00000001';
+          const cnonce = crypto.randomBytes(8).toString('hex');
+          const resp = crypto.createHash('md5').update(`${ha1}:${nonce}:${nc}:${cnonce}:auth:${ha2}`).digest('hex');
+          authStr = `Digest username="${user}", realm="${realm}", nonce="${nonce}", uri="${u.pathname}${u.search}", response="${resp}", qop=auth, nc=${nc}, cnonce="${cnonce}"`;
+        } else {
+          const resp = crypto.createHash('md5').update(`${ha1}:${nonce}:${ha2}`).digest('hex');
+          authStr = `Digest username="${user}", realm="${realm}", nonce="${nonce}", uri="${u.pathname}${u.search}", response="${resp}"`;
+        }
+
+        const req2Opts = { ...reqOpts, headers: { 'Authorization': authStr } };
+        if (bodyStr) {
+          req2Opts.headers['Content-Type'] = 'application/xml';
+          req2Opts.headers['Content-Length'] = Buffer.byteLength(bodyStr);
+        }
+        const req2 = http.request(req2Opts, (r2) => {
+          let data2 = '';
+          r2.on('data', chunk => data2 += chunk);
+          r2.on('end', () => {
+             console.log(`[PTZ Agent] Digest ${method} -> Status ${r2.statusCode}`);
+             if (callback) callback(r2.statusCode, data2);
+          });
+        }).on('error', () => { if (callback) callback(500, null); });
+        if (bodyStr) req2.write(bodyStr);
+        req2.end();
       } else {
-        const resp = crypto.createHash('md5').update(`${ha1}:${nonce}:${ha2}`).digest('hex');
-        authStr = `Digest username="${user}", realm="${realm}", nonce="${nonce}", uri="${u.pathname}${u.search}", response="${resp}"`;
+        console.log(`[PTZ Agent] ${method} -> Status ${res.statusCode}`);
+        if (callback) callback(res.statusCode, data);
       }
-
-      const req2Opts = { ...reqOpts, headers: { 'Authorization': authStr } };
-      if (bodyStr) {
-        req2Opts.headers['Content-Type'] = 'application/xml';
-        req2Opts.headers['Content-Length'] = Buffer.byteLength(bodyStr);
-      }
-      const req2 = http.request(req2Opts, (r2) => {
-        console.log(`[PTZ Agent] Digest ${method} -> Status ${r2.statusCode}`);
-      }).on('error', () => { });
-      if (bodyStr) req2.write(bodyStr);
-      req2.end();
-    } else {
-      console.log(`[PTZ Agent] ${method} -> Status ${res.statusCode}`);
-    }
-  }).on('error', (e) => console.warn('[PTZ Agent] error:', e.message));
+    });
+  }).on('error', (e) => { 
+     console.warn('[PTZ Agent] error:', e.message); 
+     if (callback) callback(500, null);
+  });
   if (bodyStr) req.write(bodyStr);
   req.end();
 }
@@ -343,6 +517,20 @@ function sendDigestRequest(urlStr, user, pass, method = 'GET', bodyStr = null) {
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+app.post('/api/internal/combined/start/:shareId', (req, res) => {
+  const shareId = req.params.shareId;
+  const config = CombinedStreamManager.active[shareId];
+  if (!config) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+  CombinedStreamManager.startProcess(shareId);
+  res.json({ success: true });
+});
+
+app.get('/api/cameras/recording-modes', (req, res) => {
+  res.json({ modes: state.recordingModes });
+});
 
 app.get('/api/cameras/:id/recording-mode', (req, res) => {
   const mode = state.recordingModes[req.params.id] || 'off';
@@ -356,6 +544,76 @@ app.patch('/api/cameras/:id/recording-mode', (req, res) => {
   const cam = state.cameras.find(c => String(c.id) === String(req.params.id));
   if (cam) RecordingManager.updateMode(cam, mode);
   res.json({ success: true, mode });
+});
+
+app.post('/api/local/combined-stream', async (req, res) => {
+  try {
+    const { shareId, cameraIds } = req.body;
+    if (!shareId || !cameraIds || cameraIds.length < 2) {
+      return res.status(400).json({ error: 'shareId and at least 2 cameraIds required' });
+    }
+
+    // Fetch camera details from local state (already synced from backend)
+    let cams = cameraIds.map(id => state.cameras.find(c => String(c.id) === String(id))).filter(Boolean);
+
+    // If cameras not yet in state, fetch from backend directly
+    if (cams.length < cameraIds.length) {
+      try {
+        const r = await fetch(`${API_BASE}/api/admin/cameras`, { headers });
+        const d = await r.json();
+        if (d.success) {
+          state.cameras = d.cameras;
+          cams = cameraIds.map(id => state.cameras.find(c => String(c.id) === String(id))).filter(Boolean);
+        }
+      } catch (e) {}
+    }
+
+    if (cams.length < 2) {
+      return res.status(400).json({ error: 'Not enough valid cameras found in state' });
+    }
+
+    await CombinedStreamManager.sync(shareId, cams);
+
+    // Verify go2rtc accepted it
+    const check = await fetch(`http://127.0.0.1:1984/api/streams`).then(r => r.json()).catch(() => ({}));
+    const registered = check && check[`combined_${shareId}`] !== undefined;
+
+    res.json({
+      success: true,
+      shareId,
+      streamName: `combined_${shareId}`,
+      registeredInGo2rtc: registered,
+      go2rtcDashboard: 'http://127.0.0.1:1984',
+      note: registered
+        ? 'Stream is live in go2rtc. Check dashboard to confirm before testing in VLC.'
+        : 'Registered but could not verify — check go2rtc dashboard at http://127.0.0.1:1984'
+    });
+  } catch (err) {
+    console.error('[CombinedStream] API error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/local/combined-stream/:shareId', async (req, res) => {
+  await CombinedStreamManager.remove(req.params.shareId);
+  res.json({ success: true });
+});
+
+app.get('/api/local/combined-stream/verify/:shareId', async (req, res) => {
+  try {
+    const streams = await fetch('http://127.0.0.1:1984/api/streams').then(r => r.json()).catch(() => ({}));
+    const name = `combined_${req.params.shareId}`;
+    const info = streams[name];
+    res.json({
+      shareId: req.params.shareId,
+      streamName: name,
+      exists: !!info,
+      go2rtcEntry: info || null,
+      dashboard: 'http://127.0.0.1:1984'
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.post('/api/local/ptz', async (req, res) => {
@@ -478,11 +736,15 @@ async function runWatchdog() {
     }
 
     if (isOnline) {
-      await fetch(`${API_BASE}/api/admin/cameras/${cam.id}/status`, {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify({ last_seen: new Date().toISOString() })
-      });
+      try {
+        await fetch(`${API_BASE}/api/admin/cameras/${cam.id}/status`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify({ last_seen: new Date().toISOString() })
+        });
+      } catch (e) {
+        console.warn(`[Agent] Failed to update status for ${cam.name}:`, e.message);
+      }
       state.failedPings[cam.id] = 0;
     } else {
       console.warn(`[Agent] Camera ${cam.name} ping failed.`);
@@ -528,11 +790,15 @@ async function runPatrols() {
           const currentPreset = presets[pState.currentIndex];
 
           // Send goto command
-          await fetch(`${API_BASE}/api/camera/${patrol.camera_id}/presets`, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({ presetToken: currentPreset.token, action: 'goto' })
-          });
+          try {
+            await fetch(`${API_BASE}/api/camera/${patrol.camera_id}/presets`, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ presetToken: currentPreset.token, action: 'goto' })
+            });
+          } catch (e) {
+            console.warn(`[Agent] Patrol fetch failed for camera ${patrol.camera_id}:`, e.message);
+          }
           console.log(`[Agent] Patrol for cam ${patrol.camera_id}: Moved to preset ${currentPreset.token}`);
 
           pState.currentIndex++;
@@ -602,12 +868,143 @@ async function runDayNight() {
   }
 }
 
+// ─── Access Control Background Job ──────────────────────────────────────────
+// Polls backend for revoked/daily-limited combined shares and removes their
+// go2rtc streams so they stop resolving. Also re-adds streams for a new day.
+async function runCombinedStreamAccessControl() {
+  try {
+    const r = await fetch(`${API_BASE}/api/internal/combined-shares`, { headers });
+    const data = await r.json();
+    if (!data.success) return;
+
+    const activeShouldServe = new Set();
+    const today = new Date().toISOString().split('T')[0];
+
+    for (const share of (data.shares || [])) {
+      // Already revoked in DB
+      if (share.is_revoked) {
+        await CombinedStreamManager.remove(share.token);
+        continue;
+      }
+
+      // Check daily usage limit
+      if (share.daily_limit_minutes && share.daily_limit_minutes > 0) {
+        try {
+          const ur = await fetch(`${API_BASE}/api/internal/usage`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ token: share.token, secondsToAdd: 0 })
+          });
+          const ud = await ur.json();
+          if (!ud.valid) {
+            await CombinedStreamManager.remove(share.token);
+            continue;
+          }
+        } catch (e) {}
+      }
+
+      // Share is valid — ensure stream is registered and running
+      activeShouldServe.add(share.token);
+      let cameraIds = [];
+      try { cameraIds = JSON.parse(share.allowed_cameras); } catch (e) {}
+      const cams = cameraIds.map(id => state.cameras.find(c => String(c.id) === String(id))).filter(Boolean);
+      if (cams.length >= 2) await CombinedStreamManager.sync(share.token, cams);
+    }
+    
+    // Cleanup any memory shares that are no longer active
+    for (const id of Object.keys(CombinedStreamManager.active)) {
+      if (!activeShouldServe.has(id)) {
+        await CombinedStreamManager.remove(id);
+      }
+    }
+  } catch (e) {
+    console.warn('[CombinedStream] Access control check failed:', e.message);
+  }
+}
+
+const RETENTION_DAYS = 7;
+const MAX_DISK_GB = 50;
+const MAX_DISK_BYTES = MAX_DISK_GB * 1024 * 1024 * 1024;
+
+async function runDiskCleanup() {
+  const clipsDir = path.join(__dirname, 'clips');
+  if (!fs.existsSync(clipsDir)) return;
+
+  let camDirs = [];
+  try {
+    camDirs = fs.readdirSync(clipsDir, { withFileTypes: true })
+      .filter(d => d.isDirectory())
+      .map(d => d.name);
+  } catch (e) {
+    return;
+  }
+
+  const deletedFiles = [];
+  const now = Date.now();
+  const retentionMs = RETENTION_DAYS * 24 * 60 * 60 * 1000;
+
+  for (const camId of camDirs) {
+    const camPath = path.join(clipsDir, camId);
+    let files = [];
+    try {
+      files = fs.readdirSync(camPath).filter(f => f.endsWith('.mp4'));
+    } catch(e) { continue; }
+    
+    const fileStats = files.map(file => {
+      const filePath = path.join(camPath, file);
+      try {
+        const stat = fs.statSync(filePath);
+        return { path: filePath, file, size: stat.size, mtime: stat.mtimeMs };
+      } catch (e) {
+        return null;
+      }
+    }).filter(Boolean);
+
+    fileStats.sort((a, b) => a.mtime - b.mtime);
+
+    let totalSize = fileStats.reduce((acc, f) => acc + f.size, 0);
+
+    for (const file of fileStats) {
+      let deleteReason = null;
+      if (now - file.mtime > retentionMs) {
+        deleteReason = 'retention';
+      } else if (totalSize > MAX_DISK_BYTES) {
+        deleteReason = 'size';
+      }
+
+      if (deleteReason) {
+        try {
+          fs.unlinkSync(file.path);
+          console.log(`[DiskCleanup] Deleted ${file.file} due to ${deleteReason} limit.`);
+          deletedFiles.push(file.path);
+          totalSize -= file.size;
+        } catch (e) {
+          console.error(`[DiskCleanup] Failed to delete ${file.file}:`, e.message);
+        }
+      }
+    }
+  }
+
+  if (deletedFiles.length > 0) {
+    try {
+      await fetch(API_BASE + '/api/internal/recordings/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deletedFiles })
+      });
+    } catch (e) {
+      console.warn('[DiskCleanup] Failed to sync deletions with backend:', e.message);
+    }
+  }
+}
+
 // Main Loop
 async function agentLoop() {
   ensureGo2rtc();
   await fetchState();
   await syncGo2rtc();
   await runWatchdog();
+  await runDiskCleanup();
   await runDayNight();
 
   if (!state.recordingManagerReady && state.cameras.length > 0) {
@@ -624,3 +1021,6 @@ ensureGo2rtc();
 setInterval(agentLoop, 10000);
 agentLoop();
 setInterval(runPatrols, 2000);
+// Access control check every 60 seconds
+runCombinedStreamAccessControl();
+setInterval(runCombinedStreamAccessControl, 60000);

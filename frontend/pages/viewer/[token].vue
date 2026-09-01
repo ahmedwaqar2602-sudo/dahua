@@ -200,7 +200,7 @@
 
             <!-- Optional DVR Playback Launcher if Allowed -->
             <div v-if="allowRecording" class="pt-3 border-t border-slate-800">
-              <button @click="showDvrModal = true" class="w-full py-2.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all">
+              <button @click="openDvrModal" class="w-full py-2.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                 View DVR Recordings
               </button>
@@ -221,36 +221,33 @@
               </div>
 
               <div class="p-6 space-y-4">
-                <!-- Interactive Timeline Scrubber -->
-                <div class="relative h-20 w-full flex items-center justify-between text-[11px] text-slate-500 font-medium px-2 border-t border-slate-800 pt-8 cursor-pointer group bg-slate-950 rounded-xl p-4" @mousedown="startScrub" @mousemove="onScrub" @mouseup="endScrub" @mouseleave="endScrub">
-                  <div class="flex flex-col items-center pointer-events-none"><span class="mb-1">00:00</span><div class="h-2 w-0.5 bg-slate-700"></div></div>
-                  <div class="flex flex-col items-center pointer-events-none"><span class="mb-1">04:00</span><div class="h-2 w-0.5 bg-slate-700"></div></div>
-                  <div class="flex flex-col items-center pointer-events-none"><span class="mb-1">08:00</span><div class="h-2 w-0.5 bg-slate-700"></div></div>
-                  <div class="flex flex-col items-center pointer-events-none"><span class="mb-1">12:00</span><div class="h-2 w-0.5 bg-slate-700"></div></div>
-                  <div class="flex flex-col items-center pointer-events-none"><span class="mb-1">16:00</span><div class="h-2 w-0.5 bg-slate-700"></div></div>
-                  <div class="flex flex-col items-center pointer-events-none"><span class="mb-1">20:00</span><div class="h-2 w-0.5 bg-slate-700"></div></div>
-                  <div class="flex flex-col items-center pointer-events-none"><span class="mb-1">24:00</span><div class="h-2 w-0.5 bg-slate-700"></div></div>
-                  
-                  <div class="absolute top-11 left-[15%] w-[10%] h-2 bg-cyan-500 rounded-full pointer-events-none"></div>
-                  <div class="absolute top-11 left-[35%] w-[20%] h-2 bg-amber-500 rounded-full pointer-events-none"></div>
-                  <div class="absolute top-11 right-[10%] w-[15%] h-2 bg-amber-500 rounded-full pointer-events-none"></div>
-                  
-                  <!-- Scrubber Pill -->
-                  <div class="absolute top-3 -translate-x-1/2 -translate-y-full bg-white text-slate-950 px-4 py-1.5 rounded-lg shadow-xl font-bold text-xs whitespace-nowrap pointer-events-none" :style="{ left: scrubPercentage + '%' }">
-                    {{ simulatedPlaybackTime }}
-                    <div class="absolute bottom-[-6px] left-1/2 -translate-x-1/2 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-white"></div>
-                    <div class="absolute top-full left-1/2 -translate-x-1/2 w-0.5 h-20 bg-white/80 shadow-[0_0_8px_rgba(255,255,255,0.8)] z-[-1]"></div>
+                <div v-if="isLoadingRecordings" class="text-center p-8 text-slate-400">Loading recordings...</div>
+                <div v-else-if="recordingsError" class="text-center p-8 text-rose-400">{{ recordingsError }}</div>
+                <div v-else class="flex h-96 gap-4 border-t border-slate-800 pt-4">
+                  <!-- Video Player -->
+                  <div class="flex-1 bg-black rounded-xl border border-slate-800 flex items-center justify-center relative overflow-hidden">
+                    <video v-if="activeRecording" :src="`/api/view/recordings/${activeRecording.id}/stream?token=${token}`" controls autoplay class="w-full h-full object-contain"></video>
+                    <div v-else class="text-slate-500 text-sm font-medium flex flex-col items-center gap-2">
+                      <svg class="w-8 h-8 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                      Select a recording to play
+                    </div>
+                  </div>
+                  <!-- Recordings List -->
+                  <div class="w-64 bg-slate-900 border border-slate-800 rounded-xl overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 p-2 space-y-1">
+                    <div v-if="filteredRecordings.length === 0" class="text-center p-4 text-xs text-slate-500">No recordings found for this camera.</div>
+                    <div v-for="rec in filteredRecordings" :key="rec.id" @click="activeRecording = rec" class="p-3 rounded-lg border cursor-pointer hover:bg-slate-800 transition-colors" :class="activeRecording?.id === rec.id ? 'bg-slate-800 border-emerald-500 shadow-sm' : 'border-slate-800/50'">
+                      <div class="text-xs font-bold text-slate-200">{{ new Date(rec.segment_start).toLocaleTimeString() }}</div>
+                      <div class="flex items-center justify-between mt-1">
+                        <span class="text-[10px] text-slate-400">{{ new Date(rec.segment_start).toLocaleDateString() }}</span>
+                        <span class="text-[10px] bg-slate-950 px-1.5 py-0.5 rounded text-cyan-400 font-mono">{{ rec.duration_seconds }}s</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <div class="flex items-center justify-between pt-2">
-                  <div class="flex items-center gap-4 text-xs font-semibold text-slate-400">
-                    <span class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-amber-300"></div> Person</span>
-                    <span class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-cyan-500"></div> Motion</span>
-                  </div>
+                <div class="flex justify-end pt-2">
                   <div class="flex items-center gap-2">
-                    <button @click="resetToLive" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-xl text-xs font-bold transition-colors">Return to Live</button>
-                    <button @click="showDvrModal = false" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-5 py-2 rounded-xl text-xs font-bold transition-colors">Close</button>
+                    <button @click="showDvrModal = false; activeRecording = null" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-5 py-2 rounded-xl text-xs font-bold transition-colors">Close</button>
                   </div>
                 </div>
               </div>
@@ -290,47 +287,35 @@ let timerInterval = null
 
 const streamHost = typeof window !== 'undefined' ? (window.location.hostname || '127.0.0.1') : '127.0.0.1'
 
-// Playback & Scrubber State
-const isScrubbing = ref(false)
-const isDragging = ref(false)
-const scrubPercentage = ref(100)
+// DVR Real Recordings State
+const recordings = ref([])
+const activeRecording = ref(null)
+const isLoadingRecordings = ref(false)
+const recordingsError = ref('')
 
-const simulatedPlaybackTime = computed(() => {
-  if (scrubPercentage.value >= 99) return 'LIVE'
-  const totalMinutes = Math.floor((scrubPercentage.value / 100) * 1440)
-  const hours = Math.floor(totalMinutes / 60)
-  const mins = totalMinutes % 60
-  return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`
+const filteredRecordings = computed(() => {
+  if (!activeCamera.value) return []
+  return recordings.value.filter(r => r.camera_id == activeCamera.value.id || r.camera_id == String(activeCamera.value.id))
 })
 
-const simulatedPlaybackDate = computed(() => {
-  const d = new Date()
-  const dateStr = d.toISOString().split('T')[0]
-  return `${dateStr} ${simulatedPlaybackTime.value}`
-})
-
-const startScrub = (e) => {
-  isDragging.value = true
-  isScrubbing.value = true
-  onScrub(e)
-}
-
-const onScrub = (e) => {
-  if (!isDragging.value) return
-  const rect = e.currentTarget.getBoundingClientRect()
-  let x = e.clientX - rect.left
-  if (x < 0) x = 0
-  if (x > rect.width) x = rect.width
-  scrubPercentage.value = (x / rect.width) * 100
-}
-
-const endScrub = () => {
-  isDragging.value = false
-}
-
-const resetToLive = () => {
-  scrubPercentage.value = 100
-  isScrubbing.value = false
+const openDvrModal = async () => {
+  showDvrModal.value = true
+  activeRecording.value = null
+  if (recordings.value.length === 0 && !isLoadingRecordings.value && !recordingsError.value) {
+    isLoadingRecordings.value = true
+    try {
+      const res = await $fetch(`/api/view/recordings?token=${token}`)
+      if (res.success) {
+        recordings.value = res.recordings
+      } else {
+        recordingsError.value = res.error || 'Failed to fetch recordings'
+      }
+    } catch(err) {
+      recordingsError.value = 'Failed to fetch recordings'
+    } finally {
+      isLoadingRecordings.value = false
+    }
+  }
 }
 
 // Viewer Audio / Voice State Management
