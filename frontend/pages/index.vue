@@ -1,5 +1,5 @@
 <template>
-  <div class="flex-1 flex flex-col h-full bg-[#14171f] overflow-hidden">
+  <div class="flex-1 flex flex-col h-full bg-[#0b0d12] overflow-hidden">
     <!-- Top Toast Notification -->
     <transition enter-active-class="transition ease-out duration-300" enter-from-class="opacity-0 translate-y-[-20px]" enter-to-class="opacity-100 translate-y-0" leave-active-class="transition ease-in duration-200" leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 translate-y-[-20px]">
       <div v-if="toastMessage" class="fixed top-4 left-1/2 -translate-x-1/2 z-[100] bg-emerald-500/90 text-white px-5 py-2.5 rounded-full shadow-lg flex items-center gap-2.5 backdrop-blur-md border border-emerald-400 font-medium text-xs">
@@ -8,55 +8,67 @@
       </div>
     </transition>
 
+    <!-- Agent Offline Banner -->
+    <div v-if="isAgentOffline" class="bg-rose-500/90 text-white px-4 py-2 text-center text-xs font-bold border-b border-rose-600 shadow-md flex items-center justify-center gap-2 z-[90]">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+      AGENT OFFLINE: Local Agent is not responding. Recordings and continuous streams may be interrupted.
+    </div>
+
     <!-- 1. Top Subheader / App Bar (Flussonic Watcher Header) -->
-    <header class="h-12 bg-[#1b1f2b] border-b border-[#252936] flex items-center justify-between px-4 shrink-0 z-20 select-none">
+    <header class="h-14 bg-[#1b1f2b] border-b border-[#252936] flex items-center justify-between px-5 shrink-0 z-20 select-none shadow-sm">
       <!-- Left: Breadcrumbs & DVR Button -->
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-4">
 
 
 
 
         <!-- Share & Add Quick Actions -->
-        <button @click="openShareModal" class="px-2.5 py-1 rounded bg-[#252936] hover:bg-[#31374a] text-indigo-300 text-[11px] font-semibold border border-[#2f3546] transition-colors flex items-center gap-1">
-          <svg class="w-3 h-3 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
-          Share
-        </button>
+        <div class="flex items-center gap-2 bg-[#14171f] p-1 rounded-lg border border-[#252936] shadow-inner">
+          <button @click="openShareModal" class="px-3 py-1.5 rounded-md hover:bg-[#252936] text-indigo-300 text-xs font-semibold transition-colors flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+            Share
+          </button>
+          
+          <div class="w-px h-4 bg-[#252936]"></div>
 
-        <button @click="showVlcModal = true" class="px-2.5 py-1 rounded bg-[#252936] hover:bg-[#31374a] text-amber-300 text-[11px] font-semibold border border-[#2f3546] transition-colors flex items-center gap-1">
-          <svg class="w-3 h-3 text-amber-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/></svg>
-          4G URLs
-        </button>
+          <button @click="showVlcModal = true" class="px-3 py-1.5 rounded-md hover:bg-[#252936] text-amber-300 text-xs font-semibold transition-colors flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5 text-amber-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/></svg>
+            4G URLs
+          </button>
+        </div>
       </div>
 
       <!-- Right: View Mode Switcher, Language & Profile (Flussonic Header Icons) -->
-      <div class="flex items-center gap-4">
+      <div class="flex items-center gap-5">
         <!-- View Mode Switcher (Highlighted in Red in Screenshot 2) -->
-        <div class="flex items-center gap-1 bg-[#14171f] p-0.5 rounded border border-[#252936]">
+        <div class="flex items-center gap-1 bg-[#14171f] p-1 rounded-lg border border-[#252936] shadow-inner">
           <!-- 1. Cards View -->
-          <button @click="viewMode = 'cards'" class="p-1.5 rounded transition-colors" :class="viewMode === 'cards' ? 'bg-[#2f3649] text-cyan-400' : 'text-slate-400 hover:text-white'" title="Large Cards View">
+          <button @click="viewMode = 'cards'" class="p-1.5 rounded-md transition-all" :class="viewMode === 'cards' ? 'bg-[#2f3649] text-cyan-400 shadow-sm' : 'text-slate-400 hover:text-white hover:bg-[#252936]'" title="Large Cards View">
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z"/></svg>
           </button>
           <!-- 2. Small Cards / Dense Tiles -->
-          <button @click="viewMode = 'compact'" class="p-1.5 rounded transition-colors" :class="viewMode === 'compact' ? 'bg-[#2f3649] text-cyan-400' : 'text-slate-400 hover:text-white'" title="Small Cards / Grid Tiles">
+          <button @click="viewMode = 'compact'" class="p-1.5 rounded-md transition-all" :class="viewMode === 'compact' ? 'bg-[#2f3649] text-cyan-400 shadow-sm' : 'text-slate-400 hover:text-white hover:bg-[#252936]'" title="Small Cards / Grid Tiles">
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M3 4h3v3H3zm5 0h3v3H8zm5 0h3v3h-3zm5 0h3v3h-3zM3 9h3v3H3zm5 0h3v3H8zm5 0h3v3h-3zm5 0h3v3h-3zM3 14h3v3H3zm5 0h3v3H8zm5 0h3v3h-3zm5 0h3v3h-3zM3 19h3v3H3zm5 0h3v3H8zm5 0h3v3h-3zm5 0h3v3h-3z"/></svg>
           </button>
           <!-- 3. List Mode -->
-          <button @click="viewMode = 'list'" class="p-1.5 rounded transition-colors" :class="viewMode === 'list' ? 'bg-[#2f3649] text-cyan-400' : 'text-slate-400 hover:text-white'" title="List View">
+          <button @click="viewMode = 'list'" class="p-1.5 rounded-md transition-all" :class="viewMode === 'list' ? 'bg-[#2f3649] text-cyan-400 shadow-sm' : 'text-slate-400 hover:text-white hover:bg-[#252936]'" title="List View">
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M3 4h18v2H3zm0 7h18v2H3zm0 7h18v2H3z"/></svg>
           </button>
           <!-- 4. Mosaic Mode (2x2 Quad / Multi Layout - Highlighted in Red in Screenshot 2) -->
-          <button @click="viewMode = 'mosaic'" class="p-1.5 rounded border transition-colors" :class="viewMode === 'mosaic' ? 'bg-[#2f3649] text-cyan-400 border-cyan-500/50 shadow-sm' : 'text-slate-400 border-transparent hover:text-white'" title="Mosaic Quad Surveillance (Screenshot 2)">
+          <button @click="viewMode = 'mosaic'" class="p-1.5 rounded-md transition-all" :class="viewMode === 'mosaic' ? 'bg-[#2f3649] text-cyan-400 shadow-sm border border-cyan-500/30' : 'text-slate-400 hover:text-white hover:bg-[#252936] border border-transparent'" title="Mosaic Quad Surveillance (Screenshot 2)">
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M3 3h8v18H3zm10 0h8v8h-8zm0 10h8v8h-8z"/></svg>
           </button>
         </div>
 
-        <div class="h-4 w-px bg-[#252936]"></div>
+        <div class="h-6 w-px bg-[#252936]"></div>
 
 
 
         <!-- Admin Profile -->
-        <div class="flex items-center gap-2 text-xs text-slate-300 font-bold bg-[#252936] px-2.5 py-1 rounded border border-[#2f3546] cursor-pointer hover:bg-[#31374a]">
-          <svg class="w-3.5 h-3.5 text-slate-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+        <div class="flex items-center gap-2.5 text-xs text-slate-200 font-bold bg-[#252936] px-3 py-1.5 rounded-lg border border-[#2f3546] cursor-pointer hover:bg-[#31374a] shadow-sm transition-colors">
+          <div class="bg-cyan-600 rounded-full p-0.5">
+            <svg class="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+          </div>
           <span>ADMIN</span>
         </div>
       </div>
@@ -66,10 +78,10 @@
     <div class="flex-1 flex overflow-hidden">
       
       <!-- Center Main Workspace Area -->
-      <main class="flex-1 flex flex-col bg-[#14171f] overflow-hidden relative">
+      <main class="flex-1 flex flex-col bg-[#0b0d12] overflow-hidden relative">
         
         <!-- View 1: Mosaic Surveillance Grid (Screenshot 2 exact 2x2 with drag-and-drop slots) -->
-        <div v-if="viewMode === 'mosaic'" class="flex-1 p-3.5 overflow-hidden flex flex-col bg-[#14171f]">
+        <div v-if="viewMode === 'mosaic'" class="flex-1 p-3.5 overflow-hidden flex flex-col bg-[#0b0d12]">
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start content-start">
             
             <!-- Slot 0 -->
@@ -81,16 +93,16 @@
                 <iframe v-else :key="'iframe-' + mosaicSlots[0].id + '-' + (reloadKeys[mosaicSlots[0].id] || 0)" :id="'iframe-' + mosaicSlots[0].id" :src="'/player.html?v=3&src=' + getWsUrlPath(mosaicSlots[0]) + '&muted=' + (!isAudioOn(mosaicSlots[0]))" class="w-full h-full object-contain pointer-events-none border-none relative z-0 transition-transform duration-300" :class="[needsCssFlip(mosaicSlots[0]) ? 'scale-y-[-1]' : '', needsCssMirror(mosaicSlots[0]) ? 'scale-x-[-1]' : '']"></iframe>
                 
                 <!-- Top-Left Timestamp & Label -->
-                <div class="absolute top-2.5 left-2.5 flex items-center gap-2 bg-black/60 backdrop-blur px-2.5 py-1 rounded text-xs text-white font-mono font-bold border border-white/10 z-20 pointer-events-none">
+                <div class="absolute bottom-3 left-3 flex items-center gap-2 bg-black/60 backdrop-blur px-2.5 py-1 rounded text-xs text-white font-mono font-bold border border-white/10 z-20 pointer-events-none">
                   <span class="text-cyan-300">{{ mosaicSlots[0].displayTime || liveClock }}</span>
-                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399]"></span>
                   <span>{{ mosaicSlots[0].display_name || mosaicSlots[0].name }}</span>
-                  <span v-if="activeRecordingModes[mosaicSlots[0].id] && activeRecordingModes[mosaicSlots[0].id] !== 'off'" class="flex items-center gap-1 text-[10px] text-rose-400 bg-rose-500/20 px-1.5 py-0.5 rounded border border-rose-500/40">
-                    <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>REC
+                  <span v-if="activeRecordingModes[mosaicSlots[0].id] && activeRecordingModes[mosaicSlots[0].id] !== 'off'" :class="activeRecordingState[mosaicSlots[0].id] ? 'flex items-center gap-1 text-[10px] text-rose-400 bg-rose-500/20 px-1.5 py-0.5 rounded border border-rose-500/40' : 'flex items-center gap-1 text-[10px] text-amber-400 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/40'">
+                    <span :class="activeRecordingState[mosaicSlots[0].id] ? 'w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_6px_#f43f5e] animate-ping' : 'w-1.5 h-1.5 rounded-full bg-amber-500'"></span>{{ activeRecordingState[mosaicSlots[0].id] ? 'REC' : 'ARMED' }}
                   </span>
                 </div>
                 <!-- Top-Right Actions: Voice ON/OFF & Remove Slot -->
-                <div class="absolute top-2.5 right-2.5 flex items-center gap-1.5 z-20">
+                <div class="absolute bottom-3 right-3 flex items-center gap-1.5 z-20">
                   <!-- Voice ON/OFF Button -->
                   <button @click.stop="toggleCameraAudio(mosaicSlots[0])" class="px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 transition-all shadow-md" :class="isAudioOn(mosaicSlots[0]) ? 'bg-emerald-600 text-white shadow-emerald-600/40' : 'bg-black/75 hover:bg-slate-800 text-slate-300 border border-white/10'" :title="isAudioOn(mosaicSlots[0]) ? 'Voice is ON (Click to Mute)' : 'Voice is OFF (Click to Listen)'">
                     <svg v-if="isAudioOn(mosaicSlots[0])" class="w-3.5 h-3.5 text-white animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M6 10H4a1 1 0 00-1 1v2a1 1 0 001 1h2l4 4V6l-4 4z"/></svg>
@@ -117,15 +129,15 @@
                 <img v-if="streamSnapshots[mosaicSlots[1].id]" :src="streamSnapshots[mosaicSlots[1].id]" class="absolute inset-0 w-full h-full object-contain pointer-events-none z-[5]" />
                 <iframe v-else :key="'iframe-' + mosaicSlots[1].id + '-' + (reloadKeys[mosaicSlots[1].id] || 0)" :id="'iframe-' + mosaicSlots[1].id" :src="'/player.html?v=3&src=' + getWsUrlPath(mosaicSlots[1]) + '&muted=' + (!isAudioOn(mosaicSlots[1]))" class="w-full h-full object-contain pointer-events-none border-none relative z-0 transition-transform duration-300" :class="[needsCssFlip(mosaicSlots[1]) ? 'scale-y-[-1]' : '', needsCssMirror(mosaicSlots[1]) ? 'scale-x-[-1]' : '']"></iframe>
                 
-                <div class="absolute top-2.5 left-2.5 flex items-center gap-2 bg-black/60 backdrop-blur px-2.5 py-1 rounded text-xs text-white font-mono font-bold border border-white/10 z-20 pointer-events-none">
+                <div class="absolute bottom-3 left-3 flex items-center gap-2 bg-black/60 backdrop-blur px-2.5 py-1 rounded text-xs text-white font-mono font-bold border border-white/10 z-20 pointer-events-none">
                   <span class="text-cyan-300">{{ mosaicSlots[1].displayTime || liveClock }}</span>
-                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399]"></span>
                   <span>{{ mosaicSlots[1].display_name || mosaicSlots[1].name }}</span>
-                  <span v-if="activeRecordingModes[mosaicSlots[1].id] && activeRecordingModes[mosaicSlots[1].id] !== 'off'" class="flex items-center gap-1 text-[10px] text-rose-400 bg-rose-500/20 px-1.5 py-0.5 rounded border border-rose-500/40">
-                    <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>REC
+                  <span v-if="activeRecordingModes[mosaicSlots[1].id] && activeRecordingModes[mosaicSlots[1].id] !== 'off'" :class="activeRecordingState[mosaicSlots[1].id] ? 'flex items-center gap-1 text-[10px] text-rose-400 bg-rose-500/20 px-1.5 py-0.5 rounded border border-rose-500/40' : 'flex items-center gap-1 text-[10px] text-amber-400 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/40'">
+                    <span :class="activeRecordingState[mosaicSlots[1].id] ? 'w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_6px_#f43f5e] animate-ping' : 'w-1.5 h-1.5 rounded-full bg-amber-500'"></span>{{ activeRecordingState[mosaicSlots[1].id] ? 'REC' : 'ARMED' }}
                   </span>
                 </div>
-                <div class="absolute top-2.5 right-2.5 flex items-center gap-1.5 z-20">
+                <div class="absolute bottom-3 right-3 flex items-center gap-1.5 z-20">
                   <button @click.stop="toggleCameraAudio(mosaicSlots[1])" class="px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 transition-all shadow-md" :class="isAudioOn(mosaicSlots[1]) ? 'bg-emerald-600 text-white shadow-emerald-600/40' : 'bg-black/75 hover:bg-slate-800 text-slate-300 border border-white/10'" :title="isAudioOn(mosaicSlots[1]) ? 'Voice is ON (Click to Mute)' : 'Voice is OFF (Click to Listen)'">
                     <svg v-if="isAudioOn(mosaicSlots[1])" class="w-3.5 h-3.5 text-white animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M6 10H4a1 1 0 00-1 1v2a1 1 0 001 1h2l4 4V6l-4 4z"/></svg>
                     <svg v-else class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/></svg>
@@ -146,16 +158,16 @@
         </div>
 
         <!-- View 2: Cards View Mode -->
-        <div v-else-if="viewMode === 'cards'" class="flex-1 p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 bg-[#14171f]">
+        <div v-else-if="viewMode === 'cards'" class="flex-1 p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 bg-[#0b0d12]">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div v-for="cam in filteredCameras" :key="cam.id" class="bg-[#1e2330] rounded-xl overflow-hidden shadow-2xl border border-[#282f40] group relative flex flex-col hover:border-cyan-500/50 transition-all">
               <div class="px-4 py-2.5 bg-[#252a3a] border-b border-[#2e364a] flex items-center justify-between z-20">
                 <div class="flex items-center gap-2">
                   <button @click.stop="toggleFavorite(cam.id)" class="text-sm transition-colors" :class="favorites.includes(cam.id) ? 'text-amber-400' : 'text-slate-500 hover:text-amber-400'">★</button>
-                  <span class="w-2 h-2 rounded-full" :class="isOnline(cam) ? 'bg-emerald-400 shadow-[0_0_6px_#34d399]' : 'bg-rose-500'"></span>
+                  <span class="w-2.5 h-2.5 rounded-full" :class="isOnline(cam) ? 'bg-emerald-400 shadow-[0_0_6px_#34d399]' : 'bg-rose-500'"></span>
                   <span class="text-xs font-bold text-white truncate max-w-[160px]">{{ cam.display_name || cam.name }}</span>
-                  <span v-if="activeRecordingModes[cam.id] && activeRecordingModes[cam.id] !== 'off'" class="flex items-center gap-1 text-[10px] font-bold text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/30">
-                    <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>REC
+                  <span v-if="activeRecordingModes[cam.id] && activeRecordingModes[cam.id] !== 'off'" :class="activeRecordingState[cam.id] ? 'flex items-center gap-1 text-[10px] font-bold text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/30' : 'flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/30'">
+                    <span :class="activeRecordingState[cam.id] ? 'w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_6px_#f43f5e] animate-ping' : 'w-1.5 h-1.5 rounded-full bg-amber-500'"></span>{{ activeRecordingState[cam.id] ? 'REC' : 'ARMED' }}
                   </span>
                 </div>
                 <div class="flex items-center gap-1.5">
@@ -175,7 +187,7 @@
                 <iframe v-else :key="'iframe-' + cam.id + '-' + (reloadKeys[cam.id] || 0)" :id="'iframe-' + cam.id" :src="'/player.html?v=3&src=' + getWsUrlPath(cam) + '&muted=' + (!isAudioOn(cam))" class="w-full h-full object-contain border-none transition-transform duration-300" :class="[needsCssFlip(cam) ? 'scale-y-[-1]' : '', needsCssMirror(cam) ? 'scale-x-[-1]' : '']"></iframe>
                 
                 <!-- Telemetry Badges Overlay on Hover -->
-                <div class="absolute top-2.5 left-2.5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 text-[10px] font-mono text-slate-200 bg-black/80 px-2 py-1 rounded-md border border-white/10 pointer-events-none">
+                <div class="absolute bottom-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 text-[10px] font-mono text-slate-200 bg-black/80 px-2 py-1 rounded-md border border-white/10 pointer-events-none">
                   <span class="text-emerald-400 font-bold">1080p</span>
                   <span>•</span>
                   <span>H.264</span>
@@ -186,7 +198,7 @@
                 </div>
 
                 <!-- Open DVR & Voice Overlay Button -->
-                <div class="absolute top-2.5 right-2.5 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div class="absolute bottom-3 right-3 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button @click.stop="toggleCameraAudio(cam)" class="px-2.5 py-1 rounded text-[11px] font-bold shadow-lg transition-colors flex items-center gap-1" :class="isAudioOn(cam) ? 'bg-emerald-600 text-white' : 'bg-black/80 hover:bg-slate-800 text-slate-200 border border-white/10'">
                     <svg v-if="isAudioOn(cam)" class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M6 10H4a1 1 0 00-1 1v2a1 1 0 001 1h2l4 4V6l-4 4z"/></svg>
                     <svg v-else class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
@@ -226,19 +238,19 @@
 
 
         <!-- View 3: Compact Tiles Mode -->
-        <div v-else-if="viewMode === 'compact'" class="flex-1 p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 bg-[#14171f]">
+        <div v-else-if="viewMode === 'compact'" class="flex-1 p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 bg-[#0b0d12]">
           <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             <div v-for="cam in filteredCameras" :key="cam.id" @click="openCameraDetail(cam)" class="bg-[#1e2330] rounded-lg overflow-hidden border border-[#282f40] hover:border-cyan-500 cursor-pointer shadow-lg group">
               <div class="relative aspect-video w-full bg-black">
                 <img v-if="streamSnapshots[cam.id]" :src="streamSnapshots[cam.id]" class="absolute inset-0 w-full h-full object-contain pointer-events-none z-[5]" />
                 <iframe v-else :key="'iframe-' + cam.id + '-' + (reloadKeys[cam.id] || 0)" :id="'iframe-' + cam.id" :src="'/player.html?v=3&src=' + getWsUrlPath(cam) + '&muted=' + (!isAudioOn(cam))" class="w-full h-full object-contain pointer-events-none border-none transition-transform duration-300" :class="[needsCssFlip(cam) ? 'scale-y-[-1]' : '', needsCssMirror(cam) ? 'scale-x-[-1]' : '']"></iframe>
-                <div class="absolute top-1.5 left-1.5 bg-black/70 px-1.5 py-0.5 rounded text-[9px] font-bold text-emerald-400 flex items-center gap-1">
-                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                <div class="absolute bottom-2 left-2 bg-black/70 px-1.5 py-0.5 rounded text-[9px] font-bold text-emerald-400 flex items-center gap-1">
+                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399] animate-ping"></span>
                   LIVE
                 </div>
-                <div v-if="activeRecordingModes[cam.id] && activeRecordingModes[cam.id] !== 'off'" class="absolute top-1.5 right-1.5 bg-black/70 px-1.5 py-0.5 rounded text-[9px] font-bold text-rose-400 flex items-center gap-1 border border-rose-500/30">
-                  <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>
-                  REC
+                <div v-if="activeRecordingModes[cam.id] && activeRecordingModes[cam.id] !== 'off'" :class="activeRecordingState[cam.id] ? 'absolute bottom-2 right-2 bg-black/70 px-1.5 py-0.5 rounded text-[9px] font-bold text-rose-400 flex items-center gap-1 border border-rose-500/30' : 'absolute bottom-2 right-2 bg-black/70 px-1.5 py-0.5 rounded text-[9px] font-bold text-amber-400 flex items-center gap-1 border border-amber-500/30'">
+                  <span :class="activeRecordingState[cam.id] ? 'w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_6px_#f43f5e] animate-ping' : 'w-1.5 h-1.5 rounded-full bg-amber-500'"></span>
+                  {{ activeRecordingState[cam.id] ? 'REC' : 'ARMED' }}
                 </div>
               </div>
               <div class="p-2 bg-[#1a1e2a] flex items-center justify-between text-xs">
@@ -250,7 +262,7 @@
         </div>
 
         <!-- View 4: List Table Mode -->
-        <div v-else-if="viewMode === 'list'" class="flex-1 p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 bg-[#14171f]">
+        <div v-else-if="viewMode === 'list'" class="flex-1 p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 bg-[#0b0d12]">
           <div class="bg-[#1e2330] border border-[#282f40] rounded-xl overflow-hidden shadow-2xl">
             <table class="w-full text-left text-xs text-slate-300">
               <thead class="bg-[#181c26] text-[11px] font-bold uppercase text-slate-400 border-b border-[#282f40]">
@@ -275,8 +287,8 @@
                   </td>
                   <td class="p-3 font-bold text-white hover:text-cyan-400 cursor-pointer" @click="openCameraDetail(cam)">
                     {{ cam.display_name || cam.name }}
-                    <span v-if="activeRecordingModes[cam.id] && activeRecordingModes[cam.id] !== 'off'" class="ml-2 inline-flex items-center gap-1 text-[9px] font-bold text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/30 align-middle">
-                      <span class="w-1 h-1 rounded-full bg-rose-500 animate-ping"></span>REC
+                    <span v-if="activeRecordingModes[cam.id] && activeRecordingModes[cam.id] !== 'off'" :class="activeRecordingState[cam.id] ? 'ml-2 inline-flex items-center gap-1 text-[9px] font-bold text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/30 align-middle' : 'ml-2 inline-flex items-center gap-1 text-[9px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/30 align-middle'">
+                      <span :class="activeRecordingState[cam.id] ? 'w-1 h-1 rounded-full bg-rose-500 animate-ping' : 'w-1 h-1 rounded-full bg-amber-500'"></span>{{ activeRecordingState[cam.id] ? 'REC' : 'ARMED' }}
                     </span>
                   </td>
                   <td class="p-3 font-mono text-cyan-300">{{ getCameraIp(cam) }}</td>
@@ -298,7 +310,7 @@
       </main>
 
       <!-- 4. Right Side Panel: Cameras Tree & Drag-and-Drop (Screenshot 2 exact design) -->
-      <aside class="w-64 bg-[#1b1f2b] border-l border-[#252936] flex flex-col justify-between shrink-0 z-20 select-none">
+      <aside class="w-64 bg-[#14171f] border-l border-[#252936] flex flex-col justify-between shrink-0 z-20 select-none">
         
         <div class="flex flex-col flex-1 overflow-hidden">
           <!-- Header: Cameras with ⋮ menu -->
@@ -316,7 +328,7 @@
             <svg class="w-3.5 h-3.5 text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
             <div class="relative flex-1">
               <svg class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-              <input type="text" v-model="cameraSearch" placeholder="Search" class="w-full bg-[#14171f] border border-[#252936] rounded-md pl-8 pr-2.5 py-1 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition-colors" />
+              <input type="text" v-model="cameraSearch" placeholder="Search" class="w-full bg-[#0b0d12] border border-[#252936] rounded-md pl-8 pr-2.5 py-1 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition-colors" />
             </div>
           </div>
 
@@ -325,7 +337,7 @@
             
             <!-- Category: ONLINE -->
             <div>
-              <div @click="groupOnlineOpen = !groupOnlineOpen" class="flex items-center justify-between px-2 py-1 text-xs font-bold text-slate-300 hover:text-white cursor-pointer rounded hover:bg-[#252936]">
+              <div @click="groupOnlineOpen = !groupOnlineOpen" class="flex items-center justify-between px-3 py-2 bg-[#1b1f2b] border border-[#252936] text-xs font-bold text-slate-300 hover:text-white cursor-pointer rounded hover:bg-[#252936]">
                 <div class="flex items-center gap-1.5">
                   <svg class="w-3 h-3 text-slate-400 transition-transform" :class="groupOnlineOpen ? 'rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                   <span>ONLINE</span>
@@ -347,7 +359,7 @@
                 >
                   <div class="flex items-center gap-2">
                     <span class="text-slate-500 group-hover:text-slate-300 cursor-grab">⋮⋮</span>
-                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
                     <span class="text-slate-200 group-hover:text-cyan-300 font-semibold truncate max-w-[120px]">{{ cam.display_name || cam.name }}</span>
                   </div>
                   <div class="flex items-center gap-1">
@@ -364,7 +376,7 @@
 
             <!-- Category: OFFLINE -->
             <div>
-              <div @click="groupOfflineOpen = !groupOfflineOpen" class="flex items-center justify-between px-2 py-1 text-xs font-bold text-slate-300 hover:text-white cursor-pointer rounded hover:bg-[#252936]">
+              <div @click="groupOfflineOpen = !groupOfflineOpen" class="flex items-center justify-between px-3 py-2 bg-[#1b1f2b] border border-[#252936] text-xs font-bold text-slate-300 hover:text-white cursor-pointer rounded hover:bg-[#252936]">
                 <div class="flex items-center gap-1.5">
                   <svg class="w-3 h-3 text-slate-400 transition-transform" :class="groupOfflineOpen ? 'rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                   <span>OFFLINE</span>
@@ -386,7 +398,7 @@
                 >
                   <div class="flex items-center gap-2">
                     <span class="text-slate-500 group-hover:text-slate-300 cursor-grab">⋮⋮</span>
-                    <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+                    <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
                     <span class="text-slate-200 group-hover:text-cyan-300 font-semibold truncate max-w-[120px]">{{ cam.display_name || cam.name }}</span>
                   </div>
                   <div class="flex items-center gap-1">
@@ -403,19 +415,19 @@
 
             <!-- Category: ACTIVE SESSIONS -->
             <div>
-              <div @click="groupSessionsOpen = !groupSessionsOpen" class="flex items-center justify-between px-2 py-1 text-xs font-bold text-slate-300 hover:text-white cursor-pointer rounded hover:bg-[#252936]">
+              <div @click="groupSessionsOpen = !groupSessionsOpen" class="flex items-center justify-between px-3 py-2 bg-[#1b1f2b] border border-[#252936] text-xs font-bold text-slate-300 hover:text-white cursor-pointer rounded hover:bg-[#252936]">
                 <div class="flex items-center gap-1.5">
                   <svg class="w-3 h-3 text-slate-400 transition-transform" :class="groupSessionsOpen ? 'rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                   <span>ACTIVE SESSIONS</span>
                 </div>
                 <div class="flex items-center gap-1 bg-[#252936] px-1.5 py-0.5 rounded text-[10px] text-slate-300">
-                  <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block align-middle mr-1"></span>
+                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse inline-block align-middle mr-1"></span>
                   <span>{{ activeSessions.length }}</span>
                 </div>
               </div>
 
               <div v-if="groupSessionsOpen" class="pt-1 space-y-1">
-                <div v-if="activeSessions.length === 0" class="text-xs text-slate-500 px-2 italic">No active view sessions</div>
+                <div v-if="activeSessions.length === 0" class="text-xs text-slate-400 bg-[#1e2330] p-3 rounded-lg border border-dashed border-[#2e364a] flex items-center justify-center gap-2"><svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>No active view sessions</div>
                 <div v-for="session in activeSessions" :key="session.token + session.timestamp" class="p-2 rounded-md bg-[#252a3a] border border-[#2e3547] text-xs">
                   <div class="flex items-center justify-between mb-1">
                     <span class="text-cyan-300 font-bold truncate" :title="session.token">Token: {{ session.token.substring(0, 8) }}...</span>
@@ -431,7 +443,7 @@
 
             <!-- Category: RECENT SESSIONS -->
             <div>
-              <div @click="groupRecentOpen = !groupRecentOpen" class="flex items-center justify-between px-2 py-1 text-xs font-bold text-slate-300 hover:text-white cursor-pointer rounded hover:bg-[#252936]">
+              <div @click="groupRecentOpen = !groupRecentOpen" class="flex items-center justify-between px-3 py-2 bg-[#1b1f2b] border border-[#252936] text-xs font-bold text-slate-300 hover:text-white cursor-pointer rounded hover:bg-[#252936]">
                 <div class="flex items-center gap-1.5">
                   <svg class="w-3 h-3 text-slate-400 transition-transform" :class="groupRecentOpen ? 'rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                   <span>RECENT ACTIVITY</span>
@@ -442,7 +454,7 @@
               </div>
 
               <div v-if="groupRecentOpen" class="pt-1 space-y-1">
-                <div v-if="recentSessions.length === 0" class="text-xs text-slate-500 px-2 italic">No recent activity</div>
+                <div v-if="recentSessions.length === 0" class="text-xs text-slate-400 bg-[#1e2330] p-3 rounded-lg border border-dashed border-[#2e364a] flex items-center justify-center gap-2"><svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>No recent activity</div>
                 <div v-for="session in recentSessions" :key="session.token + session.endTime" class="p-2 rounded-md bg-[#1a1e2a] border border-[#252936] text-xs opacity-70 hover:opacity-100 transition-opacity">
                   <div class="flex items-center justify-between mb-1">
                     <span class="text-slate-300 font-bold truncate" :title="session.token">Token: {{ session.token.substring(0, 8) }}...</span>
@@ -749,7 +761,7 @@
             <div v-if="(generatedLinks && generatedLinks.length > 0) || generatedCombinedUrl" class="p-4 bg-slate-950 border border-emerald-500/30 rounded-xl space-y-3">
               <div class="flex items-center justify-between">
                 <span class="text-xs font-bold text-emerald-400 flex items-center gap-2">
-                  <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
                   {{ shareIsCombined ? 'Combined Stream Ready' : 'Active Share RTSP Links Ready' }}
                 </span>
                 <span v-if="generatedExpiresAt" class="text-[10px] text-amber-300 font-mono">Expires: {{ new Date(generatedExpiresAt).toLocaleTimeString() }}</span>
@@ -880,7 +892,7 @@
                   <div class="grid grid-cols-2 gap-3">
                     <button type="button" @click="applyCameraPreset('dahua')" class="p-2.5 bg-slate-950 hover:bg-cyan-500/10 border border-slate-800 hover:border-cyan-500/50 rounded-xl text-left transition-all group">
                       <div class="flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+                        <span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
                         <span class="text-xs font-bold text-slate-200 group-hover:text-cyan-300">Dahua Preset</span>
                       </div>
                       <span class="text-[10px] text-slate-500 font-mono block mt-0.5">192.168.18.101 (Sub: 1)</span>
@@ -888,7 +900,7 @@
 
                     <button type="button" @click="applyCameraPreset('ezviz')" class="p-2.5 bg-slate-950 hover:bg-emerald-500/10 border border-slate-800 hover:border-emerald-500/50 rounded-xl text-left transition-all group">
                       <div class="flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
                         <span class="text-xs font-bold text-slate-200 group-hover:text-emerald-300">EZVIZ Preset</span>
                       </div>
                       <span class="text-[10px] text-slate-500 font-mono block mt-0.5">192.168.18.102 (Ch: 102)</span>
@@ -1122,6 +1134,8 @@ const selectedCamerasForLink = ref([])
 const cameraSearch = ref('')
 const selectedCamera = ref(null)
 const activeRecordingModes = ref({})
+const activeRecordingState = ref({})
+const isAgentOffline = ref(false)
 
 // UI and Navigation State (Flussonic Watcher Standard)
 const viewMode = ref(route?.query?.view === 'cards' ? 'cards' : 'mosaic') // Default to 'mosaic' (Flussonic Screenshot 2)
@@ -1200,6 +1214,7 @@ const toastMessage = ref('')
 const liveClock = ref('')
 let clockInterval
 let fetchCamerasInterval
+let pollIntervals = []
 const focusOverlayRef = ref(null)
 
 const scrubValue = ref(100)
@@ -1986,11 +2001,35 @@ const downloadExport = () => {
   window.open(`/api/dvr/extract?start=${encodeURIComponent(startIso)}&end=${encodeURIComponent(endIso)}&camera=${encodeURIComponent(selectedCamera.value.name)}`, '_blank')
 }
 
+let fetchModesFailCount = 0
 const fetchRecordingModes = async () => {
   try {
-    const res = await $fetch('http://localhost:4002/api/cameras/recording-modes')
+    const res = await $fetch('http://127.0.0.1:4002/api/cameras/recording-modes')
     if (res && res.modes) activeRecordingModes.value = res.modes
-  } catch(e) {}
+    if (res && res.active_recording) activeRecordingState.value = res.active_recording
+    fetchModesFailCount = 0
+  } catch (e) {
+    fetchModesFailCount++
+    if (fetchModesFailCount >= 3) {
+      console.warn('Could not fetch recording modes, resetting state')
+      activeRecordingModes.value = {}
+      activeRecordingState.value = {}
+    }
+  }
+}
+
+const fetchAgentStatus = async () => {
+  try {
+    const res = await $fetch('/api/admin/agent-status')
+    if (res && res.success && res.last_heartbeat) {
+      const diff = Date.now() - res.last_heartbeat
+      isAgentOffline.value = diff > 3 * 60 * 1000
+    } else {
+      isAgentOffline.value = true
+    }
+  } catch (e) {
+    isAgentOffline.value = true
+  }
 }
 
 const fetchCameras = async () => {
@@ -2042,7 +2081,7 @@ const fetchSessions = async () => {
 
 const fetchArchives = async (cameraName) => {
   try {
-    const res = await $fetch(`/api/dvr/continuous?camera=${encodeURIComponent(cameraName)}`)
+    const res = await $fetch(`/api/admin/recordings?cameraId=${encodeURIComponent(cameraName)}&date=today`)
     if (res.success) continuousArchives.value = res.files
   } catch (e) {
     console.warn('Could not fetch archives from DVR API', e)
@@ -2297,7 +2336,7 @@ const executeDeleteCamera = async () => {
 
 const fetchDvrTimeline = async (camName = 'all') => {
   try {
-    const res = await $fetch(`/api/dvr/continuous?cameraId=${camName}&date=today`)
+    const res = await $fetch(`/api/admin/recordings?cameraId=${camName}&date=today`)
     if (res.success) {
       dvrSegments.value = res.segments.map(seg => {
         const [sH, sM] = seg.start.split(':').map(Number)
@@ -2385,9 +2424,11 @@ onMounted(async () => {
   clockInterval = setInterval(updateClock, 1000)
   nowInterval = setInterval(() => { now.value = Date.now() }, 1000)
   fetchCamerasInterval = setInterval(() => { fetchCameras(); fetchRecordingModes(); }, 5000)
+  pollIntervals.push(setInterval(fetchAgentStatus, 30000))
   // Login page is bypassed, load data directly
   try {
     await Promise.all([fetchCameras(), fetchDvrTimeline(), fetchRecordingModes()])
+    fetchAgentStatus()
     setupSSE()
   } catch (e) {
     console.error('Failed to load dashboard data:', e)
@@ -2429,6 +2470,7 @@ onUnmounted(() => {
   document.removeEventListener('fullscreenchange', handleFullscreenChange)
   if (clockInterval) clearInterval(clockInterval)
   if (fetchCamerasInterval) clearInterval(fetchCamerasInterval)
+  pollIntervals.forEach(clearInterval)
 })
 
 

@@ -203,7 +203,7 @@ const dvrSegments = ref([])
 watch([selectedDate, () => props.camera], async ([date, cam]) => {
   if (!cam) return;
   try {
-    const res = await $fetch(`/api/dvr/continuous?cameraId=${cam.name}&date=${date}`);
+    const res = await $fetch(`/api/admin/recordings?cameraId=${cam.name}&date=${date}`);
     if (res.success) {
       dvrSegments.value = res.segments.map(seg => {
         const [sH, sM] = seg.start.split(':').map(Number);

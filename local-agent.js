@@ -18,7 +18,7 @@ function ensureGo2rtc() {
   fetch('http://127.0.0.1:1984/api').catch(() => {
     if (!go2rtcProc) {
       console.log('[Agent] Spawning go2rtc engine on port 1984...');
-      go2rtcProc = spawn(exePath, [], { cwd: __dirname, stdio: 'ignore' });
+      go2rtcProc = spawn(exePath, [], { cwd: __dirname, stdio: 'ignore', windowsHide: true });
       go2rtcProc.on('exit', () => { go2rtcProc = null; });
     }
   });
@@ -123,7 +123,7 @@ const CombinedStreamManager = {
       `rtsp://127.0.0.1:8556/combined_${shareId}`
     );
 
-    config.proc = spawn(ffmpegBin, args, { stdio: ['ignore', 'ignore', 'pipe'] });
+    config.proc = spawn(ffmpegBin, args, { stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true });
     config.proc.stderr.on('data', (data) => {
       console.log(`[FFmpeg Error] ${data.toString()}`);
     });
@@ -152,6 +152,39 @@ const CombinedStreamManager = {
 const RecordingManager = {
   processes: {},
   motionTimeouts: {},
+  async syncClipsToDb() {
+    const clipsDir = path.join(__dirname, 'clips');
+    if (!fs.existsSync(clipsDir)) return;
+    const cams = fs.readdirSync(clipsDir);
+    for (const camId of cams) {
+      const camDir = path.join(clipsDir, camId);
+      if (!fs.lstatSync(camDir).isDirectory()) continue;
+      const files = fs.readdirSync(camDir).filter(f => f.endsWith('.mp4'));
+      for (const file of files) {
+        const match = file.match(/^(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})\.mp4$/);
+        if (match) {
+          const [_, y, m, d, H, M, S] = match;
+          const parsedStart = new Date(y, parseInt(m) - 1, d, H, M, S);
+          const durationSeconds = 180;
+          const actualSegmentEnd = new Date(parsedStart.getTime() + durationSeconds * 1000);
+          
+          try {
+            await fetch('http://127.0.0.1:8787/api/internal/recordings', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                camera_id: camId,
+                file_path: path.join(camDir, file),
+                segment_start: parsedStart.toISOString(),
+                segment_end: actualSegmentEnd.toISOString(),
+                duration_seconds: durationSeconds
+              })
+            });
+          } catch(e) {}
+        }
+      }
+    }
+  },
   updateMode(cam, mode) {
     if (this.processes[cam.id]) {
       this.processes[cam.id].kill('SIGTERM');
@@ -185,7 +218,7 @@ const RecordingManager = {
       '-reset_timestamps', '1',
       '-strftime', '1',
       path.join(clipDir, '%Y%m%d_%H%M%S.mp4')
-    ]);
+    ], { windowsHide: true });
     
     this.processes[cam.id] = proc;
     
@@ -337,7 +370,7 @@ const RecordingManager = {
       '-c', 'copy',
       '-f', 'mp4',
       path.join(clipDir, `${this.formatDate(new Date())}.mp4`)
-    ]);
+    ], { windowsHide: true });
     this.processes[cam.id] = proc;
     
     proc.on('exit', () => {
@@ -534,7 +567,11 @@ app.post('/api/internal/combined/start/:shareId', (req, res) => {
 });
 
 app.get('/api/cameras/recording-modes', (req, res) => {
-  res.json({ modes: state.recordingModes });
+  const active_recording = {};
+  for (const id in state.recordingModes) {
+    active_recording[id] = !!RecordingManager.processes[id];
+  }
+  res.json({ modes: state.recordingModes, active_recording });
 });
 
 app.get('/api/cameras/:id/recording-mode', (req, res) => {
@@ -1055,6 +1092,7 @@ async function runDiskCleanup() {
 async function agentLoop() {
   ensureGo2rtc();
   await fetchState();
+  await RecordingManager.syncClipsToDb();
   await syncGo2rtc();
   await runWatchdog();
   await runDiskCleanup();
@@ -1073,6 +1111,21 @@ console.log('[Agent] Starting authoritative camera agent...');
 ensureGo2rtc();
 setInterval(agentLoop, 10000);
 agentLoop();
+
+// Background tasks
+setInterval(() => {
+  RecordingManager.syncClipsToDb();
+}, 300000);
+
+setInterval(async () => {
+  try {
+    await fetch(API_BASE + '/api/internal/heartbeat', {
+      method: 'POST',
+      headers
+    });
+  } catch(e) {}
+}, 60000);
+
 setInterval(runPatrols, 2000);
 // Access control check every 60 seconds
 runCombinedStreamAccessControl();

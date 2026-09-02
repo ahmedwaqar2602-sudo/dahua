@@ -157,6 +157,11 @@ app.get('/api/admin/me', async (c) => {
 // -----------------------------------------------------------------------------
 // Admin Endpoints
 // -----------------------------------------------------------------------------
+
+app.get('/api/admin/agent-status', requireAuth, async (c) => {
+  return c.json({ success: true, last_heartbeat: Date.now() });
+});
+
 app.get('/api/admin/cameras', requireAuth, async (c) => {
   if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
   const { results } = await c.env.DB.prepare('SELECT * FROM cameras').all();
@@ -579,6 +584,69 @@ app.get('/api/admin/active-shares', requireAuth, async (c) => {
   }
 });
 
+app.get('/api/admin/recordings', requireAuth, async (c) => {
+  if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+  try {
+    const cameraId = c.req.query('cameraId');
+    let dateStr = c.req.query('date');
+    if (!cameraId || !dateStr) return c.json({ error: 'Missing parameters' }, 400);
+
+    let queryStr = '';
+    let params: any[] = [];
+    
+    if (cameraId === 'all') {
+      queryStr = `SELECT segment_start, segment_end, duration_seconds FROM recordings WHERE 1=1`;
+    } else {
+      const cam = await c.env.DB.prepare('SELECT id FROM cameras WHERE name = ? OR id = ?').bind(cameraId, cameraId).first();
+      if (!cam) return c.json({ error: 'Camera not found' }, 404);
+
+      queryStr = `SELECT segment_start, segment_end, duration_seconds FROM recordings WHERE camera_id = ?`;
+      params = [cam.id];
+    }
+
+    if (dateStr === 'today') {
+      dateStr = new Date().toISOString().split('T')[0];
+    }
+    const startOfDay = new Date(dateStr + 'T00:00:00.000Z');
+    const endOfDay = new Date(dateStr + 'T23:59:59.999Z');
+    queryStr += ` AND segment_start >= ? AND segment_start <= ? ORDER BY segment_start ASC`;
+    params.push(startOfDay.getTime(), endOfDay.getTime());
+
+    const { results } = await c.env.DB.prepare(queryStr).bind(...params).all();
+
+    const segments = [];
+    for (const r of results) {
+      const startObj = new Date(r.segment_start as string);
+      const endObj = new Date(r.segment_end as string);
+      
+      const sH = startObj.getUTCHours();
+      const sM = startObj.getUTCMinutes();
+      const eH = endObj.getUTCHours();
+      const eM = endObj.getUTCMinutes();
+      
+      segments.push({
+        start: `${String(sH).padStart(2, '0')}:${String(sM).padStart(2, '0')}`,
+        end: `${String(eH).padStart(2, '0')}:${String(eM).padStart(2, '0')}`,
+        status: 'recorded'
+      });
+    }
+
+    const dedupSegs = [];
+    const seen = new Set();
+    for (const s of segments) {
+      const key = s.start + '-' + s.end;
+      if (!seen.has(key)) {
+        seen.add(key);
+        dedupSegs.push(s);
+      }
+    }
+
+    return c.json({ success: true, cameraId, date: dateStr, segments: dedupSegs });
+  } catch (err) {
+    return c.json({ error: String(err) }, 500);
+  }
+});
+
 // -----------------------------------------------------------------------------
 // User Viewer Endpoints
 // -----------------------------------------------------------------------------
@@ -817,6 +885,25 @@ app.post('/api/internal/session-event', async (c) => {
     }
 });
 
+app.post('/api/internal/heartbeat', async (c) => {
+  const token = c.req.header('x-internal-token');
+  if (token !== getInternalToken(c)) return c.json({ error: 'Unauthorized' }, 401);
+  if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+
+  const now = Date.now();
+  await c.env.DB.prepare('INSERT OR REPLACE INTO agent_status (id, last_heartbeat) VALUES (1, ?)').bind(now).run();
+  return c.json({ success: true, timestamp: now });
+});
+
+app.get('/api/admin/agent-status', async (c) => {
+  const adminCookie = getCookie(c, 'admin_session');
+  if (!adminCookie || adminCookie !== c.env.ADMIN_SECRET) return c.json({ error: 'Unauthorized' }, 401);
+  if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+
+  const row = await c.env.DB.prepare('SELECT last_heartbeat FROM agent_status WHERE id = 1').first();
+  return c.json({ success: true, last_heartbeat: row ? row.last_heartbeat : null });
+});
+
 app.post('/api/internal/recordings', async (c) => {
   const { camera_id, file_path, segment_start, segment_end, duration_seconds } = await c.req.json();
   if (!camera_id || !file_path || !segment_start || !segment_end || !duration_seconds) {
@@ -826,7 +913,7 @@ app.post('/api/internal/recordings', async (c) => {
 
   try {
     await c.env.DB.prepare(
-      'INSERT INTO recordings (camera_id, file_path, segment_start, segment_end, duration_seconds) VALUES (?, ?, ?, ?, ?)'
+      'INSERT OR IGNORE INTO recordings (camera_id, file_path, segment_start, segment_end, duration_seconds) VALUES (?, ?, ?, ?, ?)'
     ).bind(camera_id, file_path, segment_start, segment_end, duration_seconds).run();
 
     return c.json({ success: true });

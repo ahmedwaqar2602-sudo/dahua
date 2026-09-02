@@ -31,9 +31,5 @@ streams:
         - rtsp://admin:Khan1234%23@192.168.50.102:554/Streaming/Channels/102
         - rtsp://admin:Khan1234%23@192.168.18.39:554/Streaming/Channels/102
         - ffmpeg:ezviz_sub#audio=opus
-    test_cam:
-      - rtsp://admin:newpassword123@192.168.1.100:554/cam/realmonitor?channel=1&subtype=0
-    test_cam_sub:
-      - rtsp://admin:newpassword123@192.168.1.100:554/cam/realmonitor?channel=1&subtype=0
 webrtc:
     listen: :8555
