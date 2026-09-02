@@ -538,9 +538,27 @@
             <div>
               <div class="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
                 <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2">
-                  <svg class="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                  <svg class="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg> PTZ & Controls
                 </h3>
                 <span class="text-[10px] text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded font-mono font-bold">ACTIVE</span>
+              </div>
+              
+              <!-- NEW: Recording Mode Control & Status -->
+              <div class="mb-4 bg-slate-950/80 rounded-xl border border-slate-800 p-3 shadow-inner">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-xs font-bold text-slate-300">Recording Mode</span>
+                  <span v-if="activeRecordingModes[selectedCamera.id] && activeRecordingModes[selectedCamera.id] !== 'off'" :class="activeRecordingState[selectedCamera.id] ? 'flex items-center gap-1.5 text-[10px] font-bold text-rose-400 bg-rose-500/10 px-2 py-1 rounded-md border border-rose-500/30' : 'flex items-center gap-1.5 text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-1 rounded-md border border-amber-500/30'">
+                    <span :class="activeRecordingState[selectedCamera.id] ? 'w-2 h-2 rounded-full bg-rose-500 animate-ping' : 'w-2 h-2 rounded-full bg-amber-500'"></span>{{ activeRecordingState[selectedCamera.id] ? 'REC' : 'ARMED' }}
+                  </span>
+                </div>
+                <div class="flex bg-slate-900 rounded-lg p-1 border border-slate-700/50 relative">
+                  <div v-if="isSettingRecordingMode" class="absolute inset-0 z-10 bg-slate-900/50 flex items-center justify-center rounded-lg backdrop-blur-[1px]">
+                    <svg class="w-4 h-4 text-white animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                  </div>
+                  <button @click="setRecordingMode(selectedCamera, 'continuous')" class="flex-1 py-1.5 text-[10px] font-bold rounded-md transition-colors" :class="activeRecordingModes[selectedCamera.id] === 'continuous' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'">Continuous</button>
+                  <button @click="setRecordingMode(selectedCamera, 'motion')" class="flex-1 py-1.5 text-[10px] font-bold rounded-md transition-colors" :class="activeRecordingModes[selectedCamera.id] === 'motion' ? 'bg-amber-600 text-white shadow' : 'text-slate-400 hover:text-white'">Motion</button>
+                  <button @click="setRecordingMode(selectedCamera, 'off')" class="flex-1 py-1.5 text-[10px] font-bold rounded-md transition-colors" :class="(!activeRecordingModes[selectedCamera.id] || activeRecordingModes[selectedCamera.id] === 'off') ? 'bg-slate-700 text-white shadow' : 'text-slate-400 hover:text-white'">Off</button>
+                </div>
               </div>
 
               <!-- PTZ Direction Joystick Pad -->
@@ -609,7 +627,28 @@
               </div>
             </div>
 
+            <!-- Storage & Archives Panel -->
             <div class="pt-4 border-t border-slate-800">
+              <div class="bg-slate-950/80 rounded-xl border border-slate-800 p-3 mb-3 shadow-inner">
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                    <svg class="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
+                    Archived Recordings
+                  </span>
+                  <span class="text-[10px] font-bold text-indigo-300 bg-indigo-500/20 border border-indigo-500/30 px-1.5 py-0.5 rounded shadow-sm">{{ dvrSegments.length }} Segments</span>
+                </div>
+                <div class="text-[10px] text-slate-400 mb-2 font-mono" v-if="dvrSegments.length > 0">
+                  Range: {{ dvrSegments[0].start }} - {{ dvrSegments[dvrSegments.length - 1].end }}
+                </div>
+                <div class="text-[10px] text-slate-400 mb-2 italic" v-else>
+                  No recordings for today.
+                </div>
+                <div class="text-[10px] text-slate-500 border-t border-slate-800/60 pt-2 truncate flex items-center gap-1" title="Storage Location">
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+                  Saved to: /clips/{{ selectedCamera.id }}/
+                </div>
+              </div>
+
               <button @click="activeRecordingCamera = selectedCamera" class="w-full py-2.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                 Open DVR Playback
@@ -1134,6 +1173,24 @@ const selectedCamerasForLink = ref([])
 const cameraSearch = ref('')
 const selectedCamera = ref(null)
 const activeRecordingModes = ref({})
+const isSettingRecordingMode = ref(false)
+
+const setRecordingMode = async (cam, mode) => {
+  if (isSettingRecordingMode.value) return
+  isSettingRecordingMode.value = true
+  try {
+    const res = await $fetch(`http://127.0.0.1:4002/api/cameras/${cam.id}/recording-mode`, {
+      method: 'PATCH',
+      body: { mode }
+    })
+    if (res.success) {
+      activeRecordingModes.value[cam.id] = mode
+    }
+  } catch(e) {
+    console.error('Failed to set recording mode', e)
+  }
+  isSettingRecordingMode.value = false
+}
 const activeRecordingState = ref({})
 const isAgentOffline = ref(false)
 
