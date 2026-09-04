@@ -683,8 +683,8 @@
                 <span class="text-xs font-bold text-emerald-400 block">Combine into Single Stream</span>
                 <span class="text-[10px] text-slate-400">Combine 2-9 cameras into a single grid RTSP link</span>
               </div>
-              <label class="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" v-model="shareIsCombined" class="sr-only peer">
+              <label class="relative inline-flex items-center cursor-default opacity-80" title="Automatically enabled for 2+ cameras">
+                <input type="checkbox" :checked="shareIsCombined" disabled class="sr-only peer">
                 <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
               </label>
             </div>
@@ -1389,7 +1389,7 @@ const panCam = (id, dir) => {
 }
 
 // Share Modal State
-const shareIsCombined = ref(false)
+const shareIsCombined = computed(() => selectedCamerasForLink.value.length > 1)
 const shareLabel = ref('')
 const sharePublicIp = ref('')
 const shareStartHour = ref('')

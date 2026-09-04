@@ -35,6 +35,37 @@ app.use('*', cors({
 
 app.get('/', (c) => c.text('Dahua Secure Backend Worker is running.'));
 
+const DVR_TZ = 'Asia/Karachi';
+
+function calendarDateInTz(date = new Date(), timeZone = DVR_TZ): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(date);
+}
+
+function localDayBoundsIso(dateStr: string): { start: string; end: string } {
+  // Asia/Karachi is UTC+5 with no DST. Bound the selected calendar day in local time.
+  const start = new Date(`${dateStr}T00:00:00+05:00`);
+  const end = new Date(`${dateStr}T23:59:59.999+05:00`);
+  return { start: start.toISOString(), end: end.toISOString() };
+}
+
+function clockHmInTz(iso: string, timeZone = DVR_TZ): string {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    hourCycle: 'h23'
+  }).formatToParts(new Date(iso));
+  const h = parts.find((p) => p.type === 'hour')?.value ?? '00';
+  const m = parts.find((p) => p.type === 'minute')?.value ?? '00';
+  return `${h}:${m}`;
+}
+
 const getJwtSecret = (c: any) => c.env.JWT_SECRET || 'fallback-secret-key-for-local-dev-123';
 const getEncryptionKey = (c: any) => c.env.ENCRYPTION_KEY || 'default-dev-key-must-be-32bytes!';
 const getInternalToken = (c: any) => c.env.INTERNAL_API_KEY;
@@ -605,28 +636,19 @@ app.get('/api/admin/recordings', requireAuth, async (c) => {
     }
 
     if (dateStr === 'today') {
-      dateStr = new Date().toISOString().split('T')[0];
+      dateStr = calendarDateInTz();
     }
-    const startOfDay = new Date(dateStr + 'T00:00:00.000Z');
-    const endOfDay = new Date(dateStr + 'T23:59:59.999Z');
+    const { start: startOfDay, end: endOfDay } = localDayBoundsIso(dateStr);
     queryStr += ` AND segment_start >= ? AND segment_start <= ? ORDER BY segment_start ASC`;
-    params.push(startOfDay.getTime(), endOfDay.getTime());
+    params.push(startOfDay, endOfDay);
 
     const { results } = await c.env.DB.prepare(queryStr).bind(...params).all();
 
     const segments = [];
     for (const r of results) {
-      const startObj = new Date(r.segment_start as string);
-      const endObj = new Date(r.segment_end as string);
-      
-      const sH = startObj.getUTCHours();
-      const sM = startObj.getUTCMinutes();
-      const eH = endObj.getUTCHours();
-      const eM = endObj.getUTCMinutes();
-      
       segments.push({
-        start: `${String(sH).padStart(2, '0')}:${String(sM).padStart(2, '0')}`,
-        end: `${String(eH).padStart(2, '0')}:${String(eM).padStart(2, '0')}`,
+        start: clockHmInTz(r.segment_start as string),
+        end: clockHmInTz(r.segment_end as string),
         status: 'recorded'
       });
     }
@@ -906,7 +928,7 @@ app.get('/api/admin/agent-status', async (c) => {
 
 app.post('/api/internal/recordings', async (c) => {
   const { camera_id, file_path, segment_start, segment_end, duration_seconds } = await c.req.json();
-  if (!camera_id || !file_path || !segment_start || !segment_end || !duration_seconds) {
+  if (!camera_id || !file_path || !segment_start || !segment_end || duration_seconds == null) {
     return c.json({ error: 'Missing parameters' }, 400);
   }
   if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);

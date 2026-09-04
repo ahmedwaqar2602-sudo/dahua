@@ -173,7 +173,7 @@ const RecordingManager = {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                camera_id: camId,
+                camera_id: Number(camId),
                 file_path: path.join(camDir, file),
                 segment_start: parsedStart.toISOString(),
                 segment_end: actualSegmentEnd.toISOString(),
@@ -187,6 +187,9 @@ const RecordingManager = {
   },
   updateMode(cam, mode) {
     if (this.processes[cam.id]) {
+      if (this.processes[cam.id].flushSegment) {
+        this.processes[cam.id].flushSegment();
+      }
       this.processes[cam.id].kill('SIGTERM');
       delete this.processes[cam.id];
     }
@@ -194,6 +197,9 @@ const RecordingManager = {
       clearTimeout(this.motionTimeouts[cam.id]);
       delete this.motionTimeouts[cam.id];
     }
+    
+    // Trigger syncClipsToDb to pick up any orphaned files
+    this.syncClipsToDb().catch(e => console.error('[RecordingManager] syncClipsToDb error:', e));
     
     if (mode === 'continuous') {
       this.startContinuous(cam);
@@ -243,12 +249,17 @@ const RecordingManager = {
       }
     });
     
-    proc.on('exit', () => {
+    proc.flushSegment = () => {
       if (currentSegmentFile) {
         const now = new Date();
         const duration_seconds = Math.round((now - currentSegmentStartTime) / 1000);
         this.postSegmentMetadata(cam.id, currentSegmentFile, currentSegmentStartTime, now, duration_seconds);
+        currentSegmentFile = null;
       }
+    };
+
+    proc.on('exit', () => {
+      proc.flushSegment();
 
       if (state.recordingModes[cam.id] === 'continuous') {
         console.log(`[RecordingManager] ffmpeg exited for ${cam.name}, restarting in 5s...`);
@@ -274,7 +285,7 @@ const RecordingManager = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        camera_id: cameraId,
+        camera_id: Number(cameraId),
         file_path: filePath,
         segment_start: parsedStart.toISOString(),
         segment_end: actualSegmentEnd.toISOString(),
@@ -304,9 +315,9 @@ const RecordingManager = {
         await device.services.events.createPullPointSubscription();
         device.on('event', (evt) => {
           if (state.recordingModes[cam.id] !== 'motion') return;
-          // Simple check for motion event
-          const isMotion = JSON.stringify(evt).includes('VideoSource') && JSON.stringify(evt).includes('Motion');
-          const isStateTrue = JSON.stringify(evt).includes('true');
+          const blob = JSON.stringify(evt).toLowerCase();
+          const isMotion = blob.includes('motion');
+          const isStateTrue = blob.includes('true') || blob.includes('"state":1');
           
           if (isMotion) {
             if (isStateTrue) this.triggerMotionStart(cam);
@@ -321,9 +332,13 @@ const RecordingManager = {
     }
     
     if (!isSubscribed) {
-      // Fallback to Dahua CGI API polling for motion if ONVIF fails
-      console.log(`[RecordingManager] Falling back to Dahua CGI API for ${cam.name}`);
-      this.pollDahuaMotion(cam, hostname, username, password);
+      const brand = String(cam.camera_brand || '').toLowerCase();
+      if (brand === 'ezviz') {
+        console.warn(`[RecordingManager] Skipping Dahua CGI motion poll for ${cam.name}; use continuous mode or ONVIF events`);
+      } else {
+        console.log(`[RecordingManager] Falling back to Dahua CGI API for ${cam.name}`);
+        this.pollDahuaMotion(cam, hostname, username, password);
+      }
     }
   },
   
@@ -364,18 +379,22 @@ const RecordingManager = {
     fs.mkdirSync(clipDir, { recursive: true });
     
     const url = `rtsp://127.0.0.1:8554/${cam.name}`;
+    const filePath = path.join(clipDir, `${this.formatDate(new Date())}.mp4`);
+    const segmentStart = new Date();
     console.log(`[RecordingManager] Motion start for ${cam.name}`);
     const proc = spawn(path.join(__dirname, 'ffmpeg.exe'), [
       '-y', '-i', url,
       '-c', 'copy',
       '-f', 'mp4',
-      path.join(clipDir, `${this.formatDate(new Date())}.mp4`)
+      filePath
     ], { windowsHide: true });
     this.processes[cam.id] = proc;
     
     proc.on('exit', () => {
-      // Clear process reference on exit
       if (this.processes[cam.id] === proc) delete this.processes[cam.id];
+      const now = new Date();
+      const duration_seconds = Math.max(1, Math.round((now - segmentStart) / 1000));
+      this.postSegmentMetadata(cam.id, filePath, segmentStart, now, duration_seconds);
     });
   },
   
@@ -713,6 +732,10 @@ app.listen(4002, () => {
   console.log('[PTZ Agent] Hardware PTZ and Recording listener active on port 4002');
 });
 
+// Periodic background sync for orphaned clips (e.g. agent restart, unexpected stop)
+setInterval(() => {
+  RecordingManager.syncClipsToDb().catch(e => console.error('[RecordingManager] periodic sync error:', e));
+}, 60000);
 
 async function checkRtspOnline(url) {
   return new Promise((resolve) => {
