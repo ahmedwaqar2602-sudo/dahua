@@ -35,6 +35,109 @@ app.use('*', cors({
 
 app.get('/', (c) => c.text('Dahua Secure Backend Worker is running.'));
 
+app.get('/api/admin/init-db', async (c) => {
+  if (!c.env.DB) return c.json({ error: 'DB not available' }, 500);
+  try {
+    const sql = `
+DROP TABLE IF EXISTS access_logs;
+DROP TABLE IF EXISTS sessions;
+DROP TABLE IF EXISTS share_links;
+DROP TABLE IF EXISTS cameras;
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS access_tokens;
+DROP TABLE IF EXISTS audit_logs;
+
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS cameras (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    display_name TEXT,
+    rtsp_url TEXT NOT NULL,
+    sub_stream_url TEXT,
+    capabilities TEXT,
+    last_seen DATETIME,
+    day_mode_start TEXT,
+    night_mode_start TEXT,
+    public_ip TEXT,
+    forwarded_port INTEGER DEFAULT 554,
+    stream_type TEXT,
+    camera_brand TEXT,
+    username TEXT,
+    password TEXT
+);
+
+CREATE TABLE IF NOT EXISTS camera_patrols (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    camera_id INTEGER NOT NULL,
+    schedule_start TEXT,
+    schedule_end TEXT,
+    presets_json TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS access_tokens (
+    token TEXT PRIMARY KEY,
+    user_label TEXT,
+    allowed_cameras TEXT NOT NULL,
+    is_revoked BOOLEAN DEFAULT 0,
+    daily_start_time TEXT,
+    daily_end_time TEXT,
+    daily_limit_minutes INTEGER DEFAULT 0,
+    allow_ptz BOOLEAN DEFAULT 1,
+    allow_recording BOOLEAN DEFAULT 1,
+    allow_audio BOOLEAN DEFAULT 1,
+    disable_ptz BOOLEAN DEFAULT 0,
+    is_combined BOOLEAN DEFAULT 0,
+    recording_access_start DATETIME NULL,
+    recording_access_end DATETIME NULL
+);
+
+CREATE TABLE IF NOT EXISTS usage_logs (
+    share_id TEXT NOT NULL,
+    date TEXT NOT NULL,
+    seconds_used INTEGER DEFAULT 0,
+    PRIMARY KEY (share_id, date)
+);
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    token TEXT NOT NULL,
+    camera_id TEXT,
+    action TEXT NOT NULL,
+    duration_seconds INTEGER,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS recordings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    camera_id INTEGER NOT NULL REFERENCES cameras(id),
+    file_path TEXT NOT NULL,
+    segment_start DATETIME NOT NULL,
+    segment_end DATETIME NOT NULL,
+    duration_seconds INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_recordings_camera_start ON recordings(camera_id, segment_start);
+
+INSERT INTO cameras (name, display_name, rtsp_url, sub_stream_url, camera_brand, public_ip, forwarded_port, username, password)
+VALUES 
+('dahua_cam', 'Dahua Camera (Switch 101)', 'rtsp://admin:admin123@192.168.50.101:554/cam/realmonitor?channel=1&subtype=0', 'rtsp://admin:admin123@192.168.50.101:554/cam/realmonitor?channel=1&subtype=1', 'Dahua', '202.163.103.241', 8554, 'admin', 'admin123'),
+('ezviz_cam', 'EZVIZ Camera (Switch 102)', 'rtsp://admin:Khan1234%23@192.168.50.102:554/Streaming/Channels/101', 'rtsp://admin:Khan1234%23@192.168.50.102:554/Streaming/Channels/102', 'EZVIZ', '202.163.103.241', 8555, 'admin', 'Khan1234#');
+
+CREATE TABLE IF NOT EXISTS active_sessions_tracker (token TEXT PRIMARY KEY, camera_id TEXT, start_time INTEGER, last_ping INTEGER);
+    `;
+    await c.env.DB.exec(sql);
+    return c.json({ success: true, message: 'Database initialized successfully' });
+  } catch (err) {
+    return c.json({ error: String(err) }, 500);
+  }
+});
+
 const DVR_TZ = 'Asia/Karachi';
 
 function calendarDateInTz(date = new Date(), timeZone = DVR_TZ): string {
