@@ -10,7 +10,7 @@ export default defineNuxtConfig({
   routeRules: {
     '/api/dvr/**': { proxy: 'http://localhost:4002/api/dvr/**' },
     '/clips/**': { proxy: 'http://localhost:4002/clips/**' },
-    '/api/**': { proxy: 'http://localhost:8787/api/**' },
+    '/api/**': { proxy: 'https://dahua.ahmedwaqar-0208.workers.dev/api/**' },
     '/admin/dashboard': { redirect: '/' },
     '/admin/login': { redirect: '/' },
     '/admin/**': { redirect: '/' },
