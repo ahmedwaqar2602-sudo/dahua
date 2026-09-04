@@ -131,7 +131,9 @@ VALUES
 
 CREATE TABLE IF NOT EXISTS active_sessions_tracker (token TEXT PRIMARY KEY, camera_id TEXT, start_time INTEGER, last_ping INTEGER);
     `;
-    await c.env.DB.exec(sql);
+    const statements = sql.split(';').map(s => s.trim()).filter(s => s.length > 0);
+    const batch = statements.map(s => c.env.DB.prepare(s));
+    await c.env.DB.batch(batch);
     return c.json({ success: true, message: 'Database initialized successfully' });
   } catch (err) {
     return c.json({ error: String(err) }, 500);
